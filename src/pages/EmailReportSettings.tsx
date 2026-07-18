@@ -22,6 +22,10 @@ const DEFAULT_SETTINGS: AppSettings = {
   smtp_day_of_week: 0,
   smtp_day_of_month: 1,
   has_smtp_password: false,
+  failure_alert_threshold: 2,
+  ssl_alert_threshold_days: 14,
+  domain_alert_threshold_days: 30,
+  history_retention_days: 90,
 };
 
 const WEEKDAY_KEYS = [
@@ -59,6 +63,10 @@ export function EmailReportSettingsPage() {
         smtp_frequency: settings.smtp_frequency,
         smtp_day_of_week: settings.smtp_day_of_week,
         smtp_day_of_month: settings.smtp_day_of_month,
+        failure_alert_threshold: settings.failure_alert_threshold,
+        ssl_alert_threshold_days: settings.ssl_alert_threshold_days,
+        domain_alert_threshold_days: settings.domain_alert_threshold_days,
+        history_retention_days: settings.history_retention_days,
       });
       if (smtpPassword.trim()) {
         await api.saveSmtpPassword(smtpPassword.trim());

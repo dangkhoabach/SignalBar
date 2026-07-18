@@ -19,6 +19,10 @@ const DEFAULT_SETTINGS: AppSettings = {
   smtp_day_of_week: 0,
   smtp_day_of_month: 1,
   has_smtp_password: false,
+  failure_alert_threshold: 2,
+  ssl_alert_threshold_days: 14,
+  domain_alert_threshold_days: 30,
+  history_retention_days: 90,
 };
 
 function SettingsSection({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
@@ -30,6 +34,35 @@ function SettingsSection({ title, description, children }: { title: string; desc
       </div>
       {children}
     </div>
+  );
+}
+
+function SettingsNavRow({
+  title,
+  description,
+  badge,
+  onClick,
+}: {
+  title: string;
+  description: string;
+  badge?: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex items-center justify-between rounded-xl border border-border bg-card p-4 text-left transition-colors hover:bg-accent/50"
+    >
+      <div className="flex flex-col gap-0.5">
+        <span className="text-sm font-medium">{title}</span>
+        <span className="text-xs text-muted-foreground">{description}</span>
+      </div>
+      <div className="flex items-center gap-2">
+        {badge && <Badge variant="secondary">{badge}</Badge>}
+        <ChevronRight className="size-4 text-muted-foreground" />
+      </div>
+    </button>
   );
 }
 
@@ -73,6 +106,10 @@ export function SettingsPage() {
         smtp_frequency: updated.smtp_frequency,
         smtp_day_of_week: updated.smtp_day_of_week,
         smtp_day_of_month: updated.smtp_day_of_month,
+        failure_alert_threshold: updated.failure_alert_threshold,
+        ssl_alert_threshold_days: updated.ssl_alert_threshold_days,
+        domain_alert_threshold_days: updated.domain_alert_threshold_days,
+        history_retention_days: updated.history_retention_days,
       });
     } catch (err) {
       toast.error(`${t("settings.saveFailed")}: ${String(err)}`);
@@ -102,22 +139,18 @@ export function SettingsPage() {
         </div>
       </SettingsSection>
 
-      <button
-        type="button"
+      <SettingsNavRow
+        title={t("settings.alertsData")}
+        description={t("settings.alertsDataDesc")}
+        onClick={() => navigate("/settings/alerts-data")}
+      />
+
+      <SettingsNavRow
+        title={t("settings.smtp")}
+        description={t("settings.smtpDesc")}
+        badge={settings.smtp_enabled ? t("settings.on") : t("settings.off")}
         onClick={() => navigate("/settings/email-report")}
-        className="flex items-center justify-between rounded-xl border border-border bg-card p-4 text-left transition-colors hover:bg-accent/50"
-      >
-        <div className="flex flex-col gap-0.5">
-          <span className="text-sm font-medium">{t("settings.smtp")}</span>
-          <span className="text-xs text-muted-foreground">{t("settings.smtpDesc")}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="secondary">
-            {settings.smtp_enabled ? t("settings.on") : t("settings.off")}
-          </Badge>
-          <ChevronRight className="size-4 text-muted-foreground" />
-        </div>
-      </button>
+      />
     </div>
   );
 }

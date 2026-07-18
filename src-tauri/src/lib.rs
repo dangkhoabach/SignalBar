@@ -14,7 +14,22 @@ use std::sync::Mutex;
 use std::time::Duration;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
-use tauri::{Emitter, LogicalPosition, Manager, WebviewWindowBuilder, WindowEvent};
+use tauri::{ActivationPolicy, Emitter, LogicalPosition, Manager, WebviewWindowBuilder, WindowEvent};
+
+/// Regular apps (the default) always count as foreground-capable to macOS,
+/// even with zero open windows — Login Items then reports them as "Not
+/// running in background" regardless of whether they're actually just
+/// sitting in the tray. Switching to Accessory (no Dock icon, background-only)
+/// while hidden is what makes the OS recognize this as an actual background
+/// process; switching back to Regular when the window reopens restores the
+/// normal Dock presence.
+fn show_main_window(app: &tauri::AppHandle) {
+    let _ = app.set_activation_policy(ActivationPolicy::Regular);
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+}
 
 pub struct AppState {
     pub db: Mutex<Connection>,
@@ -124,12 +139,7 @@ pub fn run() {
                 .icon(tray_icon::pulse_glyph())
                 .icon_as_template(true)
                 .on_menu_event(|app, event| match event.id.as_ref() {
-                    "show" => {
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                        }
-                    }
+                    "show" => show_main_window(app),
                     "quit" => app.exit(0),
                     _ => {}
                 })
@@ -173,10 +183,7 @@ pub fn run() {
                         let _ = update_app_handle.emit("check-update-clicked", ());
                     }
                     "about" => {
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                        }
+                        show_main_window(app);
                         let _ = update_app_handle.emit("show-about-clicked", ());
                     }
                     _ => {}
@@ -204,6 +211,7 @@ pub fn run() {
             // since this app is meant to keep monitoring in the background.
             if let WindowEvent::CloseRequested { api, .. } = event {
                 let _ = window.hide();
+                let _ = window.app_handle().set_activation_policy(ActivationPolicy::Accessory);
                 api.prevent_close();
             }
         })

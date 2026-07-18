@@ -12,6 +12,7 @@ import { TargetDetailPage } from "@/pages/TargetDetail";
 import { SystemPage } from "@/pages/System";
 import { SettingsPage } from "@/pages/Settings";
 import { EmailReportSettingsPage } from "@/pages/EmailReportSettings";
+import { AlertsDataSettingsPage } from "@/pages/AlertsDataSettings";
 import { LanguageProvider, useTranslation } from "@/lib/i18n/context";
 
 /// The macOS vibrancy blur is a native window-level effect, not CSS — it
@@ -69,6 +70,7 @@ function App() {
                 <Route path="/system" element={<SystemPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/settings/email-report" element={<EmailReportSettingsPage />} />
+                <Route path="/settings/alerts-data" element={<AlertsDataSettingsPage />} />
               </Routes>
             </main>
             <Toaster />

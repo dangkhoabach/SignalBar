@@ -12,6 +12,12 @@ export interface AppSettings {
   smtp_day_of_week: number;
   smtp_day_of_month: number;
   has_smtp_password: boolean;
+  /** Consecutive HTTP failures before a "target is down" alert fires. */
+  failure_alert_threshold: number;
+  ssl_alert_threshold_days: number;
+  domain_alert_threshold_days: number;
+  /** How long check history is kept before being pruned; 0 = keep forever. */
+  history_retention_days: number;
 }
 
 export type UpdateSettingsInput = Omit<AppSettings, "has_smtp_password">;

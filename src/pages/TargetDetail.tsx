@@ -32,15 +32,26 @@ function StatTile({
   label,
   value,
   small,
+  wrap,
 }: {
   label: string;
   value: React.ReactNode;
   small?: boolean;
+  /** Allows multi-line content (e.g. a list of IPs) instead of truncating to one line. */
+  wrap?: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-1 rounded-xl border border-border bg-card px-4 py-3">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <div className={cn("font-semibold tabular-nums", small ? "text-sm" : "text-lg")}>{value}</div>
+    <div className="flex min-w-0 flex-col gap-1 rounded-xl border border-border bg-card px-4 py-3">
+      <span className="truncate text-xs text-muted-foreground">{label}</span>
+      <div
+        className={cn(
+          "font-semibold tabular-nums",
+          small ? "text-sm" : "text-lg",
+          wrap ? "min-w-0" : "truncate",
+        )}
+      >
+        {value}
+      </div>
     </div>
   );
 }
@@ -171,7 +182,7 @@ export function TargetDetailPage() {
         <Switch checked={target.enabled} onCheckedChange={handleToggleEnabled} />
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         <StatTile
           label={t("detail.uptime24h")}
           value={uptime_24h_pct != null ? `${uptime_24h_pct.toFixed(1)}%` : "—"}
@@ -188,7 +199,7 @@ export function TargetDetailPage() {
           label={t("detail.domainExpiry")}
           value={domain_status?.expiry_date ? formatDateOnly(domain_status.expiry_date) : "—"}
         />
-        <div className="col-span-2">
+        <div className="col-span-2 md:col-span-3 xl:col-span-2">
           <StatTile
             label={t("detail.ipAddress")}
             value={
@@ -203,6 +214,7 @@ export function TargetDetailPage() {
               )
             }
             small
+            wrap
           />
         </div>
       </div>

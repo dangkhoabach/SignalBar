@@ -1,6 +1,6 @@
 [package]
 name = "dkb-monitor"
-version = "0.1.6"
+version = "0.1.8"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"
@@ -32,4 +32,6 @@ window-vibrancy = "0.6"
 lettre = { version = "0.11", default-features = false, features = ["smtp-transport", "native-tls", "builder", "hostname"] }
 sysinfo = "0.32"
 smappservice-rs = "0.1.3"
+aes-gcm = "0.10"
+sha2 = "0.10"
 

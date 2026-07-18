@@ -10,6 +10,7 @@ import {
   Clock,
   MoreVertical,
   GripVertical,
+  Search,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -205,6 +206,7 @@ export function OverviewPage() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTarget, setEditingTarget] = useState<Target | null>(null);
+  const [search, setSearch] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -302,6 +304,12 @@ export function OverviewPage() {
   const upCount = enabledTargets.filter((o) => o.latest_check?.success).length;
   const totalCount = enabledTargets.length;
 
+  const searchQuery = search.trim().toLowerCase();
+  const matchesSearch = (row: TargetOverview) =>
+    !searchQuery ||
+    row.target.name.toLowerCase().includes(searchQuery) ||
+    row.target.url.toLowerCase().includes(searchQuery);
+
   const handleDropTarget = async (draggedId: number, droppedOnId: number) => {
     const group = [...grouped.values()].find((rows) => rows.some((r) => r.target.id === draggedId));
     if (!group || !group.some((r) => r.target.id === droppedOnId)) return;
@@ -378,6 +386,18 @@ export function OverviewPage() {
         </Button>
       </div>
 
+      {overview.length > 0 && (
+        <div className="relative">
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t("overview.searchPlaceholder")}
+            className="h-8 w-full rounded-lg border border-input bg-transparent pr-3 pl-8 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+          />
+        </div>
+      )}
+
       {loading ? (
         <p className="text-sm text-muted-foreground">{t("overview.loading")}</p>
       ) : overview.length === 0 ? (
@@ -388,9 +408,15 @@ export function OverviewPage() {
             {t("overview.addFirstTarget")}
           </Button>
         </div>
+      ) : searchQuery && !overview.some(matchesSearch) ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border py-16 text-center">
+          <p className="text-sm text-muted-foreground">{t("overview.noSearchResults")}</p>
+        </div>
       ) : (
         orderedGroupNames.map((group) => {
           const rows = grouped.get(group) ?? [];
+          const visibleRows = rows.filter(matchesSearch);
+          if (visibleRows.length === 0) return null;
           return (
             <div
               key={group}
@@ -442,7 +468,7 @@ export function OverviewPage() {
                 )}
               </div>
               <div className="overflow-hidden rounded-2xl border border-border bg-card divide-y divide-border">
-                {rows.map((row) => (
+                {visibleRows.map((row) => (
                   <TargetRow
                     key={row.target.id}
                     overview={row}

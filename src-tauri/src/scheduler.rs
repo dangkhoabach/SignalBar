@@ -11,9 +11,6 @@ use tauri_plugin_notification::NotificationExt;
 const TICK_INTERVAL_SECS: u64 = 15;
 const HTTP_TIMEOUT_SECS: u64 = 10;
 const EXPIRY_CHECK_INTERVAL_SECS: i64 = 86_400; // SSL/domain expiry rarely changes; once a day is enough.
-const FAILURE_ALERT_THRESHOLD: i64 = 2;
-const SSL_ALERT_THRESHOLD_DAYS: i64 = 14;
-const DOMAIN_ALERT_THRESHOLD_DAYS: i64 = 30;
 
 pub fn spawn(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
@@ -75,8 +72,46 @@ async fn tick(app: &AppHandle) -> Result<(), String> {
     }
 
     maybe_send_report(app).await;
+    maybe_cleanup_history(app);
 
     Ok(())
+}
+
+/// check_results accumulates a row per target per check_interval forever
+/// otherwise; for a 24/7 background monitor that adds up over months. Runs
+/// at most once a day, guarded the same way as the report scheduler (a
+/// stored date string compared against today).
+fn maybe_cleanup_history(app: &AppHandle) {
+    let state = app.state::<AppState>();
+    let Ok(conn) = state.db.lock() else { return };
+
+    let retention_days = settings::load_settings(&conn).history_retention_days;
+    if retention_days <= 0 {
+        return;
+    }
+
+    let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
+    let last_cleanup = conn
+        .query_row(
+            "SELECT value FROM app_settings WHERE key = 'last_history_cleanup_date'",
+            [],
+            |row| row.get::<_, String>(0),
+        )
+        .unwrap_or_default();
+    if last_cleanup == today {
+        return;
+    }
+
+    let window = format!("-{retention_days} day");
+    let _ = conn.execute(
+        "DELETE FROM check_results WHERE checked_at < datetime('now', ?1)",
+        params![window],
+    );
+    let _ = conn.execute(
+        "INSERT INTO app_settings (key, value) VALUES ('last_history_cleanup_date', ?1)
+         ON CONFLICT(key) DO UPDATE SET value = ?1",
+        params![today],
+    );
 }
 
 /// The scheduler ticks every 15s all day, so "due" needs both a trigger
@@ -256,9 +291,10 @@ fn store_ssl_status(app: &AppHandle, target: &Target, expiry_date: Option<String
         .map_err(|e| e.to_string())?
         .flatten();
 
+    let threshold_days = settings::load_settings(&conn).ssl_alert_threshold_days;
     let days_remaining = days_until(&expiry_date);
     let should_alert = days_remaining
-        .map(|d| d <= SSL_ALERT_THRESHOLD_DAYS && !alerted_today(&previous_alert))
+        .map(|d| d <= threshold_days && !alerted_today(&previous_alert))
         .unwrap_or(false);
 
     let alert_clause = if should_alert { ", last_alert_sent_at = datetime('now')" } else { "" };
@@ -300,9 +336,10 @@ fn store_domain_status(app: &AppHandle, target: &Target, expiry_date: Option<Str
         .map_err(|e| e.to_string())?
         .flatten();
 
+    let threshold_days = settings::load_settings(&conn).domain_alert_threshold_days;
     let days_remaining = days_until(&expiry_date);
     let should_alert = days_remaining
-        .map(|d| d <= DOMAIN_ALERT_THRESHOLD_DAYS && !alerted_today(&previous_alert))
+        .map(|d| d <= threshold_days && !alerted_today(&previous_alert))
         .unwrap_or(false);
 
     let alert_clause = if should_alert { ", last_alert_sent_at = datetime('now')" } else { "" };
@@ -423,6 +460,7 @@ fn store_result(app: &AppHandle, outcome: &CheckOutcome) -> Result<(), String> {
 
     let previous_failures = current_consecutive_failures(&conn, outcome.target_id);
     let new_failures = if outcome.success { 0 } else { previous_failures + 1 };
+    let failure_threshold = settings::load_settings(&conn).failure_alert_threshold;
 
     conn.execute(
         "INSERT INTO alert_state (target_id, consecutive_failures)
@@ -434,13 +472,13 @@ fn store_result(app: &AppHandle, outcome: &CheckOutcome) -> Result<(), String> {
 
     drop(conn);
 
-    if !outcome.success && new_failures == FAILURE_ALERT_THRESHOLD {
+    if !outcome.success && new_failures == failure_threshold {
         notify(
             app,
             &format!("{} đang down", outcome.target_name),
             outcome.error_message.as_deref().unwrap_or("Health check thất bại"),
         );
-    } else if outcome.success && previous_failures >= FAILURE_ALERT_THRESHOLD {
+    } else if outcome.success && previous_failures >= failure_threshold {
         notify(app, &format!("{} đã hoạt động lại", outcome.target_name), "Health check đã thành công");
     }
 
