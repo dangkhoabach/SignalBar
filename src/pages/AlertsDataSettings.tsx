@@ -31,6 +31,7 @@ export function AlertsDataSettingsPage() {
   const { t } = useTranslation();
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [saving, setSaving] = useState(false);
+  const [testingNotification, setTestingNotification] = useState(false);
 
   useEffect(() => {
     api.getSettings().then(setSettings).catch(() => toast.error(t("settings.saveFailed")));
@@ -59,6 +60,17 @@ export function AlertsDataSettingsPage() {
       toast.error(`${t("settings.saveFailed")}: ${String(err)}`);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleTestNotification = async () => {
+    setTestingNotification(true);
+    try {
+      await api.sendTestNotification();
+    } catch (err) {
+      toast.error(`${t("settings.testNotificationFailed")}: ${String(err)}`);
+    } finally {
+      setTestingNotification(false);
     }
   };
 
@@ -113,9 +125,12 @@ export function AlertsDataSettingsPage() {
             />
           </div>
         </div>
-        <div>
+        <div className="flex gap-2">
           <Button onClick={handleSave} disabled={saving}>
             {t("settings.save")}
+          </Button>
+          <Button variant="outline" onClick={handleTestNotification} disabled={testingNotification}>
+            {t("settings.testNotification")}
           </Button>
         </div>
       </div>

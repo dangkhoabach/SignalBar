@@ -35,4 +35,6 @@ export const api = {
   /** Resolves to `true` if macOS requires the user to approve the item in System Settings. */
   enableAutostart: () => invoke<boolean>("enable_autostart"),
   disableAutostart: () => invoke<void>("disable_autostart"),
+  sendTestNotification: () => invoke<void>("send_test_notification"),
+  openNotificationSettings: () => invoke<void>("open_notification_settings"),
 };

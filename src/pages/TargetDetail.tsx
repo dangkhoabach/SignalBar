@@ -33,15 +33,22 @@ function StatTile({
   value,
   small,
   wrap,
+  className,
 }: {
   label: string;
   value: React.ReactNode;
   small?: boolean;
   /** Allows multi-line content (e.g. a list of IPs) instead of truncating to one line. */
   wrap?: boolean;
+  className?: string;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-1 rounded-xl border border-border bg-card px-4 py-3">
+    <div
+      className={cn(
+        "flex min-w-0 flex-col gap-1 rounded-xl border border-border bg-card px-4 py-3",
+        className,
+      )}
+    >
       <span className="truncate text-xs text-muted-foreground">{label}</span>
       <div
         className={cn(
@@ -199,24 +206,23 @@ export function TargetDetailPage() {
           label={t("detail.domainExpiry")}
           value={domain_status?.expiry_date ? formatDateOnly(domain_status.expiry_date) : "—"}
         />
-        <div className="col-span-2 md:col-span-3 xl:col-span-2">
-          <StatTile
-            label={t("detail.ipAddress")}
-            value={
-              resolved_ips.length > 0 ? (
-                <div className="flex flex-wrap gap-x-3 gap-y-0.5">
-                  {resolved_ips.map((ip) => (
-                    <span key={ip}>{ip}</span>
-                  ))}
-                </div>
-              ) : (
-                "—"
-              )
-            }
-            small
-            wrap
-          />
-        </div>
+        <StatTile
+          label={t("detail.ipAddress")}
+          value={
+            resolved_ips.length > 0 ? (
+              <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+                {resolved_ips.map((ip) => (
+                  <span key={ip}>{ip}</span>
+                ))}
+              </div>
+            ) : (
+              "—"
+            )
+          }
+          small
+          wrap
+          className="col-span-2"
+        />
       </div>
 
       <LatencyChart history={history} title={t("detail.latencyChart")} />

@@ -50,6 +50,39 @@ fn set_native_theme(window: tauri::Window, theme: String) -> Result<(), String> 
     window.set_theme(theme).map_err(|e| e.to_string())
 }
 
+/// Fires regardless of the "Notifications" setting, unlike scheduler.rs's
+/// `notify` — this is an explicit user action to verify the OS permission
+/// and delivery pipeline work, not a real alert that should be silenced.
+#[tauri::command]
+fn send_test_notification(app: tauri::AppHandle) -> Result<(), String> {
+    use tauri_plugin_notification::NotificationExt;
+    app.notification()
+        .builder()
+        .title("DKB Monitor")
+        .body("Đây là thông báo test. Notification đang hoạt động bình thường.")
+        .show()
+        .map_err(|e| e.to_string())
+}
+
+/// tauri-plugin-notification's desktop backend always reports permission as
+/// "Granted" regardless of the real OS state (it doesn't wrap the native
+/// UNUserNotificationCenter authorization API on macOS), so there's no
+/// reliable way to detect denial from Rust. Instead of guessing, this just
+/// deep-links straight to this app's own Notifications settings pane so the
+/// user can check/grant it themselves — the same pattern System Settings
+/// uses for its own "Login Items" deep link.
+#[tauri::command]
+fn open_notification_settings(app: tauri::AppHandle) -> Result<(), String> {
+    let identifier = &app.config().identifier;
+    std::process::Command::new("open")
+        .arg(format!(
+            "x-apple.systempreferences:com.apple.Notifications-Settings.extension?id={identifier}"
+        ))
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -234,6 +267,8 @@ pub fn run() {
             settings::get_group_order,
             settings::set_group_order,
             set_native_theme,
+            send_test_notification,
+            open_notification_settings,
             sysstats::get_system_stats,
             autostart::is_autostart_enabled,
             autostart::enable_autostart,

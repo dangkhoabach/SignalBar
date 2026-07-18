@@ -81,7 +81,14 @@ export function SettingsPage() {
     try {
       if (checked) {
         const needsApproval = await api.enableAutostart();
-        if (needsApproval) toast.info(t("settings.autostartNeedsApproval"));
+        // enable_autostart already opens System Settings > Login Items
+        // itself when approval is needed; the action button here just
+        // covers the case where that window got closed or missed.
+        if (needsApproval) {
+          toast.info(t("settings.autostartNeedsApproval"), {
+            action: { label: t("settings.openSettings"), onClick: () => api.enableAutostart() },
+          });
+        }
       } else {
         await api.disableAutostart();
       }
@@ -111,6 +118,17 @@ export function SettingsPage() {
         domain_alert_threshold_days: updated.domain_alert_threshold_days,
         history_retention_days: updated.history_retention_days,
       });
+      if (checked) {
+        // There's no reliable way to read the real macOS permission state
+        // from here (see open_notification_settings's doc comment), so
+        // this fires a real notification — which triggers the native
+        // permission prompt on first use — and always offers a direct link
+        // to this app's Notifications settings pane either way.
+        api.sendTestNotification().catch(() => {});
+        toast.info(t("settings.notificationsPermissionHint"), {
+          action: { label: t("settings.openSettings"), onClick: () => api.openNotificationSettings() },
+        });
+      }
     } catch (err) {
       toast.error(`${t("settings.saveFailed")}: ${String(err)}`);
       setSettings(previous);
