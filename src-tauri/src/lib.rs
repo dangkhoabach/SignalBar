@@ -5,12 +5,13 @@ mod mail;
 mod models;
 mod scheduler;
 mod settings;
+mod sysstats;
 mod tray_icon;
 
 use rusqlite::Connection;
 use std::sync::Mutex;
 use std::time::Duration;
-use tauri::menu::{Menu, MenuItem};
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::{Manager, WindowEvent};
 
@@ -54,10 +55,48 @@ pub fn run() {
                 db: Mutex::new(conn),
                 http_client,
             });
+            app.manage(sysstats::SysState::new());
 
+            let cpu_item = MenuItem::with_id(app, "cpu-stat", "CPU: —", false, None::<&str>)?;
+            let ram_item = MenuItem::with_id(app, "ram-stat", "RAM: —", false, None::<&str>)?;
+            let separator = PredefinedMenuItem::separator(app)?;
             let show_item = MenuItem::with_id(app, "show", "Show DKB Monitor", true, None::<&str>)?;
             let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-            let tray_menu = Menu::with_items(app, &[&show_item, &quit_item])?;
+            let tray_menu = Menu::with_items(
+                app,
+                &[&cpu_item, &ram_item, &separator, &show_item, &quit_item],
+            )?;
+
+            {
+                let sys_state = app.state::<sysstats::SysState>();
+                let mut sys = sys_state.sys.lock().unwrap();
+                let stats = sysstats::snapshot(&mut sys);
+                let _ = cpu_item.set_text(format!("CPU: {:.0}%", stats.cpu_percent));
+                let _ = ram_item.set_text(format!(
+                    "RAM: {:.1} / {:.1} GB",
+                    stats.ram_used_mb as f64 / 1024.0,
+                    stats.ram_total_mb as f64 / 1024.0
+                ));
+            }
+
+            let app_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let mut interval = tokio::time::interval(Duration::from_secs(3));
+                loop {
+                    interval.tick().await;
+                    let sys_state = app_handle.state::<sysstats::SysState>();
+                    let stats = {
+                        let mut sys = sys_state.sys.lock().unwrap();
+                        sysstats::snapshot(&mut sys)
+                    };
+                    let _ = cpu_item.set_text(format!("CPU: {:.0}%", stats.cpu_percent));
+                    let _ = ram_item.set_text(format!(
+                        "RAM: {:.1} / {:.1} GB",
+                        stats.ram_used_mb as f64 / 1024.0,
+                        stats.ram_total_mb as f64 / 1024.0
+                    ));
+                }
+            });
 
             TrayIconBuilder::with_id("main-tray")
                 .menu(&tray_menu)
@@ -116,6 +155,7 @@ pub fn run() {
             settings::get_group_order,
             settings::set_group_order,
             set_native_theme,
+            sysstats::get_system_stats,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

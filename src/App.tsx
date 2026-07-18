@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { OverviewPage } from "@/pages/Overview";
 import { TargetDetailPage } from "@/pages/TargetDetail";
+import { SystemPage } from "@/pages/System";
 import { SettingsPage } from "@/pages/Settings";
 import { LanguageProvider } from "@/lib/i18n/context";
 
@@ -41,6 +42,7 @@ function App() {
               <Routes>
                 <Route path="/" element={<OverviewPage />} />
                 <Route path="/targets/:id" element={<TargetDetailPage />} />
+                <Route path="/system" element={<SystemPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
               </Routes>
             </main>

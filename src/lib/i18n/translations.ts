@@ -2,7 +2,17 @@ export const translations = {
   en: {
     "app.name": "DKB Monitor",
     "nav.overview": "Overview",
+    "nav.system": "System",
     "nav.settings": "Settings",
+
+    "system.title": "System",
+    "system.cpu": "CPU",
+    "system.cpuCores": "Per-core usage",
+    "system.ram": "Memory",
+    "system.swap": "Swap",
+    "system.disk": "Storage",
+    "system.gpu": "GPU",
+    "system.notAvailable": "Not available",
 
     "overview.title": "Overview",
     "overview.addTarget": "Add target",
@@ -83,7 +93,17 @@ export const translations = {
   vi: {
     "app.name": "DKB Monitor",
     "nav.overview": "Tổng quan",
+    "nav.system": "Hệ thống",
     "nav.settings": "Cài đặt",
+
+    "system.title": "Hệ thống",
+    "system.cpu": "CPU",
+    "system.cpuCores": "Từng nhân CPU",
+    "system.ram": "Bộ nhớ",
+    "system.swap": "Swap",
+    "system.disk": "Ổ đĩa",
+    "system.gpu": "GPU",
+    "system.notAvailable": "Không khả dụng",
 
     "overview.title": "Tổng quan",
     "overview.addTarget": "Thêm target",

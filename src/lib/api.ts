@@ -8,6 +8,7 @@ import type {
   UpdateTarget,
 } from "@/types/target";
 import type { AppSettings, UpdateSettingsInput } from "@/types/settings";
+import type { SystemStats } from "@/types/system";
 
 export const api = {
   listTargets: () => invoke<Target[]>("list_targets"),
@@ -26,4 +27,5 @@ export const api = {
   sendTestEmail: () => invoke<void>("send_test_email"),
   getGroupOrder: () => invoke<string[]>("get_group_order"),
   setGroupOrder: (order: string[]) => invoke<void>("set_group_order", { order }),
+  getSystemStats: () => invoke<SystemStats>("get_system_stats"),
 };

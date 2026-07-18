@@ -1,4 +1,4 @@
-import { Activity, LayoutGrid, Settings } from "lucide-react";
+import { Activity, Cpu, LayoutGrid, Settings } from "lucide-react";
 import { NavLink } from "react-router";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/lib/i18n/context";
@@ -8,6 +8,7 @@ export function Sidebar() {
   const { t } = useTranslation();
   const navItems = [
     { to: "/", label: t("nav.overview"), icon: LayoutGrid, end: true },
+    { to: "/system", label: t("nav.system"), icon: Cpu, end: true },
     { to: "/settings", label: t("nav.settings"), icon: Settings, end: true },
   ];
 
