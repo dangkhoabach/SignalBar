@@ -28,4 +28,7 @@ export const api = {
   getGroupOrder: () => invoke<string[]>("get_group_order"),
   setGroupOrder: (order: string[]) => invoke<void>("set_group_order", { order }),
   getSystemStats: () => invoke<SystemStats>("get_system_stats"),
+  getUptimeSummary: () => invoke<[number, number]>("get_uptime_summary"),
+  renameGroup: (oldName: string, newName: string) =>
+    invoke<void>("rename_group", { oldName, newName }),
 };

@@ -91,4 +91,5 @@ pub struct TargetDetail {
     pub uptime_24h_pct: Option<f64>,
     pub uptime_7d_pct: Option<f64>,
     pub history: Vec<CheckResult>,
+    pub resolved_ips: Vec<String>,
 }

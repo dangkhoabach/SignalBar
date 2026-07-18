@@ -70,4 +70,5 @@ export interface TargetDetail {
   uptime_24h_pct: number | null;
   uptime_7d_pct: number | null;
   history: CheckResult[];
+  resolved_ips: string[];
 }

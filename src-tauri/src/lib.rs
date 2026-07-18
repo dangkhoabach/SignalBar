@@ -13,7 +13,7 @@ use std::sync::Mutex;
 use std::time::Duration;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
-use tauri::{Manager, WindowEvent};
+use tauri::{Emitter, Manager, WindowEvent};
 
 pub struct AppState {
     pub db: Mutex<Connection>,
@@ -57,6 +57,7 @@ pub fn run() {
             });
             app.manage(sysstats::SysState::new());
 
+            let uptime_item = MenuItem::with_id(app, "uptime-stat", "Domains: —", false, None::<&str>)?;
             let cpu_item = MenuItem::with_id(app, "cpu-stat", "CPU: —", false, None::<&str>)?;
             let ram_item = MenuItem::with_id(app, "ram-stat", "RAM: —", false, None::<&str>)?;
             let separator = PredefinedMenuItem::separator(app)?;
@@ -64,37 +65,42 @@ pub fn run() {
             let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let tray_menu = Menu::with_items(
                 app,
-                &[&cpu_item, &ram_item, &separator, &show_item, &quit_item],
+                &[&uptime_item, &cpu_item, &ram_item, &separator, &show_item, &quit_item],
             )?;
 
-            {
+            fn refresh_tray_stats(
+                app: &tauri::AppHandle,
+                uptime_item: &MenuItem<tauri::Wry>,
+                cpu_item: &MenuItem<tauri::Wry>,
+                ram_item: &MenuItem<tauri::Wry>,
+            ) {
                 let sys_state = app.state::<sysstats::SysState>();
-                let mut sys = sys_state.sys.lock().unwrap();
-                let stats = sysstats::snapshot(&mut sys);
+                let stats = {
+                    let mut sys = sys_state.sys.lock().unwrap();
+                    sysstats::snapshot(&mut sys)
+                };
                 let _ = cpu_item.set_text(format!("CPU: {:.0}%", stats.cpu_percent));
                 let _ = ram_item.set_text(format!(
                     "RAM: {:.1} / {:.1} GB",
                     stats.ram_used_mb as f64 / 1024.0,
                     stats.ram_total_mb as f64 / 1024.0
                 ));
+
+                let app_state = app.state::<AppState>();
+                let summary = app_state.db.lock().ok().and_then(|conn| commands::uptime_summary(&conn).ok());
+                if let Some((up, total)) = summary {
+                    let _ = uptime_item.set_text(format!("Domains: {up}/{total} up"));
+                }
             }
+
+            refresh_tray_stats(app.handle(), &uptime_item, &cpu_item, &ram_item);
 
             let app_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 let mut interval = tokio::time::interval(Duration::from_secs(3));
                 loop {
                     interval.tick().await;
-                    let sys_state = app_handle.state::<sysstats::SysState>();
-                    let stats = {
-                        let mut sys = sys_state.sys.lock().unwrap();
-                        sysstats::snapshot(&mut sys)
-                    };
-                    let _ = cpu_item.set_text(format!("CPU: {:.0}%", stats.cpu_percent));
-                    let _ = ram_item.set_text(format!(
-                        "RAM: {:.1} / {:.1} GB",
-                        stats.ram_used_mb as f64 / 1024.0,
-                        stats.ram_total_mb as f64 / 1024.0
-                    ));
+                    refresh_tray_stats(&app_handle, &uptime_item, &cpu_item, &ram_item);
                 }
             });
 
@@ -113,6 +119,54 @@ pub fn run() {
                     _ => {}
                 })
                 .build(app)?;
+
+            // Start from Tauri's own platform-default menu (File/Edit/View/Window
+            // as already shown) and only extend the Help submenu, so nothing
+            // else about the native menu bar regresses.
+            let app_menu = Menu::default(app.handle())?;
+            for item in app_menu.items()? {
+                if let Some(submenu) = item.as_submenu() {
+                    if submenu.text()? == "Help" {
+                        // A plain menu item rather than PredefinedMenuItem::about: the
+                        // native macOS About panel only accepts a flat NSString for
+                        // "Credits" (muda wraps it in NSAttributedString::from_nsstring
+                        // with no rich-text/link parsing), so there's no way to make
+                        // the developer credit clickable from that panel. An in-app
+                        // dialog gets a real clickable link instead.
+                        let about = MenuItem::with_id(app, "about", "About DKB Monitor", true, None::<&str>)?;
+                        let check_update = MenuItem::with_id(
+                            app,
+                            "check-update",
+                            "Check for Updates…",
+                            true,
+                            None::<&str>,
+                        )?;
+                        submenu.append(&about)?;
+                        submenu.append(&PredefinedMenuItem::separator(app)?)?;
+                        submenu.append(&check_update)?;
+                    }
+                }
+            }
+            app.set_menu(app_menu)?;
+
+            let update_app_handle = app.handle().clone();
+            app.on_menu_event(move |app, event| {
+                match event.id().as_ref() {
+                    "check-update" => {
+                        // Update checking isn't implemented yet; surface a toast
+                        // in the frontend instead of silently doing nothing.
+                        let _ = update_app_handle.emit("check-update-clicked", ());
+                    }
+                    "about" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                        let _ = update_app_handle.emit("show-about-clicked", ());
+                    }
+                    _ => {}
+                }
+            });
 
             scheduler::spawn(app.handle().clone());
 
@@ -147,6 +201,8 @@ pub fn run() {
             commands::get_overview,
             commands::get_target_detail,
             commands::reorder_targets,
+            commands::get_uptime_summary,
+            commands::rename_group,
             settings::get_settings,
             settings::update_settings,
             settings::save_smtp_password,

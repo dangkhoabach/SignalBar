@@ -12,3 +12,10 @@ export function formatDateTime(date: Date): string {
   const day = `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()}`;
   return `${time} ${day}`;
 }
+
+/** Formats a "YYYY-MM-DD" date-only string (as stored for SSL/domain expiry) as "dd/MM/yyyy". */
+export function formatDateOnly(isoDate: string): string {
+  const [year, month, day] = isoDate.split("-");
+  if (!year || !month || !day) return isoDate;
+  return `${day}/${month}/${year}`;
+}

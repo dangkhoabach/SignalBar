@@ -9,4 +9,8 @@ export interface SystemStats {
   disk_total_gb: number;
   gpu_name: string | null;
   gpu_percent: number | null;
+  network_connected: boolean;
+  network_type: string | null;
+  network_name: string | null;
+  network_local_ip: string | null;
 }

@@ -1,10 +1,13 @@
 use chrono::NaiveDate;
+use std::collections::HashMap;
 use std::process::Stdio;
 use std::time::Duration;
 use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
+use tokio::sync::OnceCell;
 
 const CHECK_TIMEOUT_SECS: u64 = 10;
+const DOMAIN_CHECK_TIMEOUT_SECS: u64 = 20;
 
 pub fn extract_host(url: &str) -> Option<String> {
     reqwest::Url::parse(url).ok()?.host_str().map(|h| h.to_string())
@@ -77,12 +80,34 @@ fn parse_openssl_enddate(text: &str) -> Option<String> {
         .map(|dt| dt.date().format("%Y-%m-%d").to_string())
 }
 
-/// Runs the system `whois` binary with the domain as a single argument
-/// (never shell-interpolated) and best-effort parses common expiry-line
-/// formats. Unparseable output yields `None` rather than an error, since
-/// WHOIS reply formats vary a lot across registrars/TLDs.
+/// Resolves the host's current A/AAAA records via the OS resolver. Run live
+/// on each detail-page load rather than cached/scheduled, since it's cheap
+/// and the point is to reflect the DNS state right now (e.g. right after a
+/// user repoints a domain).
+pub async fn resolve_ips(host: &str) -> Vec<String> {
+    let fut = tokio::net::lookup_host((host, 0));
+    let addrs = match tokio::time::timeout(Duration::from_secs(5), fut).await {
+        Ok(Ok(iter)) => iter.map(|a| a.ip().to_string()).collect::<Vec<_>>(),
+        _ => return Vec::new(),
+    };
+    let mut ips: Vec<String> = addrs.into_iter().collect();
+    ips.sort();
+    ips.dedup();
+    ips
+}
+
+/// Prefers RDAP (a JSON-over-HTTPS protocol) over the legacy `whois`
+/// command: `whois` on macOS chains two full network round-trips (root
+/// registry, then the registrar it refers to) with no read timeout of its
+/// own, so a slow or unresponsive referral target hangs the whole check.
+/// RDAP is a single HTTPS request, so it's both faster and immune to that
+/// class of hang. Not every TLD has an RDAP server (notably .vn does not),
+/// so `whois` remains as a fallback for those.
 pub async fn check_domain_expiry(domain: &str) -> Result<Option<String>, String> {
     let fut = async {
+        if let Some(date) = rdap_domain_expiry(domain).await {
+            return Ok(Some(date));
+        }
         let output = Command::new("whois")
             .arg(domain)
             .stdin(Stdio::null())
@@ -95,9 +120,89 @@ pub async fn check_domain_expiry(domain: &str) -> Result<Option<String>, String>
         Ok(parse_whois_expiry(&text))
     };
 
-    tokio::time::timeout(Duration::from_secs(CHECK_TIMEOUT_SECS), fut)
+    tokio::time::timeout(Duration::from_secs(DOMAIN_CHECK_TIMEOUT_SECS), fut)
         .await
         .unwrap_or(Ok(None))
+}
+
+/// TLD -> RDAP base URL, per IANA's bootstrap registry. Fetched once and
+/// cached for the process lifetime (the mapping essentially never changes
+/// at runtime).
+static RDAP_BOOTSTRAP: OnceCell<HashMap<String, String>> = OnceCell::const_new();
+
+async fn rdap_bootstrap() -> &'static HashMap<String, String> {
+    RDAP_BOOTSTRAP
+        .get_or_init(|| async { fetch_rdap_bootstrap().await.unwrap_or_default() })
+        .await
+}
+
+async fn fetch_rdap_bootstrap() -> Option<HashMap<String, String>> {
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(8))
+        .build()
+        .ok()?;
+    let json: serde_json::Value = client
+        .get("https://data.iana.org/rdap/dns.json")
+        .send()
+        .await
+        .ok()?
+        .json()
+        .await
+        .ok()?;
+    let mut map = HashMap::new();
+    for entry in json.get("services")?.as_array()? {
+        let arr = entry.as_array()?;
+        let tlds = arr.first()?.as_array()?;
+        let url = arr.get(1)?.as_array()?.first()?.as_str()?.to_string();
+        for tld in tlds {
+            if let Some(t) = tld.as_str() {
+                map.insert(t.to_lowercase(), url.clone());
+            }
+        }
+    }
+    Some(map)
+}
+
+#[derive(serde::Deserialize)]
+struct RdapEvent {
+    #[serde(rename = "eventAction")]
+    event_action: String,
+    #[serde(rename = "eventDate")]
+    event_date: String,
+}
+
+#[derive(serde::Deserialize)]
+struct RdapDomain {
+    events: Option<Vec<RdapEvent>>,
+}
+
+async fn rdap_domain_expiry(domain: &str) -> Option<String> {
+    let tld = domain.rsplit('.').next()?.to_lowercase();
+    let base = rdap_bootstrap().await.get(&tld)?;
+    let base = base.trim_end_matches('/');
+
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(8))
+        .build()
+        .ok()?;
+    let resp: RdapDomain = client
+        .get(format!("{base}/domain/{domain}"))
+        .header("Accept", "application/rdap+json")
+        .send()
+        .await
+        .ok()?
+        .json()
+        .await
+        .ok()?;
+
+    let raw = resp
+        .events?
+        .into_iter()
+        .find(|e| e.event_action == "expiration")?
+        .event_date;
+    chrono::DateTime::parse_from_rfc3339(&raw)
+        .ok()
+        .map(|dt| dt.format("%Y-%m-%d").to_string())
 }
 
 const EXPIRY_LINE_PATTERNS: [&str; 6] = [

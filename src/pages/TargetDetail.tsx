@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { listen } from "@tauri-apps/api/event";
 import { ArrowLeft } from "lucide-react";
+import { toast } from "sonner";
 import {
   CartesianGrid,
   Line,
@@ -13,6 +14,7 @@ import {
 } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -22,15 +24,17 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { api } from "@/lib/api";
-import { formatDateTime } from "@/lib/utils";
+import { cn, formatDateOnly, formatDateTime } from "@/lib/utils";
 import { useTranslation } from "@/lib/i18n/context";
 import type { TargetDetail as TargetDetailData } from "@/types/target";
 
-function StatTile({ label, value }: { label: string; value: string }) {
+function StatTile({ label, value, small }: { label: string; value: string; small?: boolean }) {
   return (
     <div className="flex flex-col gap-1 rounded-xl border border-border bg-card px-4 py-3">
       <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="text-lg font-semibold tabular-nums">{value}</span>
+      <span className={cn("font-semibold tabular-nums break-all", small ? "text-sm" : "text-lg")}>
+        {value}
+      </span>
     </div>
   );
 }
@@ -108,6 +112,30 @@ export function TargetDetailPage() {
     };
   }, [load]);
 
+  const handleToggleEnabled = async (enabled: boolean) => {
+    if (!detail) return;
+    const { target } = detail;
+    try {
+      await api.updateTarget({
+        id: target.id,
+        name: target.name,
+        url: target.url,
+        group_tag: target.group_tag,
+        check_interval_secs: target.check_interval_secs,
+        enabled,
+        check_http: target.check_http,
+        expected_status: target.expected_status,
+        check_ssl: target.check_ssl,
+        check_domain: target.check_domain,
+        custom_path: target.custom_path,
+        expected_body_contains: target.expected_body_contains,
+      });
+      load();
+    } catch (err) {
+      toast.error(`${t("toast.saveFailed")}: ${String(err)}`);
+    }
+  };
+
   if (notFound) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 pt-11">
@@ -122,7 +150,7 @@ export function TargetDetailPage() {
 
   if (!detail) return null;
 
-  const { target, ssl_status, domain_status, uptime_24h_pct, uptime_7d_pct, history } = detail;
+  const { target, ssl_status, domain_status, uptime_24h_pct, uptime_7d_pct, history, resolved_ips } = detail;
 
   return (
     <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-6 pt-11 pb-6">
@@ -130,13 +158,14 @@ export function TargetDetailPage() {
         <Button variant="ghost" size="icon-sm" onClick={() => navigate("/")}>
           <ArrowLeft className="size-4" />
         </Button>
-        <div className="flex flex-col">
+        <div className="flex flex-1 flex-col">
           <h1 className="text-lg font-semibold tracking-tight">{target.name}</h1>
           <span className="text-xs text-muted-foreground">{target.url}</span>
         </div>
+        <Switch checked={target.enabled} onCheckedChange={handleToggleEnabled} />
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         <StatTile
           label={t("detail.uptime24h")}
           value={uptime_24h_pct != null ? `${uptime_24h_pct.toFixed(1)}%` : "—"}
@@ -145,8 +174,19 @@ export function TargetDetailPage() {
           label={t("detail.uptime7d")}
           value={uptime_7d_pct != null ? `${uptime_7d_pct.toFixed(1)}%` : "—"}
         />
-        <StatTile label={t("detail.sslExpiry")} value={ssl_status?.expiry_date ?? "—"} />
-        <StatTile label={t("detail.domainExpiry")} value={domain_status?.expiry_date ?? "—"} />
+        <StatTile
+          label={t("detail.sslExpiry")}
+          value={ssl_status?.expiry_date ? formatDateOnly(ssl_status.expiry_date) : "—"}
+        />
+        <StatTile
+          label={t("detail.domainExpiry")}
+          value={domain_status?.expiry_date ? formatDateOnly(domain_status.expiry_date) : "—"}
+        />
+        <StatTile
+          label={t("detail.ipAddress")}
+          value={resolved_ips.length > 0 ? resolved_ips.join(", ") : "—"}
+          small
+        />
       </div>
 
       <LatencyChart history={history} title={t("detail.latencyChart")} />

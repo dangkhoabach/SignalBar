@@ -40,7 +40,7 @@ pub async fn send_email(settings: &AppSettings, password: &str, subject: &str, b
     .map_err(|e| e.to_string())?
 }
 
-pub fn generate_monthly_report(conn: &rusqlite::Connection) -> Result<String, String> {
+pub fn generate_report(conn: &rusqlite::Connection, label: &str, days: i64) -> Result<String, String> {
     let mut stmt = conn
         .prepare("SELECT id, name FROM targets ORDER BY name ASC")
         .map_err(|e| e.to_string())?;
@@ -51,17 +51,18 @@ pub fn generate_monthly_report(conn: &rusqlite::Connection) -> Result<String, St
         .map_err(|e| e.to_string())?;
 
     if targets.is_empty() {
-        return Ok("DKB Monitor — Monthly Report\n\nNo targets configured.".to_string());
+        return Ok(format!("DKB Monitor — {label} Report\n\nNo targets configured."));
     }
 
-    let mut lines = vec!["DKB Monitor — Monthly Report (last 30 days)".to_string(), String::new()];
+    let window = format!("-{days} day");
+    let mut lines = vec![format!("DKB Monitor — {label} Report (last {days} days)"), String::new()];
 
     for (id, name) in targets {
         let uptime: Option<f64> = conn
             .query_row(
                 "SELECT AVG(success) * 100.0 FROM check_results
-                 WHERE target_id = ?1 AND checked_at >= datetime('now', '-30 day')",
-                params![id],
+                 WHERE target_id = ?1 AND checked_at >= datetime('now', ?2)",
+                params![id, window],
                 |row| row.get(0),
             )
             .map_err(|e| e.to_string())?;
@@ -69,8 +70,8 @@ pub fn generate_monthly_report(conn: &rusqlite::Connection) -> Result<String, St
         let down_count: i64 = conn
             .query_row(
                 "SELECT COUNT(*) FROM check_results
-                 WHERE target_id = ?1 AND success = 0 AND checked_at >= datetime('now', '-30 day')",
-                params![id],
+                 WHERE target_id = ?1 AND success = 0 AND checked_at >= datetime('now', ?2)",
+                params![id, window],
                 |row| row.get(0),
             )
             .unwrap_or(0);

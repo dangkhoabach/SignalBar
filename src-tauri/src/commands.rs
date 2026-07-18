@@ -192,26 +192,35 @@ pub fn get_history(state: State<AppState>, target_id: i64, limit: i64) -> Result
 }
 
 #[tauri::command]
-pub fn get_target_detail(state: State<AppState>, target_id: i64) -> Result<TargetDetail, String> {
-    let conn = state.db.lock().map_err(|e| e.to_string())?;
+pub async fn get_target_detail(state: State<'_, AppState>, target_id: i64) -> Result<TargetDetail, String> {
+    let (target, ssl_status, domain_status, uptime_24h_pct, uptime_7d_pct, history) = {
+        let conn = state.db.lock().map_err(|e| e.to_string())?;
 
-    let target = conn
-        .query_row("SELECT * FROM targets WHERE id = ?1", params![target_id], row_to_target)
-        .map_err(|e| e.to_string())?;
+        let target = conn
+            .query_row("SELECT * FROM targets WHERE id = ?1", params![target_id], row_to_target)
+            .map_err(|e| e.to_string())?;
 
-    let ssl_status = get_ssl_status(&conn, target_id).map_err(|e| e.to_string())?;
-    let domain_status = get_domain_status(&conn, target_id).map_err(|e| e.to_string())?;
-    let uptime_24h_pct = get_uptime_pct(&conn, target_id, "-1 day").map_err(|e| e.to_string())?;
-    let uptime_7d_pct = get_uptime_pct(&conn, target_id, "-7 day").map_err(|e| e.to_string())?;
+        let ssl_status = get_ssl_status(&conn, target_id).map_err(|e| e.to_string())?;
+        let domain_status = get_domain_status(&conn, target_id).map_err(|e| e.to_string())?;
+        let uptime_24h_pct = get_uptime_pct(&conn, target_id, "-1 day").map_err(|e| e.to_string())?;
+        let uptime_7d_pct = get_uptime_pct(&conn, target_id, "-7 day").map_err(|e| e.to_string())?;
 
-    let mut stmt = conn
-        .prepare("SELECT * FROM check_results WHERE target_id = ?1 ORDER BY checked_at DESC LIMIT 100")
-        .map_err(|e| e.to_string())?;
-    let history = stmt
-        .query_map(params![target_id], row_to_check_result)
-        .map_err(|e| e.to_string())?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| e.to_string())?;
+        let mut stmt = conn
+            .prepare("SELECT * FROM check_results WHERE target_id = ?1 ORDER BY checked_at DESC LIMIT 100")
+            .map_err(|e| e.to_string())?;
+        let history = stmt
+            .query_map(params![target_id], row_to_check_result)
+            .map_err(|e| e.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?;
+
+        (target, ssl_status, domain_status, uptime_24h_pct, uptime_7d_pct, history)
+    };
+
+    let resolved_ips = match crate::expiry_check::extract_host(&target.url) {
+        Some(host) => crate::expiry_check::resolve_ips(&host).await,
+        None => Vec::new(),
+    };
 
     Ok(TargetDetail {
         target,
@@ -220,6 +229,7 @@ pub fn get_target_detail(state: State<AppState>, target_id: i64) -> Result<Targe
         uptime_24h_pct,
         uptime_7d_pct,
         history,
+        resolved_ips,
     })
 }
 
@@ -262,6 +272,35 @@ pub fn get_overview(state: State<AppState>) -> Result<Vec<TargetOverview>, Strin
     Ok(overviews)
 }
 
+/// (up_count, enabled_count) among enabled targets, based on each target's
+/// most recent check result. Used by both `get_uptime_summary` and the tray
+/// menu's periodic refresh.
+pub fn uptime_summary(conn: &Connection) -> rusqlite::Result<(i64, i64)> {
+    conn.query_row(
+        "SELECT
+            COALESCE(SUM(CASE WHEN latest.success = 1 THEN 1 ELSE 0 END), 0),
+            COUNT(*)
+         FROM targets t
+         LEFT JOIN (
+             SELECT cr.target_id, cr.success
+             FROM check_results cr
+             JOIN (
+                 SELECT target_id, MAX(checked_at) AS max_checked
+                 FROM check_results GROUP BY target_id
+             ) m ON cr.target_id = m.target_id AND cr.checked_at = m.max_checked
+         ) latest ON latest.target_id = t.id
+         WHERE t.enabled = 1",
+        [],
+        |row| Ok((row.get(0)?, row.get(1)?)),
+    )
+}
+
+#[tauri::command]
+pub fn get_uptime_summary(state: State<AppState>) -> Result<(i64, i64), String> {
+    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    uptime_summary(&conn).map_err(|e| e.to_string())
+}
+
 /// Persists a new relative order for a set of targets (e.g. after a
 /// drag-and-drop reorder within one group). `ids` must be given in the
 /// desired display order; each gets `sort_order` set to its index.
@@ -275,6 +314,39 @@ pub fn reorder_targets(state: State<AppState>, ids: Vec<i64>) -> Result<(), Stri
         )
         .map_err(|e| e.to_string())?;
     }
+    Ok(())
+}
+
+/// Renames a group by re-tagging every target currently in it. Also patches
+/// the persisted group display-order (the same JSON list `get_group_order`/
+/// `set_group_order` manage) so the renamed group keeps its position instead
+/// of falling back to alphabetical placement as an "unknown" name.
+#[tauri::command]
+pub fn rename_group(state: State<AppState>, old_name: String, new_name: String) -> Result<(), String> {
+    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    conn.execute(
+        "UPDATE targets SET group_tag = ?1 WHERE group_tag = ?2",
+        params![new_name, old_name],
+    )
+    .map_err(|e| e.to_string())?;
+
+    let raw: String = conn
+        .query_row("SELECT value FROM app_settings WHERE key = 'group_order'", [], |row| row.get(0))
+        .unwrap_or_else(|_| "[]".to_string());
+    let mut order: Vec<String> = serde_json::from_str(&raw).unwrap_or_default();
+    for name in order.iter_mut() {
+        if *name == old_name {
+            *name = new_name.clone();
+        }
+    }
+    let updated = serde_json::to_string(&order).map_err(|e| e.to_string())?;
+    conn.execute(
+        "INSERT INTO app_settings (key, value) VALUES ('group_order', ?1)
+         ON CONFLICT(key) DO UPDATE SET value = ?1",
+        params![updated],
+    )
+    .map_err(|e| e.to_string())?;
+
     Ok(())
 }
 

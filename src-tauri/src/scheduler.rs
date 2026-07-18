@@ -74,13 +74,35 @@ async fn tick(app: &AppHandle) -> Result<(), String> {
         let _ = app.emit("overview-updated", ());
     }
 
-    maybe_send_monthly_report(app).await;
+    maybe_send_report(app).await;
 
     Ok(())
 }
 
-async fn maybe_send_monthly_report(app: &AppHandle) {
-    let (should_send, report_settings) = {
+/// The scheduler ticks every 15s all day, so "due" needs both a trigger
+/// condition (today matches the configured day) and a dedupe guard (already
+/// sent for this period) — otherwise it would fire on every tick for the
+/// rest of the matching day. The guard value's format doubles as the period
+/// identifier (a date, an ISO week, or a year-month), so switching frequency
+/// naturally invalidates any stale guard from a different cadence instead of
+/// needing separate keys per frequency.
+fn report_period(today: chrono::DateTime<chrono::Utc>, frequency: &str, day_of_week: i64, day_of_month: i64) -> Option<(bool, String, &'static str, i64)> {
+    use chrono::Datelike;
+    match frequency {
+        "daily" => Some((true, today.format("%Y-%m-%d").to_string(), "Daily", 1)),
+        "weekly" => {
+            let due = today.weekday().num_days_from_monday() as i64 == day_of_week;
+            Some((due, today.format("%G-W%V").to_string(), "Weekly", 7))
+        }
+        _ => {
+            let due = today.day() as i64 == day_of_month;
+            Some((due, today.format("%Y-%m").to_string(), "Monthly", 30))
+        }
+    }
+}
+
+async fn maybe_send_report(app: &AppHandle) {
+    let (should_send, report_settings, label, days) = {
         let state = app.state::<AppState>();
         let Ok(conn) = state.db.lock() else { return };
         let s = settings::load_settings(&conn);
@@ -90,18 +112,22 @@ async fn maybe_send_monthly_report(app: &AppHandle) {
         }
 
         let today = chrono::Utc::now();
-        let current_month = today.format("%Y-%m").to_string();
+        let Some((trigger_matches, current_period, label, days)) =
+            report_period(today, &s.smtp_frequency, s.smtp_day_of_week, s.smtp_day_of_month)
+        else {
+            return;
+        };
+
         let last_sent = conn
             .query_row(
-                "SELECT value FROM app_settings WHERE key = 'last_report_sent_month'",
+                "SELECT value FROM app_settings WHERE key = 'last_report_sent_period'",
                 [],
                 |row| row.get::<_, String>(0),
             )
             .unwrap_or_default();
 
-        use chrono::Datelike;
-        let due = today.day() as i64 == s.smtp_day_of_month && last_sent != current_month;
-        (due, s)
+        let due = trigger_matches && last_sent != current_period;
+        (due, s, label, days)
     };
 
     if !should_send {
@@ -113,27 +139,31 @@ async fn maybe_send_monthly_report(app: &AppHandle) {
     let state = app.state::<AppState>();
     let body = {
         let Ok(conn) = state.db.lock() else { return };
-        match mail::generate_monthly_report(&conn) {
+        match mail::generate_report(&conn, label, days) {
             Ok(b) => b,
             Err(err) => {
-                eprintln!("monthly report generation error: {err}");
+                eprintln!("report generation error: {err}");
                 return;
             }
         }
     };
 
-    match mail::send_email(&report_settings, &password, "DKB Monitor — Monthly Report", &body).await {
+    match mail::send_email(&report_settings, &password, &format!("DKB Monitor — {label} Report"), &body).await {
         Ok(()) => {
             if let Ok(conn) = state.db.lock() {
-                let current_month = chrono::Utc::now().format("%Y-%m").to_string();
-                let _ = conn.execute(
-                    "INSERT INTO app_settings (key, value) VALUES ('last_report_sent_month', ?1)
-                     ON CONFLICT(key) DO UPDATE SET value = ?1",
-                    params![current_month],
-                );
+                let today = chrono::Utc::now();
+                if let Some((_, current_period, _, _)) =
+                    report_period(today, &report_settings.smtp_frequency, report_settings.smtp_day_of_week, report_settings.smtp_day_of_month)
+                {
+                    let _ = conn.execute(
+                        "INSERT INTO app_settings (key, value) VALUES ('last_report_sent_period', ?1)
+                         ON CONFLICT(key) DO UPDATE SET value = ?1",
+                        params![current_period],
+                    );
+                }
             }
         }
-        Err(err) => eprintln!("monthly report send error: {err}"),
+        Err(err) => eprintln!("report send error: {err}"),
     }
 }
 

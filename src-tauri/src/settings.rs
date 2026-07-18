@@ -15,6 +15,9 @@ pub struct AppSettings {
     pub smtp_port: i64,
     pub smtp_sender_email: String,
     pub smtp_recipient_email: String,
+    /// "daily" | "weekly" | "monthly"
+    pub smtp_frequency: String,
+    pub smtp_day_of_week: i64,
     pub smtp_day_of_month: i64,
     pub has_smtp_password: bool,
 }
@@ -27,6 +30,8 @@ pub struct UpdateSettingsInput {
     pub smtp_port: i64,
     pub smtp_sender_email: String,
     pub smtp_recipient_email: String,
+    pub smtp_frequency: String,
+    pub smtp_day_of_week: i64,
     pub smtp_day_of_month: i64,
 }
 
@@ -52,6 +57,8 @@ pub fn load_settings(conn: &Connection) -> AppSettings {
         smtp_port: get_setting(conn, "smtp_port", "587").parse().unwrap_or(587),
         smtp_sender_email: get_setting(conn, "smtp_sender_email", ""),
         smtp_recipient_email: get_setting(conn, "smtp_recipient_email", ""),
+        smtp_frequency: get_setting(conn, "smtp_frequency", "monthly"),
+        smtp_day_of_week: get_setting(conn, "smtp_day_of_week", "1").parse().unwrap_or(1),
         smtp_day_of_month: get_setting(conn, "smtp_day_of_month", "1").parse().unwrap_or(1),
         has_smtp_password: keyring::Entry::new(KEYRING_SERVICE, KEYRING_ACCOUNT)
             .and_then(|e| e.get_password())
@@ -87,6 +94,9 @@ pub fn update_settings(state: State<AppState>, settings: UpdateSettingsInput) ->
     set_setting(&conn, "smtp_port", &settings.smtp_port.to_string()).map_err(|e| e.to_string())?;
     set_setting(&conn, "smtp_sender_email", &settings.smtp_sender_email).map_err(|e| e.to_string())?;
     set_setting(&conn, "smtp_recipient_email", &settings.smtp_recipient_email).map_err(|e| e.to_string())?;
+    set_setting(&conn, "smtp_frequency", &settings.smtp_frequency).map_err(|e| e.to_string())?;
+    set_setting(&conn, "smtp_day_of_week", &settings.smtp_day_of_week.to_string())
+        .map_err(|e| e.to_string())?;
     set_setting(&conn, "smtp_day_of_month", &settings.smtp_day_of_month.to_string())
         .map_err(|e| e.to_string())?;
     Ok(load_settings(&conn))

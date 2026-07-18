@@ -22,7 +22,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { TargetFormDialog } from "@/components/target-form-dialog";
-import { cn } from "@/lib/utils";
+import { cn, formatDateOnly } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { useTranslation } from "@/lib/i18n/context";
 import type { TargetFormValues } from "@/lib/schemas";
@@ -110,7 +110,7 @@ function TargetRow({
             {ssl_status?.expiry_date && (
               <span className="flex items-center gap-1">
                 <ShieldCheck className="size-3.5" />
-                {ssl_status.expiry_date}
+                {formatDateOnly(ssl_status.expiry_date)}
               </span>
             )}
           </div>
@@ -288,6 +288,10 @@ export function OverviewPage() {
   const grouped = groupByTag(overview);
   const orderedGroupNames = orderGroupNames([...grouped.keys()], groupOrder);
 
+  const enabledTargets = overview.filter((o) => o.target.enabled);
+  const upCount = enabledTargets.filter((o) => o.latest_check?.success).length;
+  const totalCount = enabledTargets.length;
+
   const handleDropTarget = async (draggedId: number, droppedOnId: number) => {
     const group = [...grouped.values()].find((rows) => rows.some((r) => r.target.id === draggedId));
     if (!group || !group.some((r) => r.target.id === droppedOnId)) return;
@@ -311,6 +315,27 @@ export function OverviewPage() {
     }
   };
 
+  const [editingGroup, setEditingGroup] = useState<string | null>(null);
+  const [editingGroupValue, setEditingGroupValue] = useState("");
+
+  const startRenameGroup = (group: string) => {
+    setEditingGroup(group);
+    setEditingGroupValue(group);
+  };
+
+  const commitRenameGroup = async () => {
+    const oldName = editingGroup;
+    const newName = editingGroupValue.trim();
+    setEditingGroup(null);
+    if (!oldName || !newName || newName === oldName) return;
+    try {
+      await api.renameGroup(oldName, newName);
+      load();
+    } catch (err) {
+      toast.error(`${t("toast.saveFailed")}: ${String(err)}`);
+    }
+  };
+
   const handleDropGroup = async (draggedGroup: string, droppedOnGroup: string) => {
     if (draggedGroup === droppedOnGroup) return;
     const newOrder = moveBefore(orderedGroupNames, draggedGroup, droppedOnGroup);
@@ -326,7 +351,17 @@ export function OverviewPage() {
   return (
     <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-6 pt-11 pb-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold tracking-tight">{t("overview.title")}</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-lg font-semibold tracking-tight">{t("overview.title")}</h1>
+          {totalCount > 0 && (
+            <Badge
+              variant="secondary"
+              className={cn(upCount === totalCount ? "text-success" : "text-destructive")}
+            >
+              {upCount}/{totalCount} {t("overview.upSummary")}
+            </Badge>
+          )}
+        </div>
         <Button onClick={handleAdd}>
           <Plus className="size-4" />
           {t("overview.addTarget")}
@@ -358,7 +393,7 @@ export function OverviewPage() {
                 if (draggedGroup) handleDropGroup(draggedGroup, group);
               }}
             >
-              <div className="flex items-center gap-1 px-1">
+              <div className="group/header flex items-center gap-1 px-1">
                 <span
                   draggable
                   onDragStart={(e) => {
@@ -369,9 +404,32 @@ export function OverviewPage() {
                 >
                   <GripVertical className="size-3" />
                 </span>
-                <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                  {group}
-                </span>
+                {editingGroup === group ? (
+                  <input
+                    autoFocus
+                    value={editingGroupValue}
+                    onChange={(e) => setEditingGroupValue(e.target.value)}
+                    onBlur={commitRenameGroup}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") e.currentTarget.blur();
+                      if (e.key === "Escape") setEditingGroup(null);
+                    }}
+                    className="rounded border border-input bg-transparent px-1 text-xs font-medium tracking-wide text-foreground uppercase outline-none"
+                  />
+                ) : (
+                  <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                    {group}
+                  </span>
+                )}
+                {group !== "—" && editingGroup !== group && (
+                  <button
+                    type="button"
+                    onClick={() => startRenameGroup(group)}
+                    className="text-muted-foreground/50 opacity-0 transition-opacity group-hover/header:opacity-100 hover:text-foreground"
+                  >
+                    <Pencil className="size-3" />
+                  </button>
+                )}
               </div>
               <div className="overflow-hidden rounded-2xl border border-border bg-card divide-y divide-border">
                 {rows.map((row) => (

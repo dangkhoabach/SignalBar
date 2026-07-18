@@ -1,13 +1,32 @@
+import { useEffect, useState } from "react";
 import { Activity, Cpu, LayoutGrid, Settings } from "lucide-react";
 import { NavLink } from "react-router";
+import { listen } from "@tauri-apps/api/event";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/lib/i18n/context";
+import { api } from "@/lib/api";
 import { ThemeLanguageSwitcher } from "@/components/layout/ThemeLanguageSwitcher";
 
 export function Sidebar() {
   const { t } = useTranslation();
+  const [downCount, setDownCount] = useState(0);
+
+  useEffect(() => {
+    const load = () => {
+      api
+        .getUptimeSummary()
+        .then(([up, total]) => setDownCount(total - up))
+        .catch(() => {});
+    };
+    load();
+    const unlisten = listen("overview-updated", load);
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, []);
+
   const navItems = [
-    { to: "/", label: t("nav.overview"), icon: LayoutGrid, end: true },
+    { to: "/", label: t("nav.overview"), icon: LayoutGrid, end: true, badge: downCount },
     { to: "/system", label: t("nav.system"), icon: Cpu, end: true },
     { to: "/settings", label: t("nav.settings"), icon: Settings, end: true },
   ];
@@ -35,7 +54,12 @@ export function Sidebar() {
             }
           >
             <item.icon className="size-4" />
-            {item.label}
+            <span className="flex-1">{item.label}</span>
+            {!!item.badge && (
+              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-white">
+                {item.badge}
+              </span>
+            )}
           </NavLink>
         ))}
       </nav>

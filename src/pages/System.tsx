@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Cpu, MemoryStick, HardDrive, MonitorSmartphone } from "lucide-react";
+import { Cpu, MemoryStick, HardDrive, MonitorSmartphone, Wifi, WifiOff, Network } from "lucide-react";
 import { api } from "@/lib/api";
 import { useTranslation } from "@/lib/i18n/context";
 import { cn } from "@/lib/utils";
@@ -154,6 +154,36 @@ export function SystemPage() {
         >
           {stats.gpu_percent != null ? (
             <Bar percent={stats.gpu_percent} />
+          ) : (
+            <span className="text-xs text-muted-foreground">{t("system.notAvailable")}</span>
+          )}
+        </StatCard>
+
+        <StatCard
+          icon={stats.network_connected ? (stats.network_type === "Wi-Fi" ? Wifi : Network) : WifiOff}
+          title={t("system.network")}
+          right={
+            <span
+              className={cn(
+                "text-sm font-semibold",
+                stats.network_connected ? "text-success" : "text-destructive",
+              )}
+            >
+              {stats.network_connected ? t("system.connected") : t("system.disconnected")}
+            </span>
+          }
+        >
+          {stats.network_connected ? (
+            <div className="flex flex-col gap-0.5">
+              <span className="text-xs text-muted-foreground">
+                {stats.network_name ? `${stats.network_type} · ${stats.network_name}` : stats.network_type}
+              </span>
+              {stats.network_local_ip && (
+                <span className="text-xs text-muted-foreground">
+                  {t("system.localIp")}: {stats.network_local_ip}
+                </span>
+              )}
+            </div>
           ) : (
             <span className="text-xs text-muted-foreground">{t("system.notAvailable")}</span>
           )}
