@@ -19,6 +19,20 @@ pub struct AppState {
     pub http_client: reqwest::Client,
 }
 
+/// The macOS vibrancy blur is a native layer tied to the window's
+/// NSAppearance, independent from our CSS theme class. Without this, picking
+/// "light" in-app only recolors text/overlays while the native blur stays on
+/// whatever appearance the window started with, making content unreadable.
+#[tauri::command]
+fn set_native_theme(window: tauri::Window, theme: String) -> Result<(), String> {
+    let theme = match theme.as_str() {
+        "light" => Some(tauri::Theme::Light),
+        "dark" => Some(tauri::Theme::Dark),
+        _ => None,
+    };
+    window.set_theme(theme).map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -47,7 +61,8 @@ pub fn run() {
 
             TrayIconBuilder::with_id("main-tray")
                 .menu(&tray_menu)
-                .icon(tray_icon::dot_icon(tray_icon::COLOR_EMPTY))
+                .icon(tray_icon::pulse_glyph())
+                .icon_as_template(true)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "show" => {
                         if let Some(window) = app.get_webview_window("main") {
@@ -61,7 +76,6 @@ pub fn run() {
                 .build(app)?;
 
             scheduler::spawn(app.handle().clone());
-            let _ = scheduler::update_tray_status(app.handle());
 
             #[cfg(target_os = "macos")]
             {
@@ -93,11 +107,15 @@ pub fn run() {
             commands::get_history,
             commands::get_overview,
             commands::get_target_detail,
+            commands::reorder_targets,
             settings::get_settings,
             settings::update_settings,
             settings::save_smtp_password,
             settings::clear_smtp_password,
             settings::send_test_email,
+            settings::get_group_order,
+            settings::set_group_order,
+            set_native_theme,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -108,6 +108,20 @@ pub fn clear_smtp_password() -> Result<(), String> {
 }
 
 #[tauri::command]
+pub fn get_group_order(state: State<AppState>) -> Result<Vec<String>, String> {
+    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    let raw = get_setting(&conn, "group_order", "[]");
+    Ok(serde_json::from_str(&raw).unwrap_or_default())
+}
+
+#[tauri::command]
+pub fn set_group_order(state: State<AppState>, order: Vec<String>) -> Result<(), String> {
+    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    let raw = serde_json::to_string(&order).map_err(|e| e.to_string())?;
+    set_setting(&conn, "group_order", &raw).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub async fn send_test_email(state: State<'_, AppState>) -> Result<(), String> {
     let settings = {
         let conn = state.db.lock().map_err(|e| e.to_string())?;

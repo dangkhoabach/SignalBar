@@ -22,6 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { api } from "@/lib/api";
+import { formatDateTime } from "@/lib/utils";
 import { useTranslation } from "@/lib/i18n/context";
 import type { TargetDetail as TargetDetailData } from "@/types/target";
 
@@ -63,7 +64,7 @@ function LatencyChart({ history, title }: { history: TargetDetailData["history"]
                 borderRadius: "var(--radius-md)",
                 fontSize: 12,
               }}
-              labelFormatter={(label) => new Date(label + "Z").toLocaleString()}
+              labelFormatter={(label) => formatDateTime(new Date(label + "Z"))}
               formatter={(value) => [`${value}ms`, "Latency"]}
             />
             <Line
@@ -168,7 +169,7 @@ export function TargetDetailPage() {
               {history.map((check) => (
                 <TableRow key={check.id}>
                   <TableCell className="text-xs text-muted-foreground">
-                    {new Date(check.checked_at + "Z").toLocaleString()}
+                    {formatDateTime(new Date(check.checked_at + "Z"))}
                   </TableCell>
                   <TableCell>
                     {check.success ? (

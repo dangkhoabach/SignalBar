@@ -20,6 +20,7 @@ fn row_to_target(row: &rusqlite::Row) -> rusqlite::Result<Target> {
         custom_path: row.get("custom_path")?,
         expected_body_contains: row.get("expected_body_contains")?,
         last_checked_at: row.get("last_checked_at")?,
+        sort_order: row.get("sort_order")?,
         created_at: row.get("created_at")?,
     })
 }
@@ -95,7 +96,7 @@ fn resolve_group_tag(group_tag: Option<String>, url: &str) -> Option<String> {
 pub fn list_targets(state: State<AppState>) -> Result<Vec<Target>, String> {
     let conn = state.db.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn
-        .prepare("SELECT * FROM targets ORDER BY created_at ASC")
+        .prepare("SELECT * FROM targets ORDER BY sort_order ASC, created_at ASC")
         .map_err(|e| e.to_string())?;
     let targets = stmt
         .query_map([], row_to_target)
@@ -109,10 +110,13 @@ pub fn list_targets(state: State<AppState>) -> Result<Vec<Target>, String> {
 pub fn add_target(state: State<AppState>, target: NewTarget) -> Result<Target, String> {
     let conn = state.db.lock().map_err(|e| e.to_string())?;
     let group_tag = resolve_group_tag(target.group_tag, &target.url);
+    let next_sort_order: i64 = conn
+        .query_row("SELECT COALESCE(MAX(sort_order), 0) + 1 FROM targets", [], |row| row.get(0))
+        .map_err(|e| e.to_string())?;
     conn.execute(
         "INSERT INTO targets (name, url, group_tag, check_interval_secs, check_http,
-            expected_status, check_ssl, check_domain, custom_path, expected_body_contains)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            expected_status, check_ssl, check_domain, custom_path, expected_body_contains, sort_order)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
         params![
             target.name,
             target.url,
@@ -124,6 +128,7 @@ pub fn add_target(state: State<AppState>, target: NewTarget) -> Result<Target, S
             target.check_domain as i64,
             target.custom_path,
             target.expected_body_contains,
+            next_sort_order,
         ],
     )
     .map_err(|e| e.to_string())?;
@@ -222,7 +227,7 @@ pub fn get_target_detail(state: State<AppState>, target_id: i64) -> Result<Targe
 pub fn get_overview(state: State<AppState>) -> Result<Vec<TargetOverview>, String> {
     let conn = state.db.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn
-        .prepare("SELECT * FROM targets ORDER BY created_at ASC")
+        .prepare("SELECT * FROM targets ORDER BY sort_order ASC, created_at ASC")
         .map_err(|e| e.to_string())?;
     let targets = stmt
         .query_map([], row_to_target)
@@ -255,6 +260,22 @@ pub fn get_overview(state: State<AppState>) -> Result<Vec<TargetOverview>, Strin
     }
 
     Ok(overviews)
+}
+
+/// Persists a new relative order for a set of targets (e.g. after a
+/// drag-and-drop reorder within one group). `ids` must be given in the
+/// desired display order; each gets `sort_order` set to its index.
+#[tauri::command]
+pub fn reorder_targets(state: State<AppState>, ids: Vec<i64>) -> Result<(), String> {
+    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    for (index, id) in ids.iter().enumerate() {
+        conn.execute(
+            "UPDATE targets SET sort_order = ?1 WHERE id = ?2",
+            params![index as i64, id],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]

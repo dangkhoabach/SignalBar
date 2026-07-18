@@ -11,6 +11,7 @@ export interface Target {
   check_domain: boolean;
   custom_path: string | null;
   expected_body_contains: string | null;
+  sort_order: number;
   created_at: string;
 }
 

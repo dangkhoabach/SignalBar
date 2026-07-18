@@ -15,6 +15,7 @@ pub struct Target {
     pub custom_path: Option<String>,
     pub expected_body_contains: Option<String>,
     pub last_checked_at: Option<String>,
+    pub sort_order: i64,
     pub created_at: String,
 }
 

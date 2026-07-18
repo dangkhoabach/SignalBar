@@ -14,6 +14,8 @@ export const translations = {
     "overview.status.down": "Down",
     "overview.status.unchecked": "Not checked yet",
     "overview.status.disabled": "Disabled",
+    "overview.edit": "Edit",
+    "overview.delete": "Delete",
 
     "toast.loadFailed": "Could not load targets",
     "toast.deleteSuccess": "Target deleted",
@@ -93,6 +95,8 @@ export const translations = {
     "overview.status.down": "Lỗi",
     "overview.status.unchecked": "Chưa check",
     "overview.status.disabled": "Đã tắt",
+    "overview.edit": "Sửa",
+    "overview.delete": "Xóa",
 
     "toast.loadFailed": "Không tải được danh sách",
     "toast.deleteSuccess": "Đã xóa target",

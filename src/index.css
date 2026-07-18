@@ -48,7 +48,7 @@
 }
 
 :root {
-  --background: transparent;
+  --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0 / 80%);
   --card-foreground: oklch(0.145 0 0);
@@ -85,7 +85,7 @@
 }
 
 .dark {
-  --background: transparent;
+  --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.15 0 0 / 55%);
   --card-foreground: oklch(0.985 0 0);
@@ -152,9 +152,5 @@
   html.dark {
     color-scheme: dark;
   }
-}
-
-.titlebar-drag-region {
-  -webkit-app-region: drag;
 }
 
