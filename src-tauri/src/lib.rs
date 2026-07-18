@@ -5,6 +5,7 @@ mod mail;
 mod models;
 mod scheduler;
 mod settings;
+mod tray_icon;
 
 use rusqlite::Connection;
 use std::sync::Mutex;
@@ -46,7 +47,7 @@ pub fn run() {
 
             TrayIconBuilder::with_id("main-tray")
                 .menu(&tray_menu)
-                .title("⚪")
+                .icon(tray_icon::dot_icon(tray_icon::COLOR_EMPTY))
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "show" => {
                         if let Some(window) = app.get_webview_window("main") {

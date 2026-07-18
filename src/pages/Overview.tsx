@@ -5,6 +5,7 @@ import { Plus, Trash2, Pencil, Globe, ShieldCheck, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { TargetFormDialog } from "@/components/target-form-dialog";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
@@ -30,10 +31,12 @@ function TargetRow({
   overview,
   onEdit,
   onDelete,
+  onToggleEnabled,
 }: {
   overview: TargetOverview;
   onEdit: (t: Target) => void;
   onDelete: (id: number) => void;
+  onToggleEnabled: (target: Target, enabled: boolean) => void;
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -45,39 +48,49 @@ function TargetRow({
     >
       <StatusDot overview={overview} />
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className={cn("flex min-w-0 flex-1 flex-col", !target.enabled && "opacity-50")}>
         <span className="truncate text-sm font-medium">{target.name}</span>
         <span className="truncate text-xs text-muted-foreground">{target.url}</span>
       </div>
 
-      <div className="hidden items-center gap-4 text-xs text-muted-foreground sm:flex">
-        {uptime_24h_pct != null && (
-          <span className="flex items-center gap-1">
-            <Globe className="size-3.5" />
-            {uptime_24h_pct.toFixed(0)}% {t("overview.uptime")}
-          </span>
-        )}
-        {latest_check?.response_time_ms != null && (
-          <span className="flex items-center gap-1">
-            <Clock className="size-3.5" />
-            {latest_check.response_time_ms}ms
-          </span>
-        )}
-        {ssl_status?.expiry_date && (
-          <span className="flex items-center gap-1">
-            <ShieldCheck className="size-3.5" />
-            {ssl_status.expiry_date}
-          </span>
-        )}
-      </div>
+      {target.enabled && (
+        <div className="hidden items-center gap-4 text-xs text-muted-foreground sm:flex">
+          {uptime_24h_pct != null && (
+            <span className="flex items-center gap-1">
+              <Globe className="size-3.5" />
+              {uptime_24h_pct.toFixed(0)}% {t("overview.uptime")}
+            </span>
+          )}
+          {latest_check?.response_time_ms != null && (
+            <span className="flex items-center gap-1">
+              <Clock className="size-3.5" />
+              {latest_check.response_time_ms}ms
+            </span>
+          )}
+          {ssl_status?.expiry_date && (
+            <span className="flex items-center gap-1">
+              <ShieldCheck className="size-3.5" />
+              {ssl_status.expiry_date}
+            </span>
+          )}
+        </div>
+      )}
 
-      {!latest_check ? (
+      {!target.enabled ? (
+        <Badge variant="secondary">{t("overview.status.disabled")}</Badge>
+      ) : !latest_check ? (
         <Badge variant="secondary">{t("overview.status.unchecked")}</Badge>
       ) : latest_check.success ? (
         <Badge className="bg-success text-white">{t("overview.status.up")}</Badge>
       ) : (
         <Badge variant="destructive">{t("overview.status.down")}</Badge>
       )}
+
+      <Switch
+        checked={target.enabled}
+        onCheckedChange={(checked) => onToggleEnabled(target, checked)}
+        onClick={(e) => e.stopPropagation()}
+      />
 
       <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
         <Button
@@ -103,6 +116,20 @@ function TargetRow({
       </div>
     </div>
   );
+}
+
+function groupByTag(overview: TargetOverview[]): [string, TargetOverview[]][] {
+  const groups = new Map<string, TargetOverview[]>();
+  for (const row of overview) {
+    const key = row.target.group_tag || "—";
+    const list = groups.get(key);
+    if (list) {
+      list.push(row);
+    } else {
+      groups.set(key, [row]);
+    }
+  }
+  return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b));
 }
 
 export function OverviewPage() {
@@ -148,6 +175,28 @@ export function OverviewPage() {
       load();
     } catch (err) {
       toast.error(`${t("toast.deleteFailed")}: ${String(err)}`);
+    }
+  };
+
+  const handleToggleEnabled = async (target: Target, enabled: boolean) => {
+    try {
+      await api.updateTarget({
+        id: target.id,
+        name: target.name,
+        url: target.url,
+        group_tag: target.group_tag,
+        check_interval_secs: target.check_interval_secs,
+        enabled,
+        check_http: target.check_http,
+        expected_status: target.expected_status,
+        check_ssl: target.check_ssl,
+        check_domain: target.check_domain,
+        custom_path: target.custom_path,
+        expected_body_contains: target.expected_body_contains,
+      });
+      load();
+    } catch (err) {
+      toast.error(`${t("toast.saveFailed")}: ${String(err)}`);
     }
   };
 
@@ -199,16 +248,24 @@ export function OverviewPage() {
           </Button>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-border bg-card divide-y divide-border">
-          {overview.map((row) => (
-            <TargetRow
-              key={row.target.id}
-              overview={row}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-            />
-          ))}
-        </div>
+        groupByTag(overview).map(([group, rows]) => (
+          <div key={group} className="flex flex-col gap-2">
+            <span className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+              {group}
+            </span>
+            <div className="overflow-hidden rounded-2xl border border-border bg-card divide-y divide-border">
+              {rows.map((row) => (
+                <TargetRow
+                  key={row.target.id}
+                  overview={row}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  onToggleEnabled={handleToggleEnabled}
+                />
+              ))}
+            </div>
+          </div>
+        ))
       )}
 
       <TargetFormDialog

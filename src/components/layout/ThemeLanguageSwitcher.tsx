@@ -15,7 +15,7 @@ export function ThemeLanguageSwitcher() {
   const { locale, setLocale, t } = useTranslation();
 
   return (
-    <div className="titlebar-no-drag flex flex-col gap-2 px-2">
+    <div className="flex flex-col gap-2 px-2">
       <div className="flex items-center gap-0.5 rounded-lg bg-muted p-0.5">
         {THEME_OPTIONS.map(({ value, icon: Icon, labelKey }) => (
           <button

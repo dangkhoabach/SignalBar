@@ -52,6 +52,7 @@ export function TargetFormDialog({
     handleSubmit,
     control,
     reset,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<TargetFormInput, unknown, TargetFormValues>({
     resolver: zodResolver(targetFormSchema),
@@ -94,19 +95,30 @@ export function TargetFormDialog({
         <form onSubmit={submit} className="flex flex-col gap-4">
           <div className="grid gap-1.5">
             <Label htmlFor="name">{t("form.name")}</Label>
-            <Input id="name" placeholder="Main Site" {...register("name")} />
+            <Input id="name" placeholder="My Website" {...register("name")} />
             {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
           </div>
 
           <div className="grid gap-1.5">
             <Label htmlFor="url">{t("form.url")}</Label>
-            <Input id="url" placeholder="https://example.com" {...register("url")} />
+            <Input
+              id="url"
+              placeholder="example.com"
+              {...register("url", {
+                onBlur: (e: React.FocusEvent<HTMLInputElement>) => {
+                  const value = e.target.value.trim();
+                  if (value && !/^https?:\/\//i.test(value)) {
+                    setValue("url", `https://${value}`, { shouldValidate: true });
+                  }
+                },
+              })}
+            />
             {errors.url && <p className="text-xs text-destructive">{errors.url.message}</p>}
           </div>
 
           <div className="grid gap-1.5">
             <Label htmlFor="group_tag">{t("form.group")}</Label>
-            <Input id="group_tag" placeholder="Northwind" {...register("group_tag")} />
+            <Input id="group_tag" placeholder="example.com" {...register("group_tag")} />
           </div>
 
           <div className="grid gap-1.5">

@@ -12,7 +12,7 @@ export function Sidebar() {
   ];
 
   return (
-    <aside className="titlebar-drag-region flex w-52 shrink-0 flex-col gap-1 border-r border-sidebar-border bg-sidebar pt-11 pb-4">
+    <aside className="flex w-52 shrink-0 flex-col gap-1 border-r border-sidebar-border bg-sidebar pt-11 pb-4">
       <div className="mb-3 flex items-center gap-2 px-4">
         <Activity className="size-4 text-primary" />
         <span className="text-sm font-semibold tracking-tight">{t("app.name")}</span>
@@ -26,7 +26,7 @@ export function Sidebar() {
             end={item.end}
             className={({ isActive }) =>
               cn(
-                "titlebar-no-drag rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors",
+                "rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors",
                 isActive
                   ? "bg-sidebar-accent text-sidebar-accent-foreground"
                   : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",

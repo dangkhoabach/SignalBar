@@ -444,18 +444,21 @@ fn current_consecutive_failures(conn: &rusqlite::Connection, target_id: i64) -> 
 pub fn update_tray_status(app: &AppHandle) -> Result<(), String> {
     let state = app.state::<AppState>();
     let conn = state.db.lock().map_err(|e| e.to_string())?;
-    let emoji = compute_tray_emoji(&conn);
+    let color = compute_tray_color(&conn);
     drop(conn);
     if let Some(tray) = app.tray_by_id(TRAY_ID) {
-        let _ = tray.set_title(Some(emoji));
+        let _ = tray.set_icon(Some(crate::tray_icon::dot_icon(color)));
     }
     Ok(())
 }
 
-fn compute_tray_emoji(conn: &rusqlite::Connection) -> &'static str {
+fn compute_tray_color(conn: &rusqlite::Connection) -> [u8; 3] {
+    // Only targets whose HTTP check is actually enabled can count as "down" —
+    // a disabled target keeps its last (possibly stale) check_results row,
+    // which must not affect tray status once the toggle is off.
     let down_count: i64 = conn
         .query_row(
-            "SELECT COUNT(*) FROM targets t WHERE t.enabled = 1 AND EXISTS (
+            "SELECT COUNT(*) FROM targets t WHERE t.enabled = 1 AND t.check_http = 1 AND EXISTS (
                 SELECT 1 FROM check_results cr
                 WHERE cr.target_id = t.id AND cr.success = 0
                 AND cr.checked_at = (SELECT MAX(checked_at) FROM check_results WHERE target_id = t.id)
@@ -466,23 +469,25 @@ fn compute_tray_emoji(conn: &rusqlite::Connection) -> &'static str {
         .unwrap_or(0);
 
     if down_count > 0 {
-        return "🔴";
+        return crate::tray_icon::COLOR_DOWN;
     }
 
     let warning_count: i64 = conn
         .query_row(
             "SELECT
-                (SELECT COUNT(*) FROM ssl_status WHERE expiry_date IS NOT NULL
-                    AND julianday(expiry_date) - julianday('now') <= 14)
-              + (SELECT COUNT(*) FROM domain_status WHERE expiry_date IS NOT NULL
-                    AND julianday(expiry_date) - julianday('now') <= 30)",
+                (SELECT COUNT(*) FROM ssl_status s JOIN targets t ON t.id = s.target_id
+                    WHERE t.enabled = 1 AND t.check_ssl = 1 AND s.expiry_date IS NOT NULL
+                    AND julianday(s.expiry_date) - julianday('now') <= 14)
+              + (SELECT COUNT(*) FROM domain_status d JOIN targets t ON t.id = d.target_id
+                    WHERE t.enabled = 1 AND t.check_domain = 1 AND d.expiry_date IS NOT NULL
+                    AND julianday(d.expiry_date) - julianday('now') <= 30)",
             [],
             |row| row.get(0),
         )
         .unwrap_or(0);
 
     if warning_count > 0 {
-        return "🟡";
+        return crate::tray_icon::COLOR_WARNING;
     }
 
     let total: i64 = conn
@@ -490,9 +495,9 @@ fn compute_tray_emoji(conn: &rusqlite::Connection) -> &'static str {
         .unwrap_or(0);
 
     if total == 0 {
-        "⚪"
+        crate::tray_icon::COLOR_EMPTY
     } else {
-        "🟢"
+        crate::tray_icon::COLOR_OK
     }
 }
 

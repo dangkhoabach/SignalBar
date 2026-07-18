@@ -13,6 +13,7 @@ export const translations = {
     "overview.status.up": "Up",
     "overview.status.down": "Down",
     "overview.status.unchecked": "Not checked yet",
+    "overview.status.disabled": "Disabled",
 
     "toast.loadFailed": "Could not load targets",
     "toast.deleteSuccess": "Target deleted",
@@ -25,7 +26,7 @@ export const translations = {
     "form.addTitle": "Add target",
     "form.name": "Name",
     "form.url": "URL",
-    "form.group": "Group (optional)",
+    "form.group": "Group (auto-detected from domain if left blank)",
     "form.interval": "Check interval (seconds)",
     "form.checkHttp": "HTTP status + response time",
     "form.expectedStatus": "Expected status code",
@@ -91,6 +92,7 @@ export const translations = {
     "overview.status.up": "Hoạt động",
     "overview.status.down": "Lỗi",
     "overview.status.unchecked": "Chưa check",
+    "overview.status.disabled": "Đã tắt",
 
     "toast.loadFailed": "Không tải được danh sách",
     "toast.deleteSuccess": "Đã xóa target",
@@ -103,7 +105,7 @@ export const translations = {
     "form.addTitle": "Thêm target",
     "form.name": "Tên",
     "form.url": "URL",
-    "form.group": "Nhóm (tùy chọn)",
+    "form.group": "Nhóm (tự nhận theo domain nếu để trống)",
     "form.interval": "Chu kỳ check (giây)",
     "form.checkHttp": "HTTP status + response time",
     "form.expectedStatus": "Status code mong đợi",

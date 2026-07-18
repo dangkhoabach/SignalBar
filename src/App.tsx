@@ -13,6 +13,7 @@ function App() {
       <LanguageProvider>
         <HashRouter>
           <div className="flex h-screen text-foreground">
+            <div className="titlebar-drag-region fixed inset-x-0 top-0 z-30 h-11" />
             <Sidebar />
             <main className="flex flex-1 flex-col overflow-hidden">
               <Routes>

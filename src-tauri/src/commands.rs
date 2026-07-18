@@ -77,6 +77,20 @@ fn get_uptime_pct(conn: &Connection, target_id: i64, since_modifier: &str) -> ru
     )
 }
 
+/// Uses the caller's explicit group if given; otherwise groups the target
+/// under its registrable root domain (e.g. `tools.example.com` and
+/// `example.com` both land in the "example.com" group) so related
+/// subdomains organize themselves without the user typing anything.
+fn resolve_group_tag(group_tag: Option<String>, url: &str) -> Option<String> {
+    if let Some(tag) = group_tag {
+        if !tag.trim().is_empty() {
+            return Some(tag);
+        }
+    }
+    let host = crate::expiry_check::extract_host(url)?;
+    Some(crate::expiry_check::extract_registrable_domain(&host))
+}
+
 #[tauri::command]
 pub fn list_targets(state: State<AppState>) -> Result<Vec<Target>, String> {
     let conn = state.db.lock().map_err(|e| e.to_string())?;
@@ -94,6 +108,7 @@ pub fn list_targets(state: State<AppState>) -> Result<Vec<Target>, String> {
 #[tauri::command]
 pub fn add_target(state: State<AppState>, target: NewTarget) -> Result<Target, String> {
     let conn = state.db.lock().map_err(|e| e.to_string())?;
+    let group_tag = resolve_group_tag(target.group_tag, &target.url);
     conn.execute(
         "INSERT INTO targets (name, url, group_tag, check_interval_secs, check_http,
             expected_status, check_ssl, check_domain, custom_path, expected_body_contains)
@@ -101,7 +116,7 @@ pub fn add_target(state: State<AppState>, target: NewTarget) -> Result<Target, S
         params![
             target.name,
             target.url,
-            target.group_tag,
+            group_tag,
             target.check_interval_secs,
             target.check_http as i64,
             target.expected_status,
@@ -120,6 +135,7 @@ pub fn add_target(state: State<AppState>, target: NewTarget) -> Result<Target, S
 #[tauri::command]
 pub fn update_target(state: State<AppState>, target: UpdateTarget) -> Result<Target, String> {
     let conn = state.db.lock().map_err(|e| e.to_string())?;
+    let group_tag = resolve_group_tag(target.group_tag, &target.url);
     conn.execute(
         "UPDATE targets SET name = ?1, url = ?2, group_tag = ?3, check_interval_secs = ?4,
             enabled = ?5, check_http = ?6, expected_status = ?7, check_ssl = ?8,
@@ -128,7 +144,7 @@ pub fn update_target(state: State<AppState>, target: UpdateTarget) -> Result<Tar
         params![
             target.name,
             target.url,
-            target.group_tag,
+            group_tag,
             target.check_interval_secs,
             target.enabled as i64,
             target.check_http as i64,
@@ -239,4 +255,33 @@ pub fn get_overview(state: State<AppState>) -> Result<Vec<TargetOverview>, Strin
     }
 
     Ok(overviews)
+}
+
+#[cfg(test)]
+mod resolve_group_tag_tests {
+    use super::resolve_group_tag;
+
+    #[test]
+    fn groups_subdomains_under_root_domain() {
+        assert_eq!(
+            resolve_group_tag(None, "https://dangkhoabach.vn"),
+            Some("dangkhoabach.vn".to_string())
+        );
+        assert_eq!(
+            resolve_group_tag(None, "https://tools.dangkhoabach.vn"),
+            Some("dangkhoabach.vn".to_string())
+        );
+        assert_eq!(
+            resolve_group_tag(None, "https://admin.dangkhoabach.vn"),
+            Some("dangkhoabach.vn".to_string())
+        );
+        assert_eq!(
+            resolve_group_tag(Some("Custom".to_string()), "https://tools.dangkhoabach.vn"),
+            Some("Custom".to_string())
+        );
+        assert_eq!(
+            resolve_group_tag(Some("".to_string()), "https://tools.dangkhoabach.vn"),
+            Some("dangkhoabach.vn".to_string())
+        );
+    }
 }
