@@ -3,9 +3,11 @@ import type {
   CheckResult,
   NewTarget,
   Target,
+  TargetDetail,
   TargetOverview,
   UpdateTarget,
 } from "@/types/target";
+import type { AppSettings, UpdateSettingsInput } from "@/types/settings";
 
 export const api = {
   listTargets: () => invoke<Target[]>("list_targets"),
@@ -15,4 +17,10 @@ export const api = {
   getHistory: (targetId: number, limit = 50) =>
     invoke<CheckResult[]>("get_history", { targetId, limit }),
   getOverview: () => invoke<TargetOverview[]>("get_overview"),
+  getTargetDetail: (targetId: number) => invoke<TargetDetail>("get_target_detail", { targetId }),
+  getSettings: () => invoke<AppSettings>("get_settings"),
+  updateSettings: (settings: UpdateSettingsInput) => invoke<AppSettings>("update_settings", { settings }),
+  saveSmtpPassword: (password: string) => invoke<void>("save_smtp_password", { password }),
+  clearSmtpPassword: () => invoke<void>("clear_smtp_password"),
+  sendTestEmail: () => invoke<void>("send_test_email"),
 };

@@ -81,3 +81,13 @@ pub struct TargetOverview {
     pub domain_status: Option<DomainStatus>,
     pub uptime_24h_pct: Option<f64>,
 }
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TargetDetail {
+    pub target: Target,
+    pub ssl_status: Option<SslStatus>,
+    pub domain_status: Option<DomainStatus>,
+    pub uptime_24h_pct: Option<f64>,
+    pub uptime_7d_pct: Option<f64>,
+    pub history: Vec<CheckResult>,
+}

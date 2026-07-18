@@ -1,15 +1,15 @@
 import { Activity } from "lucide-react";
+import { NavLink } from "react-router";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/lib/i18n/context";
 import { ThemeLanguageSwitcher } from "@/components/layout/ThemeLanguageSwitcher";
 
-interface SidebarProps {
-  activeItem: string;
-}
-
-export function Sidebar({ activeItem }: SidebarProps) {
+export function Sidebar() {
   const { t } = useTranslation();
-  const navItems = [{ id: "overview", label: t("nav.overview") }];
+  const navItems = [
+    { to: "/", label: t("nav.overview"), end: true },
+    { to: "/settings", label: t("nav.settings"), end: true },
+  ];
 
   return (
     <aside className="titlebar-drag-region flex w-52 shrink-0 flex-col gap-1 border-r border-sidebar-border bg-sidebar pt-11 pb-4">
@@ -20,17 +20,21 @@ export function Sidebar({ activeItem }: SidebarProps) {
 
       <nav className="flex flex-1 flex-col gap-0.5 px-2">
         {navItems.map((item) => (
-          <div
-            key={item.id}
-            className={cn(
-              "titlebar-no-drag rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors",
-              item.id === activeItem
-                ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
-            )}
+          <NavLink
+            key={item.to}
+            to={item.to}
+            end={item.end}
+            className={({ isActive }) =>
+              cn(
+                "titlebar-no-drag rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors",
+                isActive
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
+              )
+            }
           >
             {item.label}
-          </div>
+          </NavLink>
         ))}
       </nav>
 

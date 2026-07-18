@@ -1,6 +1,8 @@
-use crate::models::{CheckResult, DomainStatus, NewTarget, SslStatus, Target, TargetOverview, UpdateTarget};
+use crate::models::{
+    CheckResult, DomainStatus, NewTarget, SslStatus, Target, TargetDetail, TargetOverview, UpdateTarget,
+};
 use crate::AppState;
-use rusqlite::{params, OptionalExtension};
+use rusqlite::{params, Connection, OptionalExtension};
 use tauri::State;
 
 fn row_to_target(row: &rusqlite::Row) -> rusqlite::Result<Target> {
@@ -32,6 +34,47 @@ fn row_to_check_result(row: &rusqlite::Row) -> rusqlite::Result<CheckResult> {
         response_time_ms: row.get("response_time_ms")?,
         error_message: row.get("error_message")?,
     })
+}
+
+fn get_ssl_status(conn: &Connection, target_id: i64) -> rusqlite::Result<Option<SslStatus>> {
+    conn.query_row(
+        "SELECT * FROM ssl_status WHERE target_id = ?1",
+        params![target_id],
+        |row| {
+            Ok(SslStatus {
+                target_id: row.get("target_id")?,
+                expiry_date: row.get("expiry_date")?,
+                last_checked: row.get("last_checked")?,
+            })
+        },
+    )
+    .optional()
+}
+
+fn get_domain_status(conn: &Connection, target_id: i64) -> rusqlite::Result<Option<DomainStatus>> {
+    conn.query_row(
+        "SELECT * FROM domain_status WHERE target_id = ?1",
+        params![target_id],
+        |row| {
+            Ok(DomainStatus {
+                target_id: row.get("target_id")?,
+                expiry_date: row.get("expiry_date")?,
+                last_checked: row.get("last_checked")?,
+            })
+        },
+    )
+    .optional()
+}
+
+fn get_uptime_pct(conn: &Connection, target_id: i64, since_modifier: &str) -> rusqlite::Result<Option<f64>> {
+    conn.query_row(
+        &format!(
+            "SELECT AVG(success) * 100.0 FROM check_results
+             WHERE target_id = ?1 AND checked_at >= datetime('now', '{since_modifier}')"
+        ),
+        params![target_id],
+        |row| row.get(0),
+    )
 }
 
 #[tauri::command]
@@ -128,6 +171,38 @@ pub fn get_history(state: State<AppState>, target_id: i64, limit: i64) -> Result
 }
 
 #[tauri::command]
+pub fn get_target_detail(state: State<AppState>, target_id: i64) -> Result<TargetDetail, String> {
+    let conn = state.db.lock().map_err(|e| e.to_string())?;
+
+    let target = conn
+        .query_row("SELECT * FROM targets WHERE id = ?1", params![target_id], row_to_target)
+        .map_err(|e| e.to_string())?;
+
+    let ssl_status = get_ssl_status(&conn, target_id).map_err(|e| e.to_string())?;
+    let domain_status = get_domain_status(&conn, target_id).map_err(|e| e.to_string())?;
+    let uptime_24h_pct = get_uptime_pct(&conn, target_id, "-1 day").map_err(|e| e.to_string())?;
+    let uptime_7d_pct = get_uptime_pct(&conn, target_id, "-7 day").map_err(|e| e.to_string())?;
+
+    let mut stmt = conn
+        .prepare("SELECT * FROM check_results WHERE target_id = ?1 ORDER BY checked_at DESC LIMIT 100")
+        .map_err(|e| e.to_string())?;
+    let history = stmt
+        .query_map(params![target_id], row_to_check_result)
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    Ok(TargetDetail {
+        target,
+        ssl_status,
+        domain_status,
+        uptime_24h_pct,
+        uptime_7d_pct,
+        history,
+    })
+}
+
+#[tauri::command]
 pub fn get_overview(state: State<AppState>) -> Result<Vec<TargetOverview>, String> {
     let conn = state.db.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn
@@ -150,44 +225,9 @@ pub fn get_overview(state: State<AppState>) -> Result<Vec<TargetOverview>, Strin
             .optional()
             .map_err(|e| e.to_string())?;
 
-        let ssl_status = conn
-            .query_row(
-                "SELECT * FROM ssl_status WHERE target_id = ?1",
-                params![target.id],
-                |row| {
-                    Ok(SslStatus {
-                        target_id: row.get("target_id")?,
-                        expiry_date: row.get("expiry_date")?,
-                        last_checked: row.get("last_checked")?,
-                    })
-                },
-            )
-            .optional()
-            .map_err(|e| e.to_string())?;
-
-        let domain_status = conn
-            .query_row(
-                "SELECT * FROM domain_status WHERE target_id = ?1",
-                params![target.id],
-                |row| {
-                    Ok(DomainStatus {
-                        target_id: row.get("target_id")?,
-                        expiry_date: row.get("expiry_date")?,
-                        last_checked: row.get("last_checked")?,
-                    })
-                },
-            )
-            .optional()
-            .map_err(|e| e.to_string())?;
-
-        let uptime_24h_pct: Option<f64> = conn
-            .query_row(
-                "SELECT AVG(success) * 100.0 FROM check_results
-                 WHERE target_id = ?1 AND checked_at >= datetime('now', '-1 day')",
-                params![target.id],
-                |row| row.get(0),
-            )
-            .map_err(|e| e.to_string())?;
+        let ssl_status = get_ssl_status(&conn, target.id).map_err(|e| e.to_string())?;
+        let domain_status = get_domain_status(&conn, target.id).map_err(|e| e.to_string())?;
+        let uptime_24h_pct = get_uptime_pct(&conn, target.id, "-1 day").map_err(|e| e.to_string())?;
 
         overviews.push(TargetOverview {
             target,

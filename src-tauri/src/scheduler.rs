@@ -1,5 +1,7 @@
 use crate::expiry_check;
+use crate::mail;
 use crate::models::Target;
+use crate::settings;
 use crate::AppState;
 use rusqlite::{params, OptionalExtension};
 use std::time::{Duration, Instant};
@@ -74,8 +76,67 @@ async fn tick(app: &AppHandle) -> Result<(), String> {
     }
 
     update_tray_status(app)?;
+    maybe_send_monthly_report(app).await;
 
     Ok(())
+}
+
+async fn maybe_send_monthly_report(app: &AppHandle) {
+    let (should_send, report_settings) = {
+        let state = app.state::<AppState>();
+        let Ok(conn) = state.db.lock() else { return };
+        let s = settings::load_settings(&conn);
+
+        if !s.smtp_enabled || !s.has_smtp_password {
+            return;
+        }
+
+        let today = chrono::Utc::now();
+        let current_month = today.format("%Y-%m").to_string();
+        let last_sent = conn
+            .query_row(
+                "SELECT value FROM app_settings WHERE key = 'last_report_sent_month'",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .unwrap_or_default();
+
+        use chrono::Datelike;
+        let due = today.day() as i64 == s.smtp_day_of_month && last_sent != current_month;
+        (due, s)
+    };
+
+    if !should_send {
+        return;
+    }
+
+    let Some(password) = settings::smtp_password() else { return };
+
+    let state = app.state::<AppState>();
+    let body = {
+        let Ok(conn) = state.db.lock() else { return };
+        match mail::generate_monthly_report(&conn) {
+            Ok(b) => b,
+            Err(err) => {
+                eprintln!("monthly report generation error: {err}");
+                return;
+            }
+        }
+    };
+
+    match mail::send_email(&report_settings, &password, "DKB Monitor — Monthly Report", &body).await {
+        Ok(()) => {
+            if let Ok(conn) = state.db.lock() {
+                let current_month = chrono::Utc::now().format("%Y-%m").to_string();
+                let _ = conn.execute(
+                    "INSERT INTO app_settings (key, value) VALUES ('last_report_sent_month', ?1)
+                     ON CONFLICT(key) DO UPDATE SET value = ?1",
+                    params![current_month],
+                );
+            }
+        }
+        Err(err) => eprintln!("monthly report send error: {err}"),
+    }
 }
 
 async fn run_expiry_checks(app: &AppHandle) -> Result<bool, String> {
@@ -359,6 +420,15 @@ fn store_result(app: &AppHandle, outcome: &CheckOutcome) -> Result<(), String> {
 }
 
 fn notify(app: &AppHandle, title: &str, body: &str) {
+    let state = app.state::<AppState>();
+    let enabled = state
+        .db
+        .lock()
+        .map(|conn| settings::notifications_enabled(&conn))
+        .unwrap_or(true);
+    if !enabled {
+        return;
+    }
     let _ = app.notification().builder().title(title).body(body).show();
 }
 

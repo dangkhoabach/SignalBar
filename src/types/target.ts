@@ -61,3 +61,12 @@ export interface TargetOverview {
   domain_status: DomainStatus | null;
   uptime_24h_pct: number | null;
 }
+
+export interface TargetDetail {
+  target: Target;
+  ssl_status: SslStatus | null;
+  domain_status: DomainStatus | null;
+  uptime_24h_pct: number | null;
+  uptime_7d_pct: number | null;
+  history: CheckResult[];
+}

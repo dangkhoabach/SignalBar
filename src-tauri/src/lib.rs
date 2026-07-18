@@ -1,8 +1,10 @@
 mod commands;
 mod db;
 mod expiry_check;
+mod mail;
 mod models;
 mod scheduler;
+mod settings;
 
 use rusqlite::Connection;
 use std::sync::Mutex;
@@ -21,6 +23,10 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            None,
+        ))
         .setup(|app| {
             let app_data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&app_data_dir)?;
@@ -85,6 +91,12 @@ pub fn run() {
             commands::delete_target,
             commands::get_history,
             commands::get_overview,
+            commands::get_target_detail,
+            settings::get_settings,
+            settings::update_settings,
+            settings::save_smtp_password,
+            settings::clear_smtp_password,
+            settings::send_test_email,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

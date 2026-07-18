@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router";
 import { listen } from "@tauri-apps/api/event";
 import { Plus, Trash2, Pencil, Globe, ShieldCheck, Clock } from "lucide-react";
 import { toast } from "sonner";
@@ -35,9 +36,13 @@ function TargetRow({
   onDelete: (id: number) => void;
 }) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { target, latest_check, ssl_status, uptime_24h_pct } = overview;
   return (
-    <div className="group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/50">
+    <div
+      className="group flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/50"
+      onClick={() => navigate(`/targets/${target.id}`)}
+    >
       <StatusDot overview={overview} />
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -75,10 +80,24 @@ function TargetRow({
       )}
 
       <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-        <Button variant="ghost" size="icon-sm" onClick={() => onEdit(target)}>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit(target);
+          }}
+        >
           <Pencil className="size-3.5" />
         </Button>
-        <Button variant="ghost" size="icon-sm" onClick={() => onDelete(target.id)}>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(target.id);
+          }}
+        >
           <Trash2 className="size-3.5" />
         </Button>
       </div>

@@ -55,6 +55,11 @@ pub fn init_db(path: &Path) -> rusqlite::Result<Connection> {
             consecutive_failures INTEGER NOT NULL DEFAULT 0,
             last_alert_sent_at TEXT
         );
+
+        CREATE TABLE IF NOT EXISTS app_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        );
         ",
     )?;
 
