@@ -28,13 +28,19 @@ import { cn, formatDateOnly, formatDateTime } from "@/lib/utils";
 import { useTranslation } from "@/lib/i18n/context";
 import type { TargetDetail as TargetDetailData } from "@/types/target";
 
-function StatTile({ label, value, small }: { label: string; value: string; small?: boolean }) {
+function StatTile({
+  label,
+  value,
+  small,
+}: {
+  label: string;
+  value: React.ReactNode;
+  small?: boolean;
+}) {
   return (
     <div className="flex flex-col gap-1 rounded-xl border border-border bg-card px-4 py-3">
       <span className="text-xs text-muted-foreground">{label}</span>
-      <span className={cn("font-semibold tabular-nums break-all", small ? "text-sm" : "text-lg")}>
-        {value}
-      </span>
+      <div className={cn("font-semibold tabular-nums", small ? "text-sm" : "text-lg")}>{value}</div>
     </div>
   );
 }
@@ -165,7 +171,7 @@ export function TargetDetailPage() {
         <Switch checked={target.enabled} onCheckedChange={handleToggleEnabled} />
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-6">
         <StatTile
           label={t("detail.uptime24h")}
           value={uptime_24h_pct != null ? `${uptime_24h_pct.toFixed(1)}%` : "—"}
@@ -182,11 +188,23 @@ export function TargetDetailPage() {
           label={t("detail.domainExpiry")}
           value={domain_status?.expiry_date ? formatDateOnly(domain_status.expiry_date) : "—"}
         />
-        <StatTile
-          label={t("detail.ipAddress")}
-          value={resolved_ips.length > 0 ? resolved_ips.join(", ") : "—"}
-          small
-        />
+        <div className="col-span-2">
+          <StatTile
+            label={t("detail.ipAddress")}
+            value={
+              resolved_ips.length > 0 ? (
+                <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+                  {resolved_ips.map((ip) => (
+                    <span key={ip}>{ip}</span>
+                  ))}
+                </div>
+              ) : (
+                "—"
+              )
+            }
+            small
+          />
+        </div>
       </div>
 
       <LatencyChart history={history} title={t("detail.latencyChart")} />

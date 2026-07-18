@@ -6,7 +6,6 @@
   "permissions": [
     "core:default",
     "core:window:allow-start-dragging",
-    "opener:default",
-    "autostart:default"
+    "opener:default"
   ]
 }

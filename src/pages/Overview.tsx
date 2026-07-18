@@ -64,7 +64,16 @@ function TargetRow({
   return (
     <div
       className="group flex cursor-pointer items-center gap-1 px-2 py-3 transition-colors hover:bg-accent/50"
-      onClick={() => navigate(`/targets/${target.id}`)}
+      onClick={(e) => {
+        // Base UI's Switch toggles by re-dispatching a second, independent
+        // click event on its hidden checkbox input (so the browser fires a
+        // real native "change" event) — that second click bubbles on its
+        // own and isn't stopped by stopPropagation() on the original click,
+        // so this checks where the click actually originated instead of
+        // relying on propagation having been stopped upstream.
+        if ((e.target as HTMLElement).closest("[data-stop-navigation]")) return;
+        navigate(`/targets/${target.id}`);
+      }}
       onDragOver={(e) => {
         if (e.dataTransfer.types.includes(TARGET_DRAG_TYPE)) e.preventDefault();
       }}
@@ -130,6 +139,7 @@ function TargetRow({
           checked={target.enabled}
           onCheckedChange={(checked) => onToggleEnabled(target, checked)}
           onClick={(e) => e.stopPropagation()}
+          data-stop-navigation
         />
 
         <DropdownMenu>

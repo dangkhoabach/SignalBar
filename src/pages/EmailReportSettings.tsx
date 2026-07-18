@@ -161,7 +161,7 @@ export function EmailReportSettingsPage() {
             onValueChange={(value) => setSettings((s) => ({ ...s, smtp_frequency: value as SmtpFrequency }))}
           >
             <SelectTrigger className="w-full">
-              <SelectValue />
+              <SelectValue>{(value: SmtpFrequency) => t(`settings.frequency.${value}`)}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="daily">{t("settings.frequency.daily")}</SelectItem>
@@ -179,7 +179,7 @@ export function EmailReportSettingsPage() {
               onValueChange={(value) => setSettings((s) => ({ ...s, smtp_day_of_week: Number(value) }))}
             >
               <SelectTrigger className="w-full">
-                <SelectValue />
+                <SelectValue>{(value: string) => t(WEEKDAY_KEYS[Number(value)])}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {WEEKDAY_KEYS.map((key, i) => (

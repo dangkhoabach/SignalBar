@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
-import { isEnabled as isAutostartEnabled, enable as enableAutostart, disable as disableAutostart } from "@tauri-apps/plugin-autostart";
 import { ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -42,15 +41,16 @@ export function SettingsPage() {
 
   useEffect(() => {
     api.getSettings().then(setSettings).catch(() => toast.error(t("settings.saveFailed")));
-    isAutostartEnabled().then(setAutostart).catch(() => {});
+    api.isAutostartEnabled().then(setAutostart).catch(() => {});
   }, [t]);
 
   const handleAutostartToggle = async (checked: boolean) => {
     try {
       if (checked) {
-        await enableAutostart();
+        const needsApproval = await api.enableAutostart();
+        if (needsApproval) toast.info(t("settings.autostartNeedsApproval"));
       } else {
-        await disableAutostart();
+        await api.disableAutostart();
       }
       setAutostart(checked);
     } catch (err) {

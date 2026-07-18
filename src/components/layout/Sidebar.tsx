@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { Activity, Cpu, LayoutGrid, Settings } from "lucide-react";
+import { Cpu, LayoutGrid, Settings } from "lucide-react";
 import { NavLink } from "react-router";
 import { listen } from "@tauri-apps/api/event";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/lib/i18n/context";
 import { api } from "@/lib/api";
 import { ThemeLanguageSwitcher } from "@/components/layout/ThemeLanguageSwitcher";
+import appIcon from "@/app-icon.png";
 
 export function Sidebar() {
   const { t } = useTranslation();
@@ -34,7 +35,7 @@ export function Sidebar() {
   return (
     <aside className="flex w-52 shrink-0 flex-col gap-1 border-r border-sidebar-border bg-sidebar pt-11 pb-4">
       <div className="mb-3 flex items-center gap-2 px-4">
-        <Activity className="size-4 text-primary" />
+        <img src={appIcon} alt="" className="size-5 rounded-md" />
         <span className="text-sm font-semibold tracking-tight">{t("app.name")}</span>
       </div>
 

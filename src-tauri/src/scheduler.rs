@@ -134,18 +134,18 @@ async fn maybe_send_report(app: &AppHandle) {
         return;
     }
 
-    let Some(password) = settings::smtp_password() else { return };
-
     let state = app.state::<AppState>();
-    let body = {
+    let (body, password) = {
         let Ok(conn) = state.db.lock() else { return };
-        match mail::generate_report(&conn, label, days) {
+        let body = match mail::generate_report(&conn, label, days) {
             Ok(b) => b,
             Err(err) => {
                 eprintln!("report generation error: {err}");
                 return;
             }
-        }
+        };
+        let Some(password) = settings::smtp_password(&conn) else { return };
+        (body, password)
     };
 
     match mail::send_email(&report_settings, &password, &format!("DKB Monitor — {label} Report"), &body).await {

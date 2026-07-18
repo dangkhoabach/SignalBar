@@ -1,3 +1,4 @@
+mod autostart;
 mod commands;
 mod db;
 mod expiry_check;
@@ -39,10 +40,6 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
-        .plugin(tauri_plugin_autostart::init(
-            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
-            None,
-        ))
         .setup(|app| {
             // The "main" window is declared in tauri.conf.json with
             // "create": false so it's built here instead — there's no JSON
@@ -230,6 +227,9 @@ pub fn run() {
             settings::set_group_order,
             set_native_theme,
             sysstats::get_system_stats,
+            autostart::is_autostart_enabled,
+            autostart::enable_autostart,
+            autostart::disable_autostart,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

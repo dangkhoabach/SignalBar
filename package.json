@@ -1,7 +1,7 @@
 {
   "name": "dkb-monitor",
   "private": true,
-  "version": "0.1.5",
+  "version": "0.1.6",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -13,7 +13,6 @@
     "@base-ui/react": "^1.6.0",
     "@hookform/resolvers": "^5.4.0",
     "@tauri-apps/api": "^2",
-    "@tauri-apps/plugin-autostart": "^2.5.1",
     "@tauri-apps/plugin-opener": "^2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

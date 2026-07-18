@@ -31,4 +31,8 @@ export const api = {
   getUptimeSummary: () => invoke<[number, number]>("get_uptime_summary"),
   renameGroup: (oldName: string, newName: string) =>
     invoke<void>("rename_group", { oldName, newName }),
+  isAutostartEnabled: () => invoke<boolean>("is_autostart_enabled"),
+  /** Resolves to `true` if macOS requires the user to approve the item in System Settings. */
+  enableAutostart: () => invoke<boolean>("enable_autostart"),
+  disableAutostart: () => invoke<void>("disable_autostart"),
 };
