@@ -13,7 +13,7 @@ use std::sync::Mutex;
 use std::time::Duration;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
-use tauri::{Emitter, Manager, WindowEvent};
+use tauri::{Emitter, LogicalPosition, Manager, WebviewWindowBuilder, WindowEvent};
 
 pub struct AppState {
     pub db: Mutex<Connection>,
@@ -44,6 +44,24 @@ pub fn run() {
             None,
         ))
         .setup(|app| {
+            // The "main" window is declared in tauri.conf.json with
+            // "create": false so it's built here instead — there's no JSON
+            // config option for traffic-light position, only this builder
+            // method, and from_config() carries over every other window
+            // setting (size, titleBarStyle, transparent, dragDropEnabled...)
+            // unchanged so nothing else about it needs to be duplicated.
+            let main_window_config = app
+                .config()
+                .app
+                .windows
+                .iter()
+                .find(|w| w.label == "main")
+                .expect("main window must be declared in tauri.conf.json")
+                .clone();
+            WebviewWindowBuilder::from_config(app, &main_window_config)?
+                .traffic_light_position(LogicalPosition::new(18.0, 22.0))
+                .build()?;
+
             let app_data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&app_data_dir)?;
             let db_path = app_data_dir.join("dkb-monitor.db");
