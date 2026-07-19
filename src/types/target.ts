@@ -11,6 +11,7 @@ export interface Target {
   check_domain: boolean;
   custom_path: string | null;
   expected_body_contains: string | null;
+  paused_until: string | null;
   sort_order: number;
   created_at: string;
 }
@@ -63,6 +64,12 @@ export interface TargetOverview {
   uptime_24h_pct: number | null;
 }
 
+export interface Incident {
+  started_at: string;
+  ended_at: string | null;
+  error_message: string | null;
+}
+
 export interface TargetDetail {
   target: Target;
   ssl_status: SslStatus | null;
@@ -71,4 +78,5 @@ export interface TargetDetail {
   uptime_7d_pct: number | null;
   history: CheckResult[];
   resolved_ips: string[];
+  incidents: Incident[];
 }

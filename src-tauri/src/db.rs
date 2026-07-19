@@ -65,8 +65,10 @@ pub fn init_db(path: &Path) -> rusqlite::Result<Connection> {
 
     ensure_column(&conn, "targets", "last_checked_at", "TEXT")?;
     ensure_column(&conn, "targets", "sort_order", "INTEGER")?;
+    ensure_column(&conn, "targets", "paused_until", "TEXT")?;
     ensure_column(&conn, "ssl_status", "last_alert_sent_at", "TEXT")?;
     ensure_column(&conn, "domain_status", "last_alert_sent_at", "TEXT")?;
+    ensure_column(&conn, "alert_state", "consecutive_slow", "INTEGER NOT NULL DEFAULT 0")?;
 
     // Backfill: give any row missing an explicit order its id, so existing
     // targets keep their current (creation-order) position.

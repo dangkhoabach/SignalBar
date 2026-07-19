@@ -22,6 +22,7 @@ fn row_to_target(row: &rusqlite::Row) -> rusqlite::Result<Target> {
         custom_path: row.get("custom_path")?,
         expected_body_contains: row.get("expected_body_contains")?,
         last_checked_at: row.get("last_checked_at")?,
+        paused_until: row.get("paused_until")?,
         sort_order: row.get("sort_order")?,
         created_at: row.get("created_at")?,
     })
@@ -209,6 +210,41 @@ pub fn set_targets_enabled(state: State<AppState>, ids: Vec<i64>, enabled: bool)
     Ok(())
 }
 
+/// Pauses automatic checks/alerts for a target. `minutes` set pauses until
+/// `now + minutes`; `None` pauses indefinitely until `resume_target` is
+/// called. Manual "Check now" still works while paused — only the scheduler
+/// skips paused targets (see scheduler.rs's due-target queries).
+#[tauri::command]
+pub fn pause_target(state: State<AppState>, id: i64, minutes: Option<i64>) -> Result<(), String> {
+    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    match minutes {
+        Some(minutes) => {
+            let modifier = format!("+{minutes} minutes");
+            conn.execute(
+                "UPDATE targets SET paused_until = datetime('now', ?1) WHERE id = ?2",
+                params![modifier, id],
+            )
+        }
+        // A far-future date rather than a separate "paused indefinitely"
+        // flag, so every other query only ever needs to compare against
+        // datetime('now') instead of also checking for NULL-as-forever.
+        None => conn.execute(
+            "UPDATE targets SET paused_until = '9999-12-31 00:00:00' WHERE id = ?1",
+            params![id],
+        ),
+    }
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn resume_target(state: State<AppState>, id: i64) -> Result<(), String> {
+    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    conn.execute("UPDATE targets SET paused_until = NULL WHERE id = ?1", params![id])
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn check_target_now(app: tauri::AppHandle, id: i64) -> Result<(), String> {
     crate::scheduler::check_target_now(&app, id).await
@@ -230,6 +266,33 @@ pub fn get_history(state: State<AppState>, target_id: i64, limit: i64) -> Result
         .map_err(|e| e.to_string())?;
     let results = stmt
         .query_map(params![target_id, limit], row_to_check_result)
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(results)
+}
+
+/// Fetches check history for target_id in [start, end) — both UTC
+/// `datetime('now')`-formatted strings ("YYYY-MM-DD HH:MM:SS") computed by
+/// the caller from a locally-picked calendar date, so a day boundary always
+/// matches the user's own timezone rather than UTC midnight.
+#[tauri::command]
+pub fn get_history_for_date(
+    state: State<AppState>,
+    target_id: i64,
+    start: String,
+    end: String,
+) -> Result<Vec<CheckResult>, String> {
+    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT * FROM check_results WHERE target_id = ?1
+             AND checked_at >= ?2 AND checked_at < ?3
+             ORDER BY checked_at DESC",
+        )
+        .map_err(|e| e.to_string())?;
+    let results = stmt
+        .query_map(params![target_id, start, end], row_to_check_result)
         .map_err(|e| e.to_string())?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())?;
@@ -267,6 +330,8 @@ pub async fn get_target_detail(state: State<'_, AppState>, target_id: i64) -> Re
         None => Vec::new(),
     };
 
+    let incidents = build_incidents(&history);
+
     Ok(TargetDetail {
         target,
         ssl_status,
@@ -275,7 +340,38 @@ pub async fn get_target_detail(state: State<'_, AppState>, target_id: i64) -> Re
         uptime_7d_pct,
         history,
         resolved_ips,
+        incidents,
     })
+}
+
+/// Groups consecutive failed checks into incidents. `history` must be in
+/// `checked_at DESC` order (as returned by `get_target_detail`'s query);
+/// this walks it in reverse (i.e. chronological) order to build each
+/// incident's start/end, then returns most-recent-first to match `history`.
+fn build_incidents(history_desc: &[CheckResult]) -> Vec<crate::models::Incident> {
+    let mut incidents = Vec::new();
+    let mut open: Option<crate::models::Incident> = None;
+
+    for check in history_desc.iter().rev() {
+        if !check.success {
+            if open.is_none() {
+                open = Some(crate::models::Incident {
+                    started_at: check.checked_at.clone(),
+                    ended_at: None,
+                    error_message: check.error_message.clone(),
+                });
+            }
+        } else if let Some(mut incident) = open.take() {
+            incident.ended_at = Some(check.checked_at.clone());
+            incidents.push(incident);
+        }
+    }
+    if let Some(incident) = open {
+        incidents.push(incident); // still ongoing as of the most recent check
+    }
+
+    incidents.reverse();
+    incidents
 }
 
 #[tauri::command]

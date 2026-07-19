@@ -14,6 +14,8 @@ export interface AppSettings {
   has_smtp_password: boolean;
   /** Consecutive HTTP failures before a "target is down" alert fires. */
   failure_alert_threshold: number;
+  /** Response time (ms) that must be exceeded for failure_alert_threshold consecutive checks before a "slow" alert fires. 0 disables it. */
+  response_time_alert_threshold_ms: number;
   ssl_alert_threshold_days: number;
   domain_alert_threshold_days: number;
   /** How long check history is kept before being pruned; 0 = keep forever. */

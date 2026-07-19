@@ -22,6 +22,10 @@ pub struct AppSettings {
     pub has_smtp_password: bool,
     /// Consecutive HTTP failures before a "target is down" alert fires.
     pub failure_alert_threshold: i64,
+    /// Response time (ms) a successful check must exceed, for
+    /// `failure_alert_threshold` consecutive checks, before a "slow" alert
+    /// fires. 0 disables this alert.
+    pub response_time_alert_threshold_ms: i64,
     pub ssl_alert_threshold_days: i64,
     pub domain_alert_threshold_days: i64,
     /// How long check_results history is kept before being pruned; 0 = keep forever.
@@ -40,6 +44,7 @@ pub struct UpdateSettingsInput {
     pub smtp_day_of_week: i64,
     pub smtp_day_of_month: i64,
     pub failure_alert_threshold: i64,
+    pub response_time_alert_threshold_ms: i64,
     pub ssl_alert_threshold_days: i64,
     pub domain_alert_threshold_days: i64,
     pub history_retention_days: i64,
@@ -72,6 +77,9 @@ pub fn load_settings(conn: &Connection) -> AppSettings {
         smtp_day_of_month: get_setting(conn, "smtp_day_of_month", "1").parse().unwrap_or(1),
         has_smtp_password: !get_setting(conn, "smtp_password", "").is_empty(),
         failure_alert_threshold: get_setting(conn, "failure_alert_threshold", "2").parse().unwrap_or(2),
+        response_time_alert_threshold_ms: get_setting(conn, "response_time_alert_threshold_ms", "0")
+            .parse()
+            .unwrap_or(0),
         ssl_alert_threshold_days: get_setting(conn, "ssl_alert_threshold_days", "14").parse().unwrap_or(14),
         domain_alert_threshold_days: get_setting(conn, "domain_alert_threshold_days", "30").parse().unwrap_or(30),
         history_retention_days: get_setting(conn, "history_retention_days", "90").parse().unwrap_or(90),
@@ -172,6 +180,12 @@ pub fn update_settings(state: State<AppState>, settings: UpdateSettingsInput) ->
         .map_err(|e| e.to_string())?;
     set_setting(&conn, "failure_alert_threshold", &settings.failure_alert_threshold.to_string())
         .map_err(|e| e.to_string())?;
+    set_setting(
+        &conn,
+        "response_time_alert_threshold_ms",
+        &settings.response_time_alert_threshold_ms.to_string(),
+    )
+    .map_err(|e| e.to_string())?;
     set_setting(&conn, "ssl_alert_threshold_days", &settings.ssl_alert_threshold_days.to_string())
         .map_err(|e| e.to_string())?;
     set_setting(&conn, "domain_alert_threshold_days", &settings.domain_alert_threshold_days.to_string())

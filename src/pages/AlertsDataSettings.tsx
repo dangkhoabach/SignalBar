@@ -23,6 +23,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   smtp_day_of_month: 1,
   has_smtp_password: false,
   failure_alert_threshold: 2,
+  response_time_alert_threshold_ms: 0,
   ssl_alert_threshold_days: 14,
   domain_alert_threshold_days: 30,
   history_retention_days: 90,
@@ -57,6 +58,7 @@ export function AlertsDataSettingsPage() {
         smtp_day_of_week: settings.smtp_day_of_week,
         smtp_day_of_month: settings.smtp_day_of_month,
         failure_alert_threshold: settings.failure_alert_threshold,
+        response_time_alert_threshold_ms: settings.response_time_alert_threshold_ms,
         ssl_alert_threshold_days: settings.ssl_alert_threshold_days,
         domain_alert_threshold_days: settings.domain_alert_threshold_days,
         history_retention_days: settings.history_retention_days,
@@ -137,6 +139,17 @@ export function AlertsDataSettingsPage() {
               min={1}
               value={settings.failure_alert_threshold}
               onChange={(e) => setSettings((s) => ({ ...s, failure_alert_threshold: Number(e.target.value) }))}
+            />
+          </div>
+          <div className="grid gap-1.5">
+            <Label>{t("settings.responseTimeThreshold")}</Label>
+            <Input
+              type="number"
+              min={0}
+              value={settings.response_time_alert_threshold_ms}
+              onChange={(e) =>
+                setSettings((s) => ({ ...s, response_time_alert_threshold_ms: Number(e.target.value) }))
+              }
             />
           </div>
           <div className="grid gap-1.5">

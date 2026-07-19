@@ -1,8 +1,25 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import type { TranslationKey } from "@/lib/i18n/translations";
+import type { Target } from "@/types/target";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
+}
+
+export function isPaused(target: Target): boolean {
+  return !!target.paused_until && new Date(target.paused_until + "Z") > new Date();
+}
+
+/** The far-future sentinel `pause_target` writes for "paused indefinitely" (see commands.rs). */
+const INDEFINITE_PAUSE_PREFIX = "9999-";
+
+export function pausedTooltip(
+  pausedUntil: string,
+  t: (key: TranslationKey, vars?: Record<string, string | number>) => string,
+): string {
+  if (pausedUntil.startsWith(INDEFINITE_PAUSE_PREFIX)) return t("overview.pausedIndefinitely");
+  return t("overview.pausedUntil", { time: formatDateTime(new Date(pausedUntil + "Z")) });
 }
 
 /** Formats a Date as "hh:mm:ss dd/MM/yyyy" (24h, zero-padded). */

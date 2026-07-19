@@ -15,6 +15,7 @@ pub struct Target {
     pub custom_path: Option<String>,
     pub expected_body_contains: Option<String>,
     pub last_checked_at: Option<String>,
+    pub paused_until: Option<String>,
     pub sort_order: i64,
     pub created_at: String,
 }
@@ -92,4 +93,15 @@ pub struct TargetDetail {
     pub uptime_7d_pct: Option<f64>,
     pub history: Vec<CheckResult>,
     pub resolved_ips: Vec<String>,
+    pub incidents: Vec<Incident>,
+}
+
+/// A run of consecutive failed checks, derived from `check_results` rather
+/// than stored directly. `ended_at` is `None` while the incident is still
+/// ongoing (the most recent check in the run is still a failure).
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Incident {
+    pub started_at: String,
+    pub ended_at: Option<String>,
+    pub error_message: Option<String>,
 }

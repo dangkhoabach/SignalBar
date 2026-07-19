@@ -1,12 +1,29 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
-import { ChevronRight } from "lucide-react";
+import { useTheme } from "next-themes";
+import { ChevronRight, Monitor, Moon, Sun } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { useTranslation } from "@/lib/i18n/context";
 import type { AppSettings } from "@/types/settings";
+
+const THEME_OPTIONS = [
+  { value: "light", icon: Sun, labelKey: "theme.light" as const },
+  { value: "dark", icon: Moon, labelKey: "theme.dark" as const },
+  { value: "system", icon: Monitor, labelKey: "theme.system" as const },
+];
+
+function segmentClass(selected: boolean) {
+  return cn(
+    "flex h-7 flex-1 items-center justify-center gap-1.5 rounded-md px-2 text-xs leading-none font-medium transition-colors",
+    selected
+      ? "bg-white text-foreground shadow-sm dark:bg-white/20"
+      : "text-muted-foreground hover:text-foreground",
+  );
+}
 
 const DEFAULT_SETTINGS: AppSettings = {
   notifications_enabled: true,
@@ -20,6 +37,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   smtp_day_of_month: 1,
   has_smtp_password: false,
   failure_alert_threshold: 2,
+  response_time_alert_threshold_ms: 0,
   ssl_alert_threshold_days: 14,
   domain_alert_threshold_days: 30,
   history_retention_days: 90,
@@ -68,7 +86,8 @@ function SettingsNavRow({
 
 export function SettingsPage() {
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t, locale, setLocale } = useTranslation();
+  const { theme, setTheme } = useTheme();
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [autostart, setAutostart] = useState(false);
 
@@ -114,6 +133,7 @@ export function SettingsPage() {
         smtp_day_of_week: updated.smtp_day_of_week,
         smtp_day_of_month: updated.smtp_day_of_month,
         failure_alert_threshold: updated.failure_alert_threshold,
+        response_time_alert_threshold_ms: updated.response_time_alert_threshold_ms,
         ssl_alert_threshold_days: updated.ssl_alert_threshold_days,
         domain_alert_threshold_days: updated.domain_alert_threshold_days,
         history_retention_days: updated.history_retention_days,
@@ -154,6 +174,32 @@ export function SettingsPage() {
             <span className="text-xs text-muted-foreground">{t("settings.autostartDesc")}</span>
           </div>
           <Switch checked={autostart} onCheckedChange={handleAutostartToggle} />
+        </div>
+      </SettingsSection>
+
+      <SettingsSection title={t("settings.appearance")}>
+        <div className="flex items-center justify-between">
+          <span className="text-sm">{t("settings.theme")}</span>
+          <div className="flex items-center gap-0.5 rounded-lg bg-black/[0.06] p-0.5 dark:bg-white/10">
+            {THEME_OPTIONS.map(({ value, icon: Icon, labelKey }) => (
+              <button key={value} onClick={() => setTheme(value)} className={segmentClass(theme === value)}>
+                <Icon className="size-3.5" />
+                {t(labelKey)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <span className="text-sm">{t("settings.language")}</span>
+          <div className="flex items-center gap-0.5 rounded-lg bg-black/[0.06] p-0.5 dark:bg-white/10">
+            <button onClick={() => setLocale("vi")} className={segmentClass(locale === "vi")}>
+              VI
+            </button>
+            <button onClick={() => setLocale("en")} className={segmentClass(locale === "en")}>
+              EN
+            </button>
+          </div>
         </div>
       </SettingsSection>
 

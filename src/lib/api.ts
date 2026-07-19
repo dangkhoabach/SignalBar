@@ -20,8 +20,14 @@ export const api = {
     invoke<void>("set_targets_enabled", { ids, enabled }),
   checkTargetNow: (id: number) => invoke<void>("check_target_now", { id }),
   checkAllNow: () => invoke<void>("check_all_now"),
+  /** `minutes` omitted pauses indefinitely, until `resumeTarget` is called. */
+  pauseTarget: (id: number, minutes?: number) => invoke<void>("pause_target", { id, minutes: minutes ?? null }),
+  resumeTarget: (id: number) => invoke<void>("resume_target", { id }),
   getHistory: (targetId: number, limit = 50) =>
     invoke<CheckResult[]>("get_history", { targetId, limit }),
+  /** `start`/`end` are UTC "YYYY-MM-DD HH:MM:SS" strings — see localDateToUtcRange in TargetDetail.tsx. */
+  getHistoryForDate: (targetId: number, start: string, end: string) =>
+    invoke<CheckResult[]>("get_history_for_date", { targetId, start, end }),
   getOverview: () => invoke<TargetOverview[]>("get_overview"),
   getTargetDetail: (targetId: number) => invoke<TargetDetail>("get_target_detail", { targetId }),
   reorderTargets: (ids: number[]) => invoke<void>("reorder_targets", { ids }),

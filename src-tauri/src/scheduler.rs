@@ -32,6 +32,7 @@ async fn tick(app: &AppHandle) -> Result<(), String> {
             .prepare(
                 "SELECT * FROM targets
                  WHERE enabled = 1 AND check_http = 1
+                 AND (paused_until IS NULL OR paused_until <= datetime('now'))
                  AND (last_checked_at IS NULL
                       OR (julianday('now') - julianday(last_checked_at)) * 86400 >= check_interval_secs)",
             )
@@ -212,6 +213,7 @@ async fn run_expiry_checks(app: &AppHandle) -> Result<bool, String> {
                 "SELECT t.* FROM targets t
                  LEFT JOIN ssl_status s ON s.target_id = t.id
                  WHERE t.enabled = 1 AND t.check_ssl = 1
+                 AND (t.paused_until IS NULL OR t.paused_until <= datetime('now'))
                  AND (s.last_checked IS NULL
                       OR (julianday('now') - julianday(s.last_checked)) * 86400 >= ?1)",
             )
@@ -227,6 +229,7 @@ async fn run_expiry_checks(app: &AppHandle) -> Result<bool, String> {
                 "SELECT t.* FROM targets t
                  LEFT JOIN domain_status d ON d.target_id = t.id
                  WHERE t.enabled = 1 AND t.check_domain = 1
+                 AND (t.paused_until IS NULL OR t.paused_until <= datetime('now'))
                  AND (d.last_checked IS NULL
                       OR (julianday('now') - julianday(d.last_checked)) * 86400 >= ?1)",
             )
@@ -460,13 +463,24 @@ fn store_result(app: &AppHandle, outcome: &CheckOutcome) -> Result<(), String> {
 
     let previous_failures = current_consecutive_failures(&conn, outcome.target_id);
     let new_failures = if outcome.success { 0 } else { previous_failures + 1 };
-    let failure_threshold = settings::load_settings(&conn).failure_alert_threshold;
+
+    let app_settings = settings::load_settings(&conn);
+    let failure_threshold = app_settings.failure_alert_threshold;
+
+    // Only a successful-but-slow response counts toward this streak — an
+    // outright failure is already covered by the down alert above, and
+    // mixing the two would make both dedupe counters unreliable.
+    let previous_slow = current_consecutive_slow(&conn, outcome.target_id);
+    let is_slow = app_settings.response_time_alert_threshold_ms > 0
+        && outcome.success
+        && outcome.response_time_ms > app_settings.response_time_alert_threshold_ms;
+    let new_slow = if is_slow { previous_slow + 1 } else { 0 };
 
     conn.execute(
-        "INSERT INTO alert_state (target_id, consecutive_failures)
-         VALUES (?1, ?2)
-         ON CONFLICT(target_id) DO UPDATE SET consecutive_failures = ?2",
-        params![outcome.target_id, new_failures],
+        "INSERT INTO alert_state (target_id, consecutive_failures, consecutive_slow)
+         VALUES (?1, ?2, ?3)
+         ON CONFLICT(target_id) DO UPDATE SET consecutive_failures = ?2, consecutive_slow = ?3",
+        params![outcome.target_id, new_failures, new_slow],
     )
     .map_err(|e| e.to_string())?;
 
@@ -480,6 +494,17 @@ fn store_result(app: &AppHandle, outcome: &CheckOutcome) -> Result<(), String> {
         );
     } else if outcome.success && previous_failures >= failure_threshold {
         notify(app, &format!("{} đã hoạt động lại", outcome.target_name), "Health check đã thành công");
+    } else if new_slow == failure_threshold {
+        notify(
+            app,
+            &format!("{} phản hồi chậm", outcome.target_name),
+            &format!(
+                "{}ms (ngưỡng {}ms)",
+                outcome.response_time_ms, app_settings.response_time_alert_threshold_ms
+            ),
+        );
+    } else if !is_slow && previous_slow >= failure_threshold {
+        notify(app, &format!("{} đã phản hồi bình thường trở lại", outcome.target_name), "Response time đã ổn định");
     }
 
     Ok(())
@@ -501,6 +526,15 @@ fn notify(app: &AppHandle, title: &str, body: &str) {
 fn current_consecutive_failures(conn: &rusqlite::Connection, target_id: i64) -> i64 {
     conn.query_row(
         "SELECT consecutive_failures FROM alert_state WHERE target_id = ?1",
+        params![target_id],
+        |row| row.get(0),
+    )
+    .unwrap_or(0)
+}
+
+fn current_consecutive_slow(conn: &rusqlite::Connection, target_id: i64) -> i64 {
+    conn.query_row(
+        "SELECT consecutive_slow FROM alert_state WHERE target_id = ?1",
         params![target_id],
         |row| row.get(0),
     )
@@ -552,7 +586,10 @@ pub async fn check_all_now(app: &AppHandle) -> Result<(), String> {
         let state = app.state::<AppState>();
         let conn = state.db.lock().map_err(|e| e.to_string())?;
         let mut stmt = conn
-            .prepare("SELECT id FROM targets WHERE enabled = 1")
+            .prepare(
+                "SELECT id FROM targets
+                 WHERE enabled = 1 AND (paused_until IS NULL OR paused_until <= datetime('now'))",
+            )
             .map_err(|e| e.to_string())?;
         let ids = stmt
             .query_map([], |row| row.get(0))
@@ -582,6 +619,7 @@ fn row_to_target(row: &rusqlite::Row) -> rusqlite::Result<Target> {
         custom_path: row.get("custom_path")?,
         expected_body_contains: row.get("expected_body_contains")?,
         last_checked_at: row.get("last_checked_at")?,
+        paused_until: row.get("paused_until")?,
         sort_order: row.get("sort_order")?,
         created_at: row.get("created_at")?,
     })

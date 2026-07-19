@@ -14,6 +14,8 @@ import {
   RefreshCw,
   X,
   ListChecks,
+  PauseCircle,
+  PlayCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -28,7 +30,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { TargetFormDialog } from "@/components/target-form-dialog";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import { cn, formatDateOnly } from "@/lib/utils";
+import { PauseTargetDialog } from "@/components/pause-target-dialog";
+import { cn, formatDateOnly, isPaused, pausedTooltip } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { useTranslation } from "@/lib/i18n/context";
 import type { TargetFormValues } from "@/lib/schemas";
@@ -63,6 +66,8 @@ function TargetRow({
   selectMode,
   selected,
   onToggleSelected,
+  onPause,
+  onResume,
 }: {
   overview: TargetOverview;
   onEdit: (t: Target) => void;
@@ -74,10 +79,13 @@ function TargetRow({
   selectMode: boolean;
   selected: boolean;
   onToggleSelected: (id: number) => void;
+  onPause: (target: Target) => void;
+  onResume: (id: number) => void;
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { target, latest_check, ssl_status, uptime_24h_pct } = overview;
+  const paused = isPaused(target);
   return (
     <div
       className={cn(
@@ -159,6 +167,11 @@ function TargetRow({
 
         {!target.enabled ? (
           <Badge variant="secondary">{t("overview.status.disabled")}</Badge>
+        ) : paused ? (
+          <Badge variant="secondary" title={pausedTooltip(target.paused_until!, t)}>
+            <PauseCircle className="size-3" />
+            {t("overview.paused")}
+          </Badge>
         ) : !latest_check ? (
           <Badge variant="secondary">{t("overview.status.unchecked")}</Badge>
         ) : latest_check.success ? (
@@ -197,6 +210,17 @@ function TargetRow({
               <RefreshCw className={cn("size-3.5", checking && "animate-spin")} />
               {t("overview.checkNow")}
             </DropdownMenuItem>
+            {paused ? (
+              <DropdownMenuItem onClick={() => onResume(target.id)}>
+                <PlayCircle className="size-3.5" />
+                {t("overview.resume")}
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem onClick={() => onPause(target)}>
+                <PauseCircle className="size-3.5" />
+                {t("overview.pause")}
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem onClick={() => onEdit(target)}>
               <Pencil className="size-3.5" />
               {t("overview.edit")}
@@ -252,6 +276,7 @@ export function OverviewPage() {
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [pendingDelete, setPendingDelete] = useState<{ ids: number[]; name?: string } | null>(null);
+  const [pendingPause, setPendingPause] = useState<Target | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -353,6 +378,25 @@ export function OverviewPage() {
       toast.error(`${t("toast.checkAllNowFailed")}: ${String(err)}`);
     } finally {
       setCheckingAll(false);
+    }
+  };
+
+  const handleConfirmPause = async (minutes?: number) => {
+    if (!pendingPause) return;
+    try {
+      await api.pauseTarget(pendingPause.id, minutes);
+      load();
+    } catch (err) {
+      toast.error(`${t("toast.pauseFailed")}: ${String(err)}`);
+    }
+  };
+
+  const handleResume = async (id: number) => {
+    try {
+      await api.resumeTarget(id);
+      load();
+    } catch (err) {
+      toast.error(`${t("toast.resumeFailed")}: ${String(err)}`);
     }
   };
 
@@ -718,6 +762,8 @@ export function OverviewPage() {
                     selectMode={selectMode}
                     selected={selectedIds.has(row.target.id)}
                     onToggleSelected={toggleSelected}
+                    onPause={setPendingPause}
+                    onResume={handleResume}
                   />
                 ))}
               </div>
@@ -746,6 +792,13 @@ export function OverviewPage() {
         }
         confirmLabel={t("common.delete")}
         onConfirm={confirmDelete}
+      />
+
+      <PauseTargetDialog
+        open={pendingPause !== null}
+        onOpenChange={(open) => !open && setPendingPause(null)}
+        targetName={pendingPause?.name}
+        onPause={handleConfirmPause}
       />
     </div>
   );

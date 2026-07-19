@@ -5,7 +5,6 @@ import { listen } from "@tauri-apps/api/event";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/lib/i18n/context";
 import { api } from "@/lib/api";
-import { ThemeLanguageSwitcher } from "@/components/layout/ThemeLanguageSwitcher";
 import appIcon from "@/app-icon.png";
 
 export function Sidebar() {
@@ -64,8 +63,6 @@ export function Sidebar() {
           </NavLink>
         ))}
       </nav>
-
-      <ThemeLanguageSwitcher />
     </aside>
   );
 }
