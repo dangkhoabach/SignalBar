@@ -72,6 +72,17 @@ pub fn init_db(path: &Path) -> rusqlite::Result<Connection> {
     // targets keep their current (creation-order) position.
     conn.execute("UPDATE targets SET sort_order = id WHERE sort_order IS NULL", [])?;
 
+    // Case/whitespace-insensitive so "Example.com/" and "example.com" can't
+    // both be added. Best-effort: an old install with pre-existing duplicate
+    // URLs would fail this CREATE rather than losing data, so don't treat
+    // that as fatal - just start without the constraint until it's cleaned up.
+    if let Err(e) = conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_targets_url_unique ON targets (lower(trim(url)))",
+        [],
+    ) {
+        eprintln!("Warning: could not create unique URL index (likely duplicate URLs already exist): {e}");
+    }
+
     Ok(conn)
 }
 

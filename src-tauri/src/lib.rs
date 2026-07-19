@@ -122,6 +122,7 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             // The "main" window is declared in tauri.conf.json with
             // "create": false so it's built here instead — there's no JSON
@@ -312,6 +313,9 @@ pub fn run() {
             commands::reorder_targets,
             commands::get_uptime_summary,
             commands::rename_group,
+            commands::export_domains,
+            commands::import_domains,
+            commands::clear_all_targets,
             settings::get_settings,
             settings::update_settings,
             settings::save_smtp_password,

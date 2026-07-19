@@ -32,6 +32,9 @@ export function AlertsDataSettingsPage() {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [saving, setSaving] = useState(false);
   const [testingNotification, setTestingNotification] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [clearing, setClearing] = useState(false);
 
   useEffect(() => {
     api.getSettings().then(setSettings).catch(() => toast.error(t("settings.saveFailed")));
@@ -60,6 +63,46 @@ export function AlertsDataSettingsPage() {
       toast.error(`${t("settings.saveFailed")}: ${String(err)}`);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const path = await api.exportDomains();
+      if (path) toast.success(`${t("settings.exportSuccess")} ${path}`);
+    } catch (err) {
+      toast.error(`${t("settings.exportFailed")}: ${String(err)}`);
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleImport = async () => {
+    setImporting(true);
+    try {
+      const result = await api.importDomains();
+      if (result) {
+        const skippedSuffix = result.skipped > 0 ? `, ${result.skipped} ${t("settings.importSkipped")}` : "";
+        toast.success(`${t("settings.importSuccess")} ${result.imported}${skippedSuffix}`);
+      }
+    } catch (err) {
+      toast.error(`${t("settings.importFailed")}: ${String(err)}`);
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handleClearAll = async () => {
+    if (!window.confirm(t("settings.clearAllDomainsConfirm"))) return;
+    setClearing(true);
+    try {
+      await api.clearAllTargets();
+      toast.success(t("settings.clearAllDomainsSuccess"));
+    } catch (err) {
+      toast.error(`${t("settings.clearAllDomainsFailed")}: ${String(err)}`);
+    } finally {
+      setClearing(false);
     }
   };
 
@@ -131,6 +174,24 @@ export function AlertsDataSettingsPage() {
           </Button>
           <Button variant="outline" onClick={handleTestNotification} disabled={testingNotification}>
             {t("settings.testNotification")}
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
+        <div className="flex flex-col">
+          <span className="text-sm font-medium">{t("settings.domainsImportExport")}</span>
+          <span className="text-xs text-muted-foreground">{t("settings.domainsImportExportDesc")}</span>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleExport} disabled={exporting}>
+            {t("settings.exportDomains")}
+          </Button>
+          <Button variant="outline" onClick={handleImport} disabled={importing}>
+            {t("settings.importDomains")}
+          </Button>
+          <Button variant="destructive" onClick={handleClearAll} disabled={clearing}>
+            {t("settings.clearAllDomains")}
           </Button>
         </div>
       </div>

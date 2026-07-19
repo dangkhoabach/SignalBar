@@ -3,7 +3,9 @@ use crate::models::{
 };
 use crate::AppState;
 use rusqlite::{params, Connection, OptionalExtension};
+use serde::{Deserialize, Serialize};
 use tauri::State;
+use tauri_plugin_dialog::DialogExt;
 
 fn row_to_target(row: &rusqlite::Row) -> rusqlite::Result<Target> {
     Ok(Target {
@@ -78,6 +80,18 @@ fn get_uptime_pct(conn: &Connection, target_id: i64, since_modifier: &str) -> ru
     )
 }
 
+/// True for a `UNIQUE constraint failed` error from the `idx_targets_url_unique`
+/// index (see db.rs) - lets callers turn that specific failure into a friendly
+/// "already monitoring this URL" message instead of a raw SQLite error string.
+fn is_unique_violation(err: &rusqlite::Error) -> bool {
+    matches!(
+        err,
+        rusqlite::Error::SqliteFailure(e, _) if e.code == rusqlite::ErrorCode::ConstraintViolation
+    )
+}
+
+const DUPLICATE_URL_ERROR: &str = "A target with this URL already exists";
+
 /// Uses the caller's explicit group if given; otherwise groups the target
 /// under its registrable root domain (e.g. `tools.example.com` and
 /// `example.com` both land in the "example.com" group) so related
@@ -131,7 +145,7 @@ pub fn add_target(state: State<AppState>, target: NewTarget) -> Result<Target, S
             next_sort_order,
         ],
     )
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| if is_unique_violation(&e) { DUPLICATE_URL_ERROR.to_string() } else { e.to_string() })?;
     let id = conn.last_insert_rowid();
     conn.query_row("SELECT * FROM targets WHERE id = ?1", params![id], row_to_target)
         .map_err(|e| e.to_string())
@@ -161,7 +175,7 @@ pub fn update_target(state: State<AppState>, target: UpdateTarget) -> Result<Tar
             target.id,
         ],
     )
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| if is_unique_violation(&e) { DUPLICATE_URL_ERROR.to_string() } else { e.to_string() })?;
     conn.query_row("SELECT * FROM targets WHERE id = ?1", params![target.id], row_to_target)
         .map_err(|e| e.to_string())
 }
@@ -347,6 +361,202 @@ pub fn rename_group(state: State<AppState>, old_name: String, new_name: String) 
     )
     .map_err(|e| e.to_string())?;
 
+    Ok(())
+}
+
+// Only the target *settings* travel in an export, not history/ssl/domain
+// status or ids/timestamps — those are per-machine derived data that a fresh
+// import will re-populate on its own once the scheduler starts checking.
+#[derive(Debug, Serialize, Deserialize)]
+struct ExportedTarget {
+    name: String,
+    url: String,
+    group_tag: Option<String>,
+    check_interval_secs: i64,
+    enabled: bool,
+    check_http: bool,
+    expected_status: i64,
+    check_ssl: bool,
+    check_domain: bool,
+    custom_path: Option<String>,
+    expected_body_contains: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct DomainsExportFile {
+    format: String,
+    version: u32,
+    exported_at: String,
+    group_order: Vec<String>,
+    targets: Vec<ExportedTarget>,
+}
+
+const EXPORT_FORMAT: &str = "dkb-monitor-domains";
+const EXPORT_VERSION: u32 = 1;
+
+fn get_group_order(conn: &Connection) -> Vec<String> {
+    let raw: String = conn
+        .query_row("SELECT value FROM app_settings WHERE key = 'group_order'", [], |row| row.get(0))
+        .unwrap_or_else(|_| "[]".to_string());
+    serde_json::from_str(&raw).unwrap_or_default()
+}
+
+/// Opens a native save dialog and writes every target's settings (plus the
+/// custom group display order) to a JSON file. Returns `None` if the user
+/// cancels the dialog rather than treating that as an error.
+#[tauri::command]
+pub async fn export_domains(app: tauri::AppHandle, state: State<'_, AppState>) -> Result<Option<String>, String> {
+    let (targets, group_order) = {
+        let conn = state.db.lock().map_err(|e| e.to_string())?;
+        let mut stmt = conn
+            .prepare("SELECT * FROM targets ORDER BY sort_order ASC, created_at ASC")
+            .map_err(|e| e.to_string())?;
+        let targets = stmt
+            .query_map([], row_to_target)
+            .map_err(|e| e.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?;
+        (targets, get_group_order(&conn))
+    };
+
+    let file = DomainsExportFile {
+        format: EXPORT_FORMAT.to_string(),
+        version: EXPORT_VERSION,
+        exported_at: chrono::Utc::now().to_rfc3339(),
+        group_order,
+        targets: targets
+            .into_iter()
+            .map(|t| ExportedTarget {
+                name: t.name,
+                url: t.url,
+                group_tag: t.group_tag,
+                check_interval_secs: t.check_interval_secs,
+                enabled: t.enabled,
+                check_http: t.check_http,
+                expected_status: t.expected_status,
+                check_ssl: t.check_ssl,
+                check_domain: t.check_domain,
+                custom_path: t.custom_path,
+                expected_body_contains: t.expected_body_contains,
+            })
+            .collect(),
+    };
+    let json = serde_json::to_string_pretty(&file).map_err(|e| e.to_string())?;
+
+    let Some(path) = app
+        .dialog()
+        .file()
+        .set_file_name("dkb-monitor-domains.json")
+        .add_filter("JSON", &["json"])
+        .blocking_save_file()
+    else {
+        return Ok(None);
+    };
+    let path = path.into_path().map_err(|e| e.to_string())?;
+    std::fs::write(&path, json).map_err(|e| e.to_string())?;
+    Ok(Some(path.display().to_string()))
+}
+
+#[derive(Debug, Serialize)]
+pub struct ImportResult {
+    imported: usize,
+    skipped: usize,
+}
+
+/// Opens a native open-file dialog and appends every target found in the
+/// chosen export file to this machine's target list (existing targets are
+/// left untouched). Targets whose URL already exists here (case/whitespace
+/// insensitive, same rule as the `idx_targets_url_unique` index) are silently
+/// skipped rather than failing the whole import, since the common case is
+/// re-importing an overlapping list across machines. Returns `None` if the
+/// user cancels the dialog.
+#[tauri::command]
+pub async fn import_domains(app: tauri::AppHandle, state: State<'_, AppState>) -> Result<Option<ImportResult>, String> {
+    let Some(path) = app.dialog().file().add_filter("JSON", &["json"]).blocking_pick_file() else {
+        return Ok(None);
+    };
+    let path = path.into_path().map_err(|e| e.to_string())?;
+    let content = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
+    let file: DomainsExportFile =
+        serde_json::from_str(&content).map_err(|e| format!("Invalid domains export file: {e}"))?;
+    if file.format != EXPORT_FORMAT {
+        return Err("This file isn't a DKB Monitor domains export".to_string());
+    }
+
+    let mut conn = state.db.lock().map_err(|e| e.to_string())?;
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+
+    let mut next_sort_order: i64 = tx
+        .query_row("SELECT COALESCE(MAX(sort_order), 0) + 1 FROM targets", [], |row| row.get(0))
+        .map_err(|e| e.to_string())?;
+    let mut imported = 0usize;
+    let mut skipped = 0usize;
+    for target in file.targets {
+        let already_exists: bool = tx
+            .query_row(
+                "SELECT 1 FROM targets WHERE lower(trim(url)) = lower(trim(?1))",
+                params![target.url],
+                |_| Ok(()),
+            )
+            .optional()
+            .map_err(|e| e.to_string())?
+            .is_some();
+        if already_exists {
+            skipped += 1;
+            continue;
+        }
+        tx.execute(
+            "INSERT INTO targets (name, url, group_tag, check_interval_secs, enabled, check_http,
+                expected_status, check_ssl, check_domain, custom_path, expected_body_contains, sort_order)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+            params![
+                target.name,
+                target.url,
+                target.group_tag,
+                target.check_interval_secs,
+                target.enabled as i64,
+                target.check_http as i64,
+                target.expected_status,
+                target.check_ssl as i64,
+                target.check_domain as i64,
+                target.custom_path,
+                target.expected_body_contains,
+                next_sort_order,
+            ],
+        )
+        .map_err(|e| e.to_string())?;
+        next_sort_order += 1;
+        imported += 1;
+    }
+
+    // Merge in any imported group names not already in this machine's order
+    // so groups keep the exported ordering instead of falling back to
+    // alphabetical placement, without discarding groups already here.
+    let mut order = get_group_order(&tx);
+    for name in &file.group_order {
+        if !order.contains(name) {
+            order.push(name.clone());
+        }
+    }
+    let updated = serde_json::to_string(&order).map_err(|e| e.to_string())?;
+    tx.execute(
+        "INSERT INTO app_settings (key, value) VALUES ('group_order', ?1)
+         ON CONFLICT(key) DO UPDATE SET value = ?1",
+        params![updated],
+    )
+    .map_err(|e| e.to_string())?;
+
+    tx.commit().map_err(|e| e.to_string())?;
+    Ok(Some(ImportResult { imported, skipped }))
+}
+
+/// Deletes every target (check history/ssl/domain status cascade via the FK
+/// constraints in db.rs). The frontend is responsible for confirming with the
+/// user first - this command performs the deletion unconditionally.
+#[tauri::command]
+pub fn clear_all_targets(state: State<AppState>) -> Result<(), String> {
+    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM targets", []).map_err(|e| e.to_string())?;
     Ok(())
 }
 

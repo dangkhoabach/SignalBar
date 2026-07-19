@@ -37,4 +37,9 @@ export const api = {
   disableAutostart: () => invoke<void>("disable_autostart"),
   sendTestNotification: () => invoke<void>("send_test_notification"),
   openNotificationSettings: () => invoke<void>("open_notification_settings"),
+  /** Resolves to the saved file path, or `null` if the user cancelled the dialog. */
+  exportDomains: () => invoke<string | null>("export_domains"),
+  /** Resolves to `{ imported, skipped }`, or `null` if the user cancelled the dialog. */
+  importDomains: () => invoke<{ imported: number; skipped: number } | null>("import_domains"),
+  clearAllTargets: () => invoke<void>("clear_all_targets"),
 };
