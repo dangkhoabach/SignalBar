@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { listen } from "@tauri-apps/api/event";
 import {
@@ -12,11 +12,14 @@ import {
   GripVertical,
   Search,
   RefreshCw,
+  X,
+  ListChecks,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,6 +27,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { TargetFormDialog } from "@/components/target-form-dialog";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { cn, formatDateOnly } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { useTranslation } from "@/lib/i18n/context";
@@ -32,6 +36,7 @@ import type { Target, TargetOverview } from "@/types/target";
 
 const TARGET_DRAG_TYPE = "application/x-dkb-target-id";
 const GROUP_DRAG_TYPE = "application/x-dkb-group-name";
+const isMac = navigator.platform.toLowerCase().includes("mac");
 
 function StatusDot({ overview }: { overview: TargetOverview }) {
   if (!overview.latest_check) {
@@ -55,6 +60,9 @@ function TargetRow({
   onDropTarget,
   onCheckNow,
   checking,
+  selectMode,
+  selected,
+  onToggleSelected,
 }: {
   overview: TargetOverview;
   onEdit: (t: Target) => void;
@@ -63,13 +71,19 @@ function TargetRow({
   onDropTarget: (draggedId: number, droppedOnId: number) => void;
   onCheckNow: (id: number) => void;
   checking: boolean;
+  selectMode: boolean;
+  selected: boolean;
+  onToggleSelected: (id: number) => void;
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { target, latest_check, ssl_status, uptime_24h_pct } = overview;
   return (
     <div
-      className="group flex cursor-pointer items-center gap-1 px-2 py-3 transition-colors hover:bg-accent/50"
+      className={cn(
+        "group flex cursor-pointer items-center gap-1 px-2 py-3 transition-colors hover:bg-accent/50",
+        selected && "bg-accent/40",
+      )}
       onClick={(e) => {
         // Base UI's Switch toggles by re-dispatching a second, independent
         // click event on its hidden checkbox input (so the browser fires a
@@ -78,6 +92,10 @@ function TargetRow({
         // so this checks where the click actually originated instead of
         // relying on propagation having been stopped upstream.
         if ((e.target as HTMLElement).closest("[data-stop-navigation]")) return;
+        if (selectMode) {
+          onToggleSelected(target.id);
+          return;
+        }
         navigate(`/targets/${target.id}`);
       }}
       onDragOver={(e) => {
@@ -88,17 +106,25 @@ function TargetRow({
         if (draggedId && draggedId !== target.id) onDropTarget(draggedId, target.id);
       }}
     >
-      <span
-        draggable
-        onClick={(e) => e.stopPropagation()}
-        onDragStart={(e) => {
-          e.dataTransfer.effectAllowed = "move";
-          e.dataTransfer.setData(TARGET_DRAG_TYPE, String(target.id));
-        }}
-        className="cursor-grab touch-none px-1 text-muted-foreground/50 opacity-0 transition-opacity group-hover:opacity-100"
-      >
-        <GripVertical className="size-3.5" />
-      </span>
+      {!selectMode && (
+        <span
+          draggable
+          onClick={(e) => e.stopPropagation()}
+          onDragStart={(e) => {
+            e.dataTransfer.effectAllowed = "move";
+            e.dataTransfer.setData(TARGET_DRAG_TYPE, String(target.id));
+          }}
+          className="cursor-grab touch-none px-1 text-muted-foreground/50 opacity-0 transition-opacity group-hover:opacity-100"
+        >
+          <GripVertical className="size-3.5" />
+        </span>
+      )}
+
+      {selectMode && (
+        <span data-stop-navigation onClick={(e) => e.stopPropagation()} className="px-1">
+          <Checkbox checked={selected} onCheckedChange={() => onToggleSelected(target.id)} />
+        </span>
+      )}
 
       <StatusDot overview={overview} />
 
@@ -222,6 +248,11 @@ export function OverviewPage() {
   const [editingTarget, setEditingTarget] = useState<Target | null>(null);
   const [search, setSearch] = useState("");
   const [checkingIds, setCheckingIds] = useState<Set<number>>(new Set());
+  const [checkingAll, setCheckingAll] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [pendingDelete, setPendingDelete] = useState<{ ids: number[]; name?: string } | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     try {
@@ -243,6 +274,21 @@ export function OverviewPage() {
     };
   }, [load]);
 
+  // Cmd+K on macOS / Ctrl+K elsewhere focuses the search box, clearing any
+  // active multi-select first since the two occupy the same toolbar slot.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setSelectMode(false);
+        setSelectedIds(new Set());
+        requestAnimationFrame(() => searchInputRef.current?.focus());
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
   const handleAdd = () => {
     setEditingTarget(null);
     setDialogOpen(true);
@@ -253,10 +299,27 @@ export function OverviewPage() {
     setDialogOpen(true);
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = (id: number) => {
+    const name = overview.find((o) => o.target.id === id)?.target.name;
+    setPendingDelete({ ids: [id], name });
+  };
+
+  const confirmDelete = async () => {
+    if (!pendingDelete) return;
+    const { ids } = pendingDelete;
     try {
-      await api.deleteTarget(id);
-      toast.success(t("toast.deleteSuccess"));
+      if (ids.length === 1) {
+        await api.deleteTarget(ids[0]);
+        toast.success(t("toast.deleteSuccess"));
+      } else {
+        await api.deleteTargets(ids);
+        toast.success(t("toast.deleteSelectedSuccess"));
+      }
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        ids.forEach((id) => next.delete(id));
+        return next;
+      });
       load();
     } catch (err) {
       toast.error(`${t("toast.deleteFailed")}: ${String(err)}`);
@@ -278,6 +341,57 @@ export function OverviewPage() {
         return next;
       });
     }
+  };
+
+  const handleCheckAllNow = async () => {
+    setCheckingAll(true);
+    try {
+      await api.checkAllNow();
+      toast.success(t("toast.checkAllNowSuccess"));
+      load();
+    } catch (err) {
+      toast.error(`${t("toast.checkAllNowFailed")}: ${String(err)}`);
+    } finally {
+      setCheckingAll(false);
+    }
+  };
+
+  const handleCheckSelected = async () => {
+    const ids = [...selectedIds];
+    setCheckingIds((prev) => new Set([...prev, ...ids]));
+    try {
+      await Promise.all(ids.map((id) => api.checkTargetNow(id)));
+      toast.success(t("toast.checkAllNowSuccess"));
+      load();
+    } catch (err) {
+      toast.error(`${t("toast.checkAllNowFailed")}: ${String(err)}`);
+    } finally {
+      setCheckingIds((prev) => {
+        const next = new Set(prev);
+        ids.forEach((id) => next.delete(id));
+        return next;
+      });
+    }
+  };
+
+  const handleSetSelectedEnabled = async (enabled: boolean) => {
+    const ids = [...selectedIds];
+    try {
+      await api.setTargetsEnabled(ids, enabled);
+      load();
+    } catch (err) {
+      const key = enabled ? "toast.enableSelectedFailed" : "toast.disableSelectedFailed";
+      toast.error(`${t(key)}: ${String(err)}`);
+    }
+  };
+
+  const toggleSelected = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   };
 
   const handleToggleEnabled = async (target: Target, enabled: boolean) => {
@@ -342,6 +456,19 @@ export function OverviewPage() {
     row.target.name.toLowerCase().includes(searchQuery) ||
     row.target.url.toLowerCase().includes(searchQuery);
 
+  const visibleIds = overview.filter(matchesSearch).map((o) => o.target.id);
+  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
+  const toggleSelectAll = () => {
+    setSelectedIds((prev) => {
+      if (allVisibleSelected) {
+        const next = new Set(prev);
+        visibleIds.forEach((id) => next.delete(id));
+        return next;
+      }
+      return new Set([...prev, ...visibleIds]);
+    });
+  };
+
   const handleDropTarget = async (draggedId: number, droppedOnId: number) => {
     const group = [...grouped.values()].find((rows) => rows.some((r) => r.target.id === draggedId));
     if (!group || !group.some((r) => r.target.id === droppedOnId)) return;
@@ -401,7 +528,7 @@ export function OverviewPage() {
   return (
     <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-6 pt-11 pb-6">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div className="group flex items-center gap-2">
           <h1 className="text-lg font-semibold tracking-tight">{t("overview.title")}</h1>
           {totalCount > 0 && (
             <Badge
@@ -411,22 +538,100 @@ export function OverviewPage() {
               {upCount}/{totalCount} {t("overview.upSummary")}
             </Badge>
           )}
+          {overview.length > 0 && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              title={t("overview.checkAllNow")}
+              onClick={handleCheckAllNow}
+              disabled={checkingAll}
+              className={cn(
+                "opacity-0 transition-opacity group-hover:opacity-100",
+                checkingAll && "opacity-100",
+              )}
+            >
+              <RefreshCw className={cn("size-4", checkingAll && "animate-spin")} />
+            </Button>
+          )}
         </div>
-        <Button onClick={handleAdd}>
-          <Plus className="size-4" />
-          {t("overview.addTarget")}
-        </Button>
+        <div className="flex items-center gap-2">
+          {overview.length > 0 && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (selectMode) setSelectedIds(new Set());
+                setSelectMode((v) => !v);
+              }}
+            >
+              {selectMode ? <X className="size-4" /> : <ListChecks className="size-4" />}
+              {selectMode ? t("common.cancel") : t("overview.select")}
+            </Button>
+          )}
+          <Button onClick={handleAdd}>
+            <Plus className="size-4" />
+            {t("overview.addTarget")}
+          </Button>
+        </div>
       </div>
 
       {overview.length > 0 && (
-        <div className="relative">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-muted-foreground" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t("overview.searchPlaceholder")}
-            className="h-8 w-full rounded-lg border border-input bg-transparent pr-3 pl-8 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-          />
+        <div className="flex items-center gap-2">
+          {selectMode && (
+            <span className="flex shrink-0 items-center pl-1">
+              <Checkbox checked={allVisibleSelected} onCheckedChange={toggleSelectAll} />
+            </span>
+          )}
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <input
+              ref={searchInputRef}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t("overview.searchPlaceholder")}
+              className="h-8 w-full rounded-lg border border-input bg-transparent pr-9 pl-8 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            />
+            {search ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch("");
+                  searchInputRef.current?.focus();
+                }}
+                className="absolute top-1/2 right-2.5 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="size-3.5" />
+              </button>
+            ) : (
+              <kbd className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-[11px] font-medium text-muted-foreground">
+                {isMac ? "⌘K" : "Ctrl K"}
+              </kbd>
+            )}
+          </div>
+        </div>
+      )}
+
+      {selectMode && selectedIds.size > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">
+          <span className="text-xs font-medium text-muted-foreground">
+            {t("overview.selectedCount", { count: selectedIds.size })}
+          </span>
+          <Button variant="outline" size="sm" onClick={handleCheckSelected}>
+            <RefreshCw className="size-3.5" />
+            {t("overview.checkNow")}
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => handleSetSelectedEnabled(true)}>
+            {t("overview.enableSelected")}
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => handleSetSelectedEnabled(false)}>
+            {t("overview.disableSelected")}
+          </Button>
+          <Button variant="destructive" size="sm" onClick={() => setPendingDelete({ ids: [...selectedIds] })}>
+            <Trash2 className="size-3.5" />
+            {t("overview.deleteSelected")}
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>
+            {t("overview.clearSelection")}
+          </Button>
         </div>
       )}
 
@@ -510,6 +715,9 @@ export function OverviewPage() {
                     onDropTarget={handleDropTarget}
                     onCheckNow={handleCheckNow}
                     checking={checkingIds.has(row.target.id)}
+                    selectMode={selectMode}
+                    selected={selectedIds.has(row.target.id)}
+                    onToggleSelected={toggleSelected}
                   />
                 ))}
               </div>
@@ -523,6 +731,21 @@ export function OverviewPage() {
         onOpenChange={setDialogOpen}
         editingTarget={editingTarget}
         onSubmit={handleSubmit}
+      />
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => !open && setPendingDelete(null)}
+        title={t("common.confirmTitle")}
+        description={
+          pendingDelete
+            ? pendingDelete.ids.length === 1
+              ? t("overview.deleteConfirm", { name: pendingDelete.name ?? "" })
+              : t("overview.deleteSelectedConfirm", { count: pendingDelete.ids.length })
+            : ""
+        }
+        confirmLabel={t("common.delete")}
+        onConfirm={confirmDelete}
       />
     </div>
   );

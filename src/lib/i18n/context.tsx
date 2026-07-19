@@ -12,7 +12,7 @@ function detectDefaultLocale(): Locale {
 interface LanguageContextValue {
   locale: Locale;
   setLocale: (locale: Locale) => void;
-  t: (key: TranslationKey) => string;
+  t: (key: TranslationKey, vars?: Record<string, string | number>) => string;
 }
 
 const LanguageContext = createContext<LanguageContextValue | null>(null);
@@ -28,7 +28,14 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     () => ({
       locale,
       setLocale: setLocaleState,
-      t: (key) => translations[locale][key] ?? translations.en[key] ?? key,
+      t: (key, vars) => {
+        const raw: string = translations[locale][key] ?? translations.en[key] ?? key;
+        if (!vars) return raw;
+        return Object.entries(vars).reduce(
+          (acc, [name, value]) => acc.split(`{${name}}`).join(String(value)),
+          raw,
+        );
+      },
     }),
     [locale],
   );

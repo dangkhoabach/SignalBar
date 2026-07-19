@@ -544,6 +544,29 @@ pub async fn check_target_now(app: &AppHandle, target_id: i64) -> Result<(), Str
     Ok(())
 }
 
+/// Runs `check_target_now` for every enabled target, sequentially, reusing
+/// its existing per-target logic and event emission rather than duplicating
+/// it. Triggered from the "Check all now" button in the toolbar.
+pub async fn check_all_now(app: &AppHandle) -> Result<(), String> {
+    let ids: Vec<i64> = {
+        let state = app.state::<AppState>();
+        let conn = state.db.lock().map_err(|e| e.to_string())?;
+        let mut stmt = conn
+            .prepare("SELECT id FROM targets WHERE enabled = 1")
+            .map_err(|e| e.to_string())?;
+        let ids = stmt
+            .query_map([], |row| row.get(0))
+            .map_err(|e| e.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?;
+        ids
+    };
+    for id in ids {
+        let _ = check_target_now(app, id).await;
+    }
+    Ok(())
+}
+
 fn row_to_target(row: &rusqlite::Row) -> rusqlite::Result<Target> {
     Ok(Target {
         id: row.get("id")?,

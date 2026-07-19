@@ -15,7 +15,11 @@ export const api = {
   addTarget: (target: NewTarget) => invoke<Target>("add_target", { target }),
   updateTarget: (target: UpdateTarget) => invoke<Target>("update_target", { target }),
   deleteTarget: (id: number) => invoke<void>("delete_target", { id }),
+  deleteTargets: (ids: number[]) => invoke<void>("delete_targets", { ids }),
+  setTargetsEnabled: (ids: number[], enabled: boolean) =>
+    invoke<void>("set_targets_enabled", { ids, enabled }),
   checkTargetNow: (id: number) => invoke<void>("check_target_now", { id }),
+  checkAllNow: () => invoke<void>("check_all_now"),
   getHistory: (targetId: number, limit = 50) =>
     invoke<CheckResult[]>("get_history", { targetId, limit }),
   getOverview: () => invoke<TargetOverview[]>("get_overview"),
@@ -39,7 +43,7 @@ export const api = {
   sendTestNotification: () => invoke<void>("send_test_notification"),
   openNotificationSettings: () => invoke<void>("open_notification_settings"),
   /** Resolves to the saved file path, or `null` if the user cancelled the dialog. */
-  exportDomains: () => invoke<string | null>("export_domains"),
+  exportDomains: (ids?: number[]) => invoke<string | null>("export_domains", { ids: ids ?? null }),
   /** Resolves to `{ imported, skipped }`, or `null` if the user cancelled the dialog. */
   importDomains: () => invoke<{ imported: number; skipped: number } | null>("import_domains"),
   clearAllTargets: () => invoke<void>("clear_all_targets"),

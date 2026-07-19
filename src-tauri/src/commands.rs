@@ -189,8 +189,34 @@ pub fn delete_target(state: State<AppState>, id: i64) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub fn delete_targets(state: State<AppState>, ids: Vec<i64>) -> Result<(), String> {
+    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    let placeholders = ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+    let sql = format!("DELETE FROM targets WHERE id IN ({placeholders})");
+    let params = ids.iter().map(|id| id as &dyn rusqlite::ToSql).collect::<Vec<_>>();
+    conn.execute(&sql, params.as_slice()).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn set_targets_enabled(state: State<AppState>, ids: Vec<i64>, enabled: bool) -> Result<(), String> {
+    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    let placeholders = ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+    let sql = format!("UPDATE targets SET enabled = ? WHERE id IN ({placeholders})");
+    let mut params: Vec<&dyn rusqlite::ToSql> = vec![&enabled];
+    params.extend(ids.iter().map(|id| id as &dyn rusqlite::ToSql));
+    conn.execute(&sql, params.as_slice()).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn check_target_now(app: tauri::AppHandle, id: i64) -> Result<(), String> {
     crate::scheduler::check_target_now(&app, id).await
+}
+
+#[tauri::command]
+pub async fn check_all_now(app: tauri::AppHandle) -> Result<(), String> {
+    crate::scheduler::check_all_now(&app).await
 }
 
 #[tauri::command]
@@ -410,17 +436,25 @@ fn get_group_order(conn: &Connection) -> Vec<String> {
 /// custom group display order) to a JSON file. Returns `None` if the user
 /// cancels the dialog rather than treating that as an error.
 #[tauri::command]
-pub async fn export_domains(app: tauri::AppHandle, state: State<'_, AppState>) -> Result<Option<String>, String> {
+pub async fn export_domains(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    ids: Option<Vec<i64>>,
+) -> Result<Option<String>, String> {
     let (targets, group_order) = {
         let conn = state.db.lock().map_err(|e| e.to_string())?;
         let mut stmt = conn
             .prepare("SELECT * FROM targets ORDER BY sort_order ASC, created_at ASC")
             .map_err(|e| e.to_string())?;
-        let targets = stmt
+        let mut targets = stmt
             .query_map([], row_to_target)
             .map_err(|e| e.to_string())?
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| e.to_string())?;
+        if let Some(ids) = &ids {
+            let id_set: std::collections::HashSet<i64> = ids.iter().copied().collect();
+            targets.retain(|t| id_set.contains(&t.id));
+        }
         (targets, get_group_order(&conn))
     };
 

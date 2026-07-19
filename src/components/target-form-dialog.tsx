@@ -95,7 +95,7 @@ export function TargetFormDialog({
         <form onSubmit={submit} className="flex flex-col gap-4">
           <div className="grid gap-1.5">
             <Label htmlFor="name">{t("form.name")}</Label>
-            <Input id="name" placeholder="My Website" {...register("name")} />
+            <Input id="name" placeholder={t("form.namePlaceholder")} {...register("name")} />
             {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
           </div>
 

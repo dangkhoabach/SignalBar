@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { ExportDomainsDialog } from "@/components/export-domains-dialog";
 import { api } from "@/lib/api";
 import { useTranslation } from "@/lib/i18n/context";
 import type { AppSettings } from "@/types/settings";
@@ -32,9 +34,10 @@ export function AlertsDataSettingsPage() {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [saving, setSaving] = useState(false);
   const [testingNotification, setTestingNotification] = useState(false);
-  const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [clearAllConfirmOpen, setClearAllConfirmOpen] = useState(false);
 
   useEffect(() => {
     api.getSettings().then(setSettings).catch(() => toast.error(t("settings.saveFailed")));
@@ -66,15 +69,12 @@ export function AlertsDataSettingsPage() {
     }
   };
 
-  const handleExport = async () => {
-    setExporting(true);
+  const handleExport = async (ids?: number[]) => {
     try {
-      const path = await api.exportDomains();
+      const path = await api.exportDomains(ids);
       if (path) toast.success(`${t("settings.exportSuccess")} ${path}`);
     } catch (err) {
       toast.error(`${t("settings.exportFailed")}: ${String(err)}`);
-    } finally {
-      setExporting(false);
     }
   };
 
@@ -94,7 +94,6 @@ export function AlertsDataSettingsPage() {
   };
 
   const handleClearAll = async () => {
-    if (!window.confirm(t("settings.clearAllDomainsConfirm"))) return;
     setClearing(true);
     try {
       await api.clearAllTargets();
@@ -184,17 +183,28 @@ export function AlertsDataSettingsPage() {
           <span className="text-xs text-muted-foreground">{t("settings.domainsImportExportDesc")}</span>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleExport} disabled={exporting}>
+          <Button variant="outline" onClick={() => setExportDialogOpen(true)}>
             {t("settings.exportDomains")}
           </Button>
           <Button variant="outline" onClick={handleImport} disabled={importing}>
             {t("settings.importDomains")}
           </Button>
-          <Button variant="destructive" onClick={handleClearAll} disabled={clearing}>
+          <Button variant="destructive" onClick={() => setClearAllConfirmOpen(true)} disabled={clearing}>
             {t("settings.clearAllDomains")}
           </Button>
         </div>
       </div>
+
+      <ExportDomainsDialog open={exportDialogOpen} onOpenChange={setExportDialogOpen} onExport={handleExport} />
+
+      <ConfirmDialog
+        open={clearAllConfirmOpen}
+        onOpenChange={setClearAllConfirmOpen}
+        title={t("common.confirmTitle")}
+        description={t("settings.clearAllDomainsConfirm")}
+        confirmLabel={t("settings.clearAllDomains")}
+        onConfirm={handleClearAll}
+      />
     </div>
   );
 }
