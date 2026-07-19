@@ -1,12 +1,11 @@
 # Releasing DKB Monitor (macOS + Windows)
 
 ```bash
-release/release.sh          # patch bump (default), builds macOS
-release/release.sh minor
-release/release.sh major
+release/release.sh
 ```
 
-Bumps the version and builds + signs the macOS release into
+Shows the current version and asks which version to release (Enter keeps it
+unchanged — no auto-bump), then builds + signs the macOS release into
 `release/output/<version>/macos/`. Windows is a separate step on a separate
 machine (see below) — there's no way around that, see "Why Windows is
 separate" below.
@@ -81,7 +80,7 @@ git push
 
 ## Files in this folder
 
-- `release.sh` — orchestrator: version bump + macOS build + next-step instructions.
-- `bump-version.sh` — bumps `package.json` / `Cargo.toml` / `tauri.conf.json` in lockstep.
+- `release.sh` — orchestrator: prompts for the version (Enter keeps the current one, no auto-bump) + macOS build + next-step instructions.
+- `set-version.sh <version>` — sets an exact version across `package.json` / `Cargo.toml` / `tauri.conf.json` in lockstep (no bump math).
 - `build-macos.sh` — builds + signs locally, output to `release/output/<version>/macos/`.
 - `build-windows.ps1` — same, for Windows; run on an actual Windows machine after `git pull`.

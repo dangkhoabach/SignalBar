@@ -855,7 +855,7 @@ dependencies = [
 
 [[package]]
 name = "dkb-monitor"
-version = "0.1.13"
+version = "1.0.0"
 dependencies = [
  "aes-gcm",
  "chrono",
