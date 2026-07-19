@@ -327,6 +327,19 @@ pub fn run() {
             autostart::enable_autostart,
             autostart::disable_autostart,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|_app_handle, _event| {
+            // macOS sends this when the user reopens the app (Dock/Launchpad/
+            // Finder) while it's already running — e.g. right after closing
+            // the window, which only hides it and switches to Accessory mode
+            // rather than quitting (see the CloseRequested handler above).
+            // Without this, that second "open" click does nothing visible:
+            // the process is already running, so macOS never launches a new
+            // window, and nothing else here was listening for the reopen.
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { .. } = _event {
+                show_main_window(_app_handle);
+            }
+        });
 }

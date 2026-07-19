@@ -22,12 +22,25 @@ mod platform {
 
     /// Returns `true` if macOS requires the user to approve the item in System
     /// Settings before it will actually run (common on first registration).
+    ///
+    /// Only calls `register()` when the service isn't already Enabled/
+    /// RequiresApproval. `smappservice_rs::ServiceStatus::NotRegistered`'s own
+    /// doc comment warns this status is *also* returned "if the service
+    /// attempted to reregister after it was already registered" — i.e.
+    /// calling register() again on an already-registered service isn't
+    /// guaranteed to be the safe no-op `AlreadyRegistered` implies; in
+    /// practice this produced a duplicate entry in System Settings > Login
+    /// Items. Checking status first avoids ever calling register() a second
+    /// time for a service that's already registered.
     #[tauri::command]
     pub fn enable_autostart() -> Result<bool, String> {
         let service = app_service();
-        match service.register() {
-            Ok(()) | Err(ServiceManagementError::AlreadyRegistered) => {}
-            Err(e) => return Err(e.to_string()),
+        let current_status = service.status();
+        if !matches!(current_status, ServiceStatus::Enabled | ServiceStatus::RequiresApproval) {
+            match service.register() {
+                Ok(()) | Err(ServiceManagementError::AlreadyRegistered) => {}
+                Err(e) => return Err(e.to_string()),
+            }
         }
         let needs_approval = matches!(service.status(), ServiceStatus::RequiresApproval);
         if needs_approval {

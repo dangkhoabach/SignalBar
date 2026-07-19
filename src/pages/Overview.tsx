@@ -136,12 +136,17 @@ function TargetRow({
           <Badge variant="destructive">{t("overview.status.down")}</Badge>
         )}
 
-        <Switch
-          checked={target.enabled}
-          onCheckedChange={(checked) => onToggleEnabled(target, checked)}
-          onClick={(e) => e.stopPropagation()}
-          data-stop-navigation
-        />
+        {/* Base UI's Switch renders its hidden checkbox <input> as a SIBLING
+            of the visible <span> it toggles (not a child of it) — the
+            re-dispatched click this component fires on that input therefore
+            has a target outside the <span>'s own subtree, so putting
+            data-stop-navigation directly on <Switch> can't be found by the
+            row's closest() check for that second click. Wrapping both in a
+            span with the marker fixes it regardless of which of the two
+            elements the click actually targets. */}
+        <span data-stop-navigation onClick={(e) => e.stopPropagation()}>
+          <Switch checked={target.enabled} onCheckedChange={(checked) => onToggleEnabled(target, checked)} />
+        </span>
 
         <DropdownMenu>
           <DropdownMenuTrigger
