@@ -14,7 +14,13 @@ use std::sync::Mutex;
 use std::time::Duration;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
-use tauri::{ActivationPolicy, Emitter, LogicalPosition, Manager, WebviewWindowBuilder, WindowEvent};
+use tauri::{Emitter, Manager, WebviewWindowBuilder, WindowEvent};
+// `ActivationPolicy` and `traffic_light_position` (further below) don't even
+// exist on non-macOS targets — the tauri crate only re-exports/compiles them
+// under `#[cfg(target_os = "macos")]`, so this import itself must be gated,
+// not just its call sites.
+#[cfg(target_os = "macos")]
+use tauri::{ActivationPolicy, LogicalPosition};
 
 /// Regular apps (the default) always count as foreground-capable to macOS,
 /// even with zero open windows — Login Items then reports them as "Not
@@ -22,8 +28,11 @@ use tauri::{ActivationPolicy, Emitter, LogicalPosition, Manager, WebviewWindowBu
 /// sitting in the tray. Switching to Accessory (no Dock icon, background-only)
 /// while hidden is what makes the OS recognize this as an actual background
 /// process; switching back to Regular when the window reopens restores the
-/// normal Dock presence.
+/// normal Dock presence. Windows/Linux have no equivalent concept — the tray
+/// icon alone is enough for the OS to treat this as a background app, so
+/// there's nothing to toggle there.
 fn show_main_window(app: &tauri::AppHandle) {
+    #[cfg(target_os = "macos")]
     let _ = app.set_activation_policy(ActivationPolicy::Regular);
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.show();
@@ -71,6 +80,7 @@ fn send_test_notification(app: tauri::AppHandle) -> Result<(), String> {
 /// deep-links straight to this app's own Notifications settings pane so the
 /// user can check/grant it themselves — the same pattern System Settings
 /// uses for its own "Login Items" deep link.
+#[cfg(target_os = "macos")]
 #[tauri::command]
 fn open_notification_settings(app: tauri::AppHandle) -> Result<(), String> {
     let identifier = &app.config().identifier;
@@ -81,6 +91,28 @@ fn open_notification_settings(app: tauri::AppHandle) -> Result<(), String> {
         .spawn()
         .map_err(|e| e.to_string())?;
     Ok(())
+}
+
+/// `ms-settings:notifications` is Windows' equivalent deep link (opens the
+/// system Notifications settings page — Windows doesn't expose a per-app
+/// pane via URI the way macOS does, so this is the closest match). Launched
+/// through `explorer.exe` rather than `cmd /C start`, since `explorer` is the
+/// documented way to hand a `ms-settings:` URI to its registered handler
+/// without going through a shell that would need its own quoting/escaping.
+#[cfg(target_os = "windows")]
+#[tauri::command]
+fn open_notification_settings(_app: tauri::AppHandle) -> Result<(), String> {
+    std::process::Command::new("explorer")
+        .arg("ms-settings:notifications")
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+#[tauri::command]
+fn open_notification_settings(_app: tauri::AppHandle) -> Result<(), String> {
+    Err("Not supported on this platform".into())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -105,9 +137,13 @@ pub fn run() {
                 .find(|w| w.label == "main")
                 .expect("main window must be declared in tauri.conf.json")
                 .clone();
-            WebviewWindowBuilder::from_config(app, &main_window_config)?
-                .traffic_light_position(LogicalPosition::new(18.0, 22.0))
-                .build()?;
+            let window_builder = WebviewWindowBuilder::from_config(app, &main_window_config)?;
+            // traffic_light_position has no equivalent on Windows/Linux (there
+            // are no traffic-light buttons to reposition) — the window just
+            // uses its native title bar there instead.
+            #[cfg(target_os = "macos")]
+            let window_builder = window_builder.traffic_light_position(LogicalPosition::new(18.0, 22.0));
+            window_builder.build()?;
 
             let app_data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&app_data_dir)?;
@@ -242,6 +278,17 @@ pub fn run() {
                 .expect("failed to apply macOS vibrancy");
             }
 
+            // Mica only exists on Windows 11 (window-vibrancy returns an Err
+            // on Windows 10, which apply_vibrancy above `.expect()`s on for
+            // macOS since it's expected to always succeed there — Mica isn't,
+            // so this is allowed to silently no-op instead of crashing the
+            // app over a purely cosmetic effect).
+            #[cfg(target_os = "windows")]
+            {
+                let window = app.get_webview_window("main").unwrap();
+                let _ = window_vibrancy::apply_mica(&window, None);
+            }
+
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -249,6 +296,7 @@ pub fn run() {
             // since this app is meant to keep monitoring in the background.
             if let WindowEvent::CloseRequested { api, .. } = event {
                 let _ = window.hide();
+                #[cfg(target_os = "macos")]
                 let _ = window.app_handle().set_activation_policy(ActivationPolicy::Accessory);
                 api.prevent_close();
             }

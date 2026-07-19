@@ -15,6 +15,9 @@ dist-ssr
 # Local-only updater signing secrets — never commit
 .env.release
 
+# Release build output (installers/updater artifacts) — large binaries, not source
+release/output/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -99,12 +99,49 @@ fn gpu_percent() -> Option<f32> {
     digits.parse::<f32>().ok()
 }
 
-#[cfg(not(target_os = "macos"))]
+/// No public Windows API gives a one-line adapter name as cheaply as WMI/CIM;
+/// `Get-CimInstance` takes ~100-200ms so — same reasoning as macOS's
+/// `system_profiler` above — this is cached for the process lifetime instead
+/// of queried on every poll.
+#[cfg(target_os = "windows")]
+fn gpu_name() -> Option<String> {
+    static NAME: OnceLock<Option<String>> = OnceLock::new();
+    NAME.get_or_init(|| {
+        let output = std::process::Command::new("powershell")
+            .args([
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                "(Get-CimInstance Win32_VideoController | Select-Object -First 1 -ExpandProperty Name)",
+            ])
+            .output()
+            .ok()?;
+        let name = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if name.is_empty() {
+            None
+        } else {
+            Some(name)
+        }
+    })
+    .clone()
+}
+
+/// Unlike macOS's `ioreg` trick, live GPU utilization on Windows only comes
+/// from perf counters that report per-"engine" instances with unstable,
+/// driver-specific names (`Get-Counter '\GPU Engine(*)\Utilization
+/// Percentage'`) — summing them reliably needs per-vendor handling that isn't
+/// worth the fragility here, so this is left unavailable rather than guessed.
+#[cfg(target_os = "windows")]
+fn gpu_percent() -> Option<f32> {
+    None
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 fn gpu_name() -> Option<String> {
     None
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 fn gpu_percent() -> Option<f32> {
     None
 }
@@ -193,7 +230,60 @@ fn network_status() -> NetworkStatus {
     }
 }
 
-#[cfg(not(target_os = "macos"))]
+/// One PowerShell invocation gathering interface/type/SSID/IP together,
+/// rather than four separate spawns like the macOS path above — PowerShell's
+/// ~100-300ms startup cost is high enough that doing it 4x per poll (this
+/// runs every few seconds) would be a real, avoidable cost on Windows.
+/// `netsh wlan show interfaces` is still shelled out to for the SSID line
+/// specifically — `Get-NetConnectionProfile`/`Get-NetAdapter` don't expose it,
+/// and `netsh` is a stable, always-present Windows component (unlike a
+/// third-party tool).
+#[cfg(target_os = "windows")]
+const NETWORK_STATUS_SCRIPT: &str = r#"
+$ErrorActionPreference = 'SilentlyContinue'
+$profile = Get-NetConnectionProfile | Where-Object { $_.IPv4Connectivity -eq 'Internet' -or $_.IPv6Connectivity -eq 'Internet' } | Select-Object -First 1
+if (-not $profile) { Write-Output 'DISCONNECTED'; exit }
+$alias = $profile.InterfaceAlias
+$adapter = Get-NetAdapter -Name $alias
+$isWifi = $adapter.PhysicalMediaType -like '*802.11*'
+$type = if ($isWifi) { 'Wi-Fi' } else { 'Ethernet' }
+$ssid = ''
+if ($isWifi) {
+    $wlanOutput = netsh wlan show interfaces
+    $ssidLine = $wlanOutput | Select-String '^\s*SSID\s*:\s*(.+)$' | Select-Object -First 1
+    if ($ssidLine) { $ssid = $ssidLine.Matches[0].Groups[1].Value.Trim() }
+}
+$ip = (Get-NetIPAddress -InterfaceAlias $alias -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { $_.PrefixOrigin -ne 'WellKnown' } | Select-Object -First 1).IPAddress
+Write-Output "CONNECTED|$type|$ssid|$ip"
+"#;
+
+#[cfg(target_os = "windows")]
+fn network_status() -> NetworkStatus {
+    let Ok(output) = std::process::Command::new("powershell")
+        .args(["-NoProfile", "-NonInteractive", "-Command", NETWORK_STATUS_SCRIPT])
+        .output()
+    else {
+        return NetworkStatus::default();
+    };
+    let text = String::from_utf8_lossy(&output.stdout);
+    let line = text.trim();
+    if !line.starts_with("CONNECTED") {
+        return NetworkStatus::default();
+    }
+    let mut parts = line.splitn(4, '|');
+    parts.next(); // "CONNECTED"
+    let interface_type = parts.next().filter(|s| !s.is_empty()).map(|s| s.to_string());
+    let name = parts.next().filter(|s| !s.is_empty()).map(|s| s.to_string());
+    let local_ip = parts.next().filter(|s| !s.is_empty()).map(|s| s.to_string());
+    NetworkStatus {
+        connected: true,
+        interface_type,
+        name,
+        local_ip,
+    }
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 fn network_status() -> NetworkStatus {
     NetworkStatus::default()
 }

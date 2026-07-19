@@ -30,11 +30,61 @@ pub fn extract_registrable_domain(host: &str) -> String {
     }
 }
 
+/// Windows doesn't ship `openssl.exe` by default (unlike macOS/most Linux
+/// distros), so the same "connect and read the presented certificate's
+/// expiry, don't validate trust" behavior is done via PowerShell/.NET
+/// (`SslStream`/`X509Certificate2`) instead — present on every supported
+/// Windows version, no extra install required. The host is passed as a
+/// separate process argument (`$args[0]`), never interpolated into the
+/// script text, so it can't break out into script injection even though it
+/// comes from user-entered target config.
+#[cfg(target_os = "windows")]
+const WINDOWS_SSL_SCRIPT: &str = r#"
+$ErrorActionPreference = 'Stop'
+try {
+    $tcp = New-Object System.Net.Sockets.TcpClient($args[0], 443)
+    $ssl = New-Object System.Net.Security.SslStream($tcp.GetStream(), $false, { $true })
+    $ssl.AuthenticateAsClient($args[0])
+    $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($ssl.RemoteCertificate)
+    Write-Output $cert.NotAfter.ToString('yyyy-MM-dd')
+    $ssl.Close()
+    $tcp.Close()
+} catch {
+    exit 1
+}
+"#;
+
+#[cfg(target_os = "windows")]
+pub async fn check_ssl_expiry(host: &str) -> Result<Option<String>, String> {
+    let fut = async {
+        let output = Command::new("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-Command", WINDOWS_SSL_SCRIPT, host])
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .output()
+            .await
+            .map_err(|e| e.to_string())?;
+        if !output.status.success() {
+            return Ok(None);
+        }
+        let text = String::from_utf8_lossy(&output.stdout);
+        Ok(NaiveDate::parse_from_str(text.trim(), "%Y-%m-%d")
+            .ok()
+            .map(|d| d.format("%Y-%m-%d").to_string()))
+    };
+
+    tokio::time::timeout(Duration::from_secs(CHECK_TIMEOUT_SECS), fut)
+        .await
+        .unwrap_or(Ok(None))
+}
+
 /// Runs `openssl s_client` (stdin closed, so it exits right after the TLS
 /// handshake) piped into `openssl x509 -noout -enddate`. Both processes are
 /// invoked with an explicit argument array (never a shell string), so the
 /// host — which comes from user-entered target config — cannot break out
 /// into shell metacharacters.
+#[cfg(not(target_os = "windows"))]
 pub async fn check_ssl_expiry(host: &str) -> Result<Option<String>, String> {
     let connect_arg = format!("{host}:443");
     let fut = async {
@@ -108,16 +158,28 @@ pub async fn check_domain_expiry(domain: &str) -> Result<Option<String>, String>
         if let Some(date) = rdap_domain_expiry(domain).await {
             return Ok(Some(date));
         }
-        let output = Command::new("whois")
-            .arg(domain)
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null())
-            .output()
-            .await
-            .map_err(|e| e.to_string())?;
-        let text = String::from_utf8_lossy(&output.stdout);
-        Ok(parse_whois_expiry(&text))
+        // `whois` isn't a default Windows component (unlike macOS/most Linux
+        // distros); RDAP already covers the vast majority of TLDs, and the
+        // handful that don't have an RDAP server (e.g. .vn) simply report
+        // "unknown" on Windows rather than shelling out to a tool that isn't
+        // guaranteed to exist.
+        #[cfg(target_os = "windows")]
+        {
+            return Ok(None);
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            let output = Command::new("whois")
+                .arg(domain)
+                .stdin(Stdio::null())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::null())
+                .output()
+                .await
+                .map_err(|e| e.to_string())?;
+            let text = String::from_utf8_lossy(&output.stdout);
+            Ok(parse_whois_expiry(&text))
+        }
     };
 
     tokio::time::timeout(Duration::from_secs(DOMAIN_CHECK_TIMEOUT_SECS), fut)
@@ -205,6 +267,7 @@ async fn rdap_domain_expiry(domain: &str) -> Option<String> {
         .map(|dt| dt.format("%Y-%m-%d").to_string())
 }
 
+#[cfg(not(target_os = "windows"))]
 const EXPIRY_LINE_PATTERNS: [&str; 6] = [
     "registry expiry date:",
     "registrar registration expiration date:",
@@ -214,6 +277,7 @@ const EXPIRY_LINE_PATTERNS: [&str; 6] = [
     "expire date:",
 ];
 
+#[cfg(not(target_os = "windows"))]
 fn parse_whois_expiry(text: &str) -> Option<String> {
     for line in text.lines() {
         let lower = line.to_lowercase();
@@ -229,6 +293,7 @@ fn parse_whois_expiry(text: &str) -> Option<String> {
     None
 }
 
+#[cfg(not(target_os = "windows"))]
 fn normalize_whois_date(raw: &str) -> Option<String> {
     let cleaned = raw.split(['T', ' ']).next().unwrap_or(raw);
     NaiveDate::parse_from_str(cleaned, "%Y-%m-%d")
