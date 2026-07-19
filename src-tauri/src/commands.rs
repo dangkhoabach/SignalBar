@@ -189,6 +189,11 @@ pub fn delete_target(state: State<AppState>, id: i64) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub async fn check_target_now(app: tauri::AppHandle, id: i64) -> Result<(), String> {
+    crate::scheduler::check_target_now(&app, id).await
+}
+
+#[tauri::command]
 pub fn get_history(state: State<AppState>, target_id: i64, limit: i64) -> Result<Vec<CheckResult>, String> {
     let conn = state.db.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn

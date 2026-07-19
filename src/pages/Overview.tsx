@@ -11,6 +11,7 @@ import {
   MoreVertical,
   GripVertical,
   Search,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -52,12 +53,16 @@ function TargetRow({
   onDelete,
   onToggleEnabled,
   onDropTarget,
+  onCheckNow,
+  checking,
 }: {
   overview: TargetOverview;
   onEdit: (t: Target) => void;
   onDelete: (id: number) => void;
   onToggleEnabled: (target: Target, enabled: boolean) => void;
   onDropTarget: (draggedId: number, droppedOnId: number) => void;
+  onCheckNow: (id: number) => void;
+  checking: boolean;
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -162,6 +167,10 @@ function TargetRow({
             <MoreVertical className="size-3.5" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+            <DropdownMenuItem disabled={checking} onClick={() => onCheckNow(target.id)}>
+              <RefreshCw className={cn("size-3.5", checking && "animate-spin")} />
+              {t("overview.checkNow")}
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onEdit(target)}>
               <Pencil className="size-3.5" />
               {t("overview.edit")}
@@ -212,6 +221,7 @@ export function OverviewPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTarget, setEditingTarget] = useState<Target | null>(null);
   const [search, setSearch] = useState("");
+  const [checkingIds, setCheckingIds] = useState<Set<number>>(new Set());
 
   const load = useCallback(async () => {
     try {
@@ -250,6 +260,23 @@ export function OverviewPage() {
       load();
     } catch (err) {
       toast.error(`${t("toast.deleteFailed")}: ${String(err)}`);
+    }
+  };
+
+  const handleCheckNow = async (id: number) => {
+    setCheckingIds((prev) => new Set(prev).add(id));
+    try {
+      await api.checkTargetNow(id);
+      toast.success(t("toast.checkNowSuccess"));
+      load();
+    } catch (err) {
+      toast.error(`${t("toast.checkNowFailed")}: ${String(err)}`);
+    } finally {
+      setCheckingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
   };
 
@@ -481,6 +508,8 @@ export function OverviewPage() {
                     onDelete={handleDelete}
                     onToggleEnabled={handleToggleEnabled}
                     onDropTarget={handleDropTarget}
+                    onCheckNow={handleCheckNow}
+                    checking={checkingIds.has(row.target.id)}
                   />
                 ))}
               </div>

@@ -507,6 +507,43 @@ fn current_consecutive_failures(conn: &rusqlite::Connection, target_id: i64) -> 
     .unwrap_or(0)
 }
 
+/// On-demand single-target check triggered from the UI ("Check now" in the
+/// row menu), bypassing the due-time filters `tick()` uses. Reuses the exact
+/// same check/store functions the scheduler runs on its own interval, so
+/// results, alert de-dupe, and notifications behave identically either way.
+pub async fn check_target_now(app: &AppHandle, target_id: i64) -> Result<(), String> {
+    let target = {
+        let state = app.state::<AppState>();
+        let conn = state.db.lock().map_err(|e| e.to_string())?;
+        conn.query_row("SELECT * FROM targets WHERE id = ?1", params![target_id], row_to_target)
+            .map_err(|e| e.to_string())?
+    };
+
+    if target.check_http {
+        let client = app.state::<AppState>().http_client.clone();
+        let outcome = run_check(&client, target.clone()).await;
+        store_result(app, &outcome)?;
+    }
+
+    if target.check_ssl {
+        if let Some(host) = expiry_check::extract_host(&target.url) {
+            let expiry = expiry_check::check_ssl_expiry(&host).await.unwrap_or(None);
+            store_ssl_status(app, &target, expiry)?;
+        }
+    }
+
+    if target.check_domain {
+        if let Some(host) = expiry_check::extract_host(&target.url) {
+            let domain = expiry_check::extract_registrable_domain(&host);
+            let expiry = expiry_check::check_domain_expiry(&domain).await.unwrap_or(None);
+            store_domain_status(app, &target, expiry)?;
+        }
+    }
+
+    let _ = app.emit("overview-updated", ());
+    Ok(())
+}
+
 fn row_to_target(row: &rusqlite::Row) -> rusqlite::Result<Target> {
     Ok(Target {
         id: row.get("id")?,

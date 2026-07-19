@@ -307,6 +307,7 @@ pub fn run() {
             commands::add_target,
             commands::update_target,
             commands::delete_target,
+            commands::check_target_now,
             commands::get_history,
             commands::get_overview,
             commands::get_target_detail,

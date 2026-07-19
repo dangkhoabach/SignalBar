@@ -15,6 +15,7 @@ export const api = {
   addTarget: (target: NewTarget) => invoke<Target>("add_target", { target }),
   updateTarget: (target: UpdateTarget) => invoke<Target>("update_target", { target }),
   deleteTarget: (id: number) => invoke<void>("delete_target", { id }),
+  checkTargetNow: (id: number) => invoke<void>("check_target_now", { id }),
   getHistory: (targetId: number, limit = 50) =>
     invoke<CheckResult[]>("get_history", { targetId, limit }),
   getOverview: () => invoke<TargetOverview[]>("get_overview"),
