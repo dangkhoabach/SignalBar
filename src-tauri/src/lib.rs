@@ -88,6 +88,8 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .setup(|app| {
             // The "main" window is declared in tauri.conf.json with
             // "create": false so it's built here instead — there's no JSON
@@ -211,8 +213,11 @@ pub fn run() {
             app.on_menu_event(move |app, event| {
                 match event.id().as_ref() {
                     "check-update" => {
-                        // Update checking isn't implemented yet; surface a toast
-                        // in the frontend instead of silently doing nothing.
+                        // The updater plugin's check/download/install flow runs
+                        // entirely from the frontend (it needs a UI for progress
+                        // and the restart prompt); this just brings the window
+                        // forward and tells it to start.
+                        show_main_window(app);
                         let _ = update_app_handle.emit("check-update-clicked", ());
                     }
                     "about" => {

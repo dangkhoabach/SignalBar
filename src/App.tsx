@@ -2,18 +2,17 @@ import { useEffect } from "react";
 import { ThemeProvider, useTheme } from "next-themes";
 import { HashRouter, Route, Routes } from "react-router";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
-import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { AboutDialog } from "@/components/layout/AboutDialog";
+import { UpdateDialog } from "@/components/layout/UpdateDialog";
 import { OverviewPage } from "@/pages/Overview";
 import { TargetDetailPage } from "@/pages/TargetDetail";
 import { SystemPage } from "@/pages/System";
 import { SettingsPage } from "@/pages/Settings";
 import { EmailReportSettingsPage } from "@/pages/EmailReportSettings";
 import { AlertsDataSettingsPage } from "@/pages/AlertsDataSettings";
-import { LanguageProvider, useTranslation } from "@/lib/i18n/context";
+import { LanguageProvider } from "@/lib/i18n/context";
 
 /// The macOS vibrancy blur is a native window-level effect, not CSS — it
 /// must be told the resolved theme separately or it keeps rendering with
@@ -34,30 +33,12 @@ function NativeThemeSync() {
   return null;
 }
 
-/// The native "Check for Updates…" Help menu item is a stub for now — the
-/// actual updater isn't built yet, so clicking it just surfaces a toast
-/// instead of doing nothing silently.
-function CheckUpdateListener() {
-  const { t } = useTranslation();
-
-  useEffect(() => {
-    const unlisten = listen("check-update-clicked", () => {
-      toast.info(t("app.checkUpdateComingSoon"));
-    });
-    return () => {
-      unlisten.then((fn) => fn());
-    };
-  }, [t]);
-
-  return null;
-}
-
 function App() {
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <NativeThemeSync />
       <LanguageProvider>
-        <CheckUpdateListener />
+        <UpdateDialog />
         <AboutDialog />
         <HashRouter>
           <div className="flex h-screen text-foreground">

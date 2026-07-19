@@ -49,3 +49,20 @@ Requires Rust (via `rustup`) and Xcode Command Line Tools on macOS.
 ## Versioning
 
 Each release build bumps the patch version (`src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml`, `package.json`) — e.g. `0.1.3` → `0.1.4`. Minor/major bumps are manual.
+
+## Publishing an update (Check for Updates)
+
+The app checks `https://updates.dangkhoabach.vn/dkb-monitor/latest.json` (Tauri updater plugin, configured in `tauri.conf.json`). To ship a new version:
+
+```bash
+set -a; source .env.release; set +a   # loads the local signing key + password (gitignored)
+npm run tauri build
+```
+
+This produces, in addition to the normal `.dmg`:
+- `src-tauri/target/release/bundle/macos/DKB Monitor.app.tar.gz`
+- `src-tauri/target/release/bundle/macos/DKB Monitor.app.tar.gz.sig`
+
+Write `latest.json` (version, notes, `pub_date`, and a `darwin-aarch64` platform entry with the `.sig` file's contents as `signature` and a URL pointing at the artifact once uploaded), then copy `latest.json` + the two files above into `~/MyWebsite/deploy/updates/dkb-monitor/` and run `~/MyWebsite/deploy/publish-update.sh dkb-monitor` to upload them.
+
+The signing keypair lives at `~/.tauri/dkb-monitor-updater.key` (private, never committed) with its public half embedded in `tauri.conf.json`. Losing the private key means old installs can never verify a new signed update again — back it up somewhere safe.

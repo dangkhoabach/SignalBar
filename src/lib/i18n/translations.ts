@@ -1,7 +1,6 @@
 export const translations = {
   en: {
     "app.name": "DKB Monitor",
-    "app.checkUpdateComingSoon": "Update checking isn't available yet",
     "nav.overview": "Domains",
     "nav.system": "System",
     "nav.settings": "Settings",
@@ -123,10 +122,22 @@ export const translations = {
     "settings.sendTestEmail": "Send test email",
     "settings.testEmailSent": "Test email sent",
     "settings.testEmailFailed": "Failed to send test email",
+
+    "update.upToDate": "You're already on the latest version",
+    "update.checkFailed": "Could not check for updates",
+    "update.availableTitle": "Update available",
+    "update.readyTitle": "Update ready",
+    "update.newVersion": "New version",
+    "update.currentVersion": "current",
+    "update.downloading": "Downloading update...",
+    "update.readyDesc": "The update has been installed. Restart DKB Monitor to finish.",
+    "update.later": "Later",
+    "update.installNow": "Install now",
+    "update.restartNow": "Restart now",
+    "update.close": "Close",
   },
   vi: {
     "app.name": "DKB Monitor",
-    "app.checkUpdateComingSoon": "Chức năng check for update chưa khả dụng",
     "nav.overview": "Domains",
     "nav.system": "Hệ thống",
     "nav.settings": "Cài đặt",
@@ -248,6 +259,19 @@ export const translations = {
     "settings.sendTestEmail": "Gửi email test",
     "settings.testEmailSent": "Đã gửi email test",
     "settings.testEmailFailed": "Gửi email test thất bại",
+
+    "update.upToDate": "Bạn đang dùng phiên bản mới nhất",
+    "update.checkFailed": "Không kiểm tra được bản cập nhật",
+    "update.availableTitle": "Có bản cập nhật mới",
+    "update.readyTitle": "Đã sẵn sàng cập nhật",
+    "update.newVersion": "Phiên bản mới",
+    "update.currentVersion": "hiện tại",
+    "update.downloading": "Đang tải bản cập nhật...",
+    "update.readyDesc": "Đã cài xong bản cập nhật. Khởi động lại DKB Monitor để hoàn tất.",
+    "update.later": "Để sau",
+    "update.installNow": "Cài đặt ngay",
+    "update.restartNow": "Khởi động lại ngay",
+    "update.close": "Đóng",
   },
 } as const;
 

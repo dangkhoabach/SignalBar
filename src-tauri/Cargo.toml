@@ -1,6 +1,6 @@
 [package]
 name = "dkb-monitor"
-version = "0.1.10"
+version = "0.1.11"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"
@@ -34,4 +34,6 @@ sysinfo = "0.32"
 smappservice-rs = "0.1.3"
 aes-gcm = "0.10"
 sha2 = "0.10"
+tauri-plugin-updater = "2.10.1"
+tauri-plugin-process = "2.3.1"
 
