@@ -26,7 +26,7 @@ function segmentClass(selected: boolean) {
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
-  notifications_enabled: true,
+  notifications_enabled: false,
   smtp_enabled: false,
   smtp_host: "smtp.gmail.com",
   smtp_port: 587,
@@ -167,6 +167,11 @@ export function SettingsPage() {
           </div>
           <Switch checked={settings.notifications_enabled} onCheckedChange={handleNotificationsToggle} />
         </div>
+        {!settings.notifications_enabled && (
+          <p className="rounded-lg bg-accent/50 px-3 py-2 text-xs text-muted-foreground">
+            {t("settings.notificationsSuggestion")}
+          </p>
+        )}
 
         <div className="flex items-center justify-between">
           <div className="flex flex-col gap-0.5">

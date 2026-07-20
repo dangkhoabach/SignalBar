@@ -480,6 +480,12 @@ pub fn rename_group(state: State<AppState>, old_name: String, new_name: String) 
             *name = new_name.clone();
         }
     }
+    // The rename above can collide with a stale entry already in `order`
+    // (e.g. a leftover group name from a group whose targets were all
+    // deleted/moved away, which nothing else prunes) — dedupe so the
+    // renamed group doesn't end up listed, and rendered, twice.
+    let mut seen = std::collections::HashSet::new();
+    order.retain(|name| seen.insert(name.clone()));
     let updated = serde_json::to_string(&order).map_err(|e| e.to_string())?;
     conn.execute(
         "INSERT INTO app_settings (key, value) VALUES ('group_order', ?1)
@@ -525,7 +531,9 @@ fn get_group_order(conn: &Connection) -> Vec<String> {
     let raw: String = conn
         .query_row("SELECT value FROM app_settings WHERE key = 'group_order'", [], |row| row.get(0))
         .unwrap_or_else(|_| "[]".to_string());
-    serde_json::from_str(&raw).unwrap_or_default()
+    let order: Vec<String> = serde_json::from_str(&raw).unwrap_or_default();
+    let mut seen = std::collections::HashSet::new();
+    order.into_iter().filter(|name| seen.insert(name.clone())).collect()
 }
 
 /// Opens a native save dialog and writes every target's settings (plus the

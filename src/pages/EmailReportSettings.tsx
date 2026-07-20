@@ -12,7 +12,7 @@ import { useTranslation } from "@/lib/i18n/context";
 import type { AppSettings, SmtpFrequency } from "@/types/settings";
 
 const DEFAULT_SETTINGS: AppSettings = {
-  notifications_enabled: true,
+  notifications_enabled: false,
   smtp_enabled: false,
   smtp_host: "smtp.gmail.com",
   smtp_port: 587,

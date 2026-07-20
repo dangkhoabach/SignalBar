@@ -66,7 +66,7 @@ fn set_setting(conn: &Connection, key: &str, value: &str) -> rusqlite::Result<()
 
 pub fn load_settings(conn: &Connection) -> AppSettings {
     AppSettings {
-        notifications_enabled: get_setting(conn, "notifications_enabled", "1") == "1",
+        notifications_enabled: get_setting(conn, "notifications_enabled", "0") == "1",
         smtp_enabled: get_setting(conn, "smtp_enabled", "0") == "1",
         smtp_host: get_setting(conn, "smtp_host", "smtp.gmail.com"),
         smtp_port: get_setting(conn, "smtp_port", "587").parse().unwrap_or(587),
@@ -87,7 +87,7 @@ pub fn load_settings(conn: &Connection) -> AppSettings {
 }
 
 pub fn notifications_enabled(conn: &Connection) -> bool {
-    get_setting(conn, "notifications_enabled", "1") == "1"
+    get_setting(conn, "notifications_enabled", "0") == "1"
 }
 
 /// Derives a stable local key from a fixed app salt plus the OS username.
@@ -212,7 +212,11 @@ pub fn clear_smtp_password(state: State<AppState>) -> Result<(), String> {
 pub fn get_group_order(state: State<AppState>) -> Result<Vec<String>, String> {
     let conn = state.db.lock().map_err(|e| e.to_string())?;
     let raw = get_setting(&conn, "group_order", "[]");
-    Ok(serde_json::from_str(&raw).unwrap_or_default())
+    let order: Vec<String> = serde_json::from_str(&raw).unwrap_or_default();
+    // Self-heals data left over from a prior version's rename_group bug,
+    // which could persist the same group name twice.
+    let mut seen = std::collections::HashSet::new();
+    Ok(order.into_iter().filter(|name| seen.insert(name.clone())).collect())
 }
 
 #[tauri::command]
