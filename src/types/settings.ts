@@ -20,6 +20,10 @@ export interface AppSettings {
   domain_alert_threshold_days: number;
   /** How long check history is kept before being pruned; 0 = keep forever. */
   history_retention_days: number;
+  /** CPU/SoC temperature (°C) that triggers a "running hot" alert. 0 disables it. */
+  system_temp_alert_threshold_celsius: number;
+  /** Battery percentage (while unplugged) that triggers a "battery low" alert. 0 disables it. */
+  battery_low_alert_threshold_percent: number;
 }
 
 export type UpdateSettingsInput = Omit<AppSettings, "has_smtp_password">;

@@ -41,6 +41,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   ssl_alert_threshold_days: 14,
   domain_alert_threshold_days: 30,
   history_retention_days: 90,
+  system_temp_alert_threshold_celsius: 0,
+  battery_low_alert_threshold_percent: 0,
 };
 
 function SettingsSection({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
@@ -137,6 +139,8 @@ export function SettingsPage() {
         ssl_alert_threshold_days: updated.ssl_alert_threshold_days,
         domain_alert_threshold_days: updated.domain_alert_threshold_days,
         history_retention_days: updated.history_retention_days,
+        system_temp_alert_threshold_celsius: updated.system_temp_alert_threshold_celsius,
+        battery_low_alert_threshold_percent: updated.battery_low_alert_threshold_percent,
       });
       if (checked) {
         // There's no reliable way to read the real macOS permission state

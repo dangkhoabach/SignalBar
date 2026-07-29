@@ -1,15 +1,28 @@
 use serde::Serialize;
 use std::sync::{Mutex, OnceLock};
-use sysinfo::{Disks, System};
+use std::time::Instant;
+use sysinfo::{Components, Disks, Networks, System};
+
+pub struct SysStateInner {
+    pub sys: System,
+    pub networks: Networks,
+    pub components: Components,
+    pub last_poll: Instant,
+}
 
 pub struct SysState {
-    pub sys: Mutex<System>,
+    pub inner: Mutex<SysStateInner>,
 }
 
 impl SysState {
     pub fn new() -> Self {
         Self {
-            sys: Mutex::new(System::new_all()),
+            inner: Mutex::new(SysStateInner {
+                sys: System::new_all(),
+                networks: Networks::new_with_refreshed_list(),
+                components: Components::new_with_refreshed_list(),
+                last_poll: Instant::now(),
+            }),
         }
     }
 }
@@ -33,6 +46,22 @@ pub struct SystemStats {
     pub network_name: Option<String>,
     /// LAN-side IPv4 address of the active interface (never the public IP).
     pub network_local_ip: Option<String>,
+    /// KB/s received across all non-loopback interfaces since the previous poll.
+    pub network_download_kbps: f64,
+    /// KB/s transmitted across all non-loopback interfaces since the previous poll.
+    pub network_upload_kbps: f64,
+    /// Highest reading among the SoC/CPU die temperature sensors, in Celsius.
+    /// `None` when no such sensor is exposed (e.g. desktop Macs report only
+    /// battery/SSD sensors, and most Windows machines expose none at all).
+    pub cpu_temp_celsius: Option<f32>,
+    pub battery_percent: Option<f32>,
+    /// `true` while the battery is filling or the machine is on AC with a full
+    /// battery; `None` on machines with no battery (desktops).
+    pub battery_charging: Option<bool>,
+    pub uptime_secs: u64,
+    /// Current RPM of each fan. Empty on machines/platforms where fan speed
+    /// isn't readable (desktops with no fan sensors, non-macOS).
+    pub fan_rpms: Vec<f32>,
 }
 
 #[derive(Default)]
@@ -288,20 +317,152 @@ fn network_status() -> NetworkStatus {
     NetworkStatus::default()
 }
 
-pub fn snapshot(sys: &mut System) -> SystemStats {
-    sys.refresh_cpu_usage();
-    sys.refresh_memory();
+/// Total KB/s (received, transmitted) since the last `networks.refresh()`,
+/// summed across every non-loopback interface. `elapsed` is measured
+/// separately (rather than assumed to be the frontend's poll interval)
+/// because the first poll after launch — and any poll delayed by system
+/// load — would otherwise under/over-report the rate.
+fn network_throughput_kbps(networks: &Networks, elapsed_secs: f64) -> (f64, f64) {
+    let elapsed_secs = elapsed_secs.max(0.1);
+    let mut received = 0u64;
+    let mut transmitted = 0u64;
+    for (name, data) in networks {
+        if name == "lo0" || name.starts_with("Loopback") || name == "lo" {
+            continue;
+        }
+        received += data.received();
+        transmitted += data.transmitted();
+    }
+    (
+        received as f64 / 1024.0 / elapsed_secs,
+        transmitted as f64 / 1024.0 / elapsed_secs,
+    )
+}
+
+/// The SoC/CPU die sensors report as e.g. "PMU tdie3" on Apple Silicon and
+/// "CPU Proximity"/"CPU Die" on Intel Macs; other components on the same bus
+/// (battery, SSD, ambient light) aren't representative of chip heat, so only
+/// labels naming the die/CPU/SoC are considered.
+fn cpu_temp_celsius(components: &Components) -> Option<f32> {
+    components
+        .iter()
+        .filter(|c| {
+            let label = c.label().to_lowercase();
+            label.contains("tdie") || label.contains("cpu") || label.contains("soc")
+        })
+        .map(|c| c.temperature())
+        .filter(|t| t.is_finite() && *t > 0.0)
+        .fold(None, |max, t| Some(max.map_or(t, |m: f32| m.max(t))))
+}
+
+#[derive(Default)]
+struct BatteryStatus {
+    percent: Option<f32>,
+    charging: Option<bool>,
+}
+
+/// `pmset -g batt` is the same source System Settings' battery indicator
+/// uses; parsing its one-line summary is far cheaper than the IOKit
+/// power-source APIs for a value refreshed every few seconds.
+#[cfg(target_os = "macos")]
+fn battery_status() -> BatteryStatus {
+    let Ok(output) = std::process::Command::new("pmset").args(["-g", "batt"]).output() else {
+        return BatteryStatus::default();
+    };
+    let text = String::from_utf8_lossy(&output.stdout);
+    let Some(line) = text.lines().find(|l| l.contains("InternalBattery")) else {
+        return BatteryStatus::default();
+    };
+    let mut fields = line.split(';');
+    let percent = fields.next().and_then(|f| {
+        let f = f.trim();
+        let pct_idx = f.find('%')?;
+        f[..pct_idx].rsplit(|c: char| !c.is_ascii_digit()).next()?.parse::<f32>().ok()
+    });
+    let charging = fields.next().map(|state| !state.trim().eq_ignore_ascii_case("discharging"));
+    BatteryStatus { percent, charging }
+}
+
+/// `BatteryStatus` codes per WMI's `Win32_Battery`: 1 is specifically
+/// "discharging" — every other defined value (charging, full, high, low,
+/// critical, partially charged) means the machine is on AC.
+#[cfg(target_os = "windows")]
+fn battery_status() -> BatteryStatus {
+    let Ok(output) = std::process::Command::new("powershell")
+        .args([
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            "$b = Get-CimInstance Win32_Battery | Select-Object -First 1; if ($b) { \"$($b.EstimatedChargeRemaining)|$($b.BatteryStatus)\" }",
+        ])
+        .output()
+    else {
+        return BatteryStatus::default();
+    };
+    let text = String::from_utf8_lossy(&output.stdout);
+    let line = text.trim();
+    if line.is_empty() {
+        return BatteryStatus::default();
+    }
+    let mut parts = line.splitn(2, '|');
+    let percent = parts.next().and_then(|p| p.trim().parse::<f32>().ok());
+    let charging = parts.next().and_then(|p| p.trim().parse::<u32>().ok()).map(|code| code != 1);
+    BatteryStatus { percent, charging }
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+fn battery_status() -> BatteryStatus {
+    BatteryStatus::default()
+}
+
+/// Reads each fan's actual-speed key ("F{n}Ac") straight from the SMC.
+/// The `smc` crate's own `fans()`/`fan()` helpers first read "F{n}ID" to
+/// build a `Fan` struct, but Apple Silicon Macs don't expose that key
+/// (unlike Intel Macs) — only the bare speed/target/min/max keys survived
+/// the M-series SMC redesign — so `fans()` errors out with `KeyNotFound`
+/// even though "F{n}Ac" itself reads fine. Reading the key directly sidesteps
+/// that gap on both generations.
+#[cfg(target_os = "macos")]
+fn fan_rpms() -> Vec<f32> {
+    let Ok(smc) = smc::SMC::new() else {
+        return Vec::new();
+    };
+    let Ok(count) = smc.fans_len() else {
+        return Vec::new();
+    };
+    (0..count)
+        .filter_map(|i| smc.read_key::<f64>(format!("F{i}Ac").as_str().into()).ok())
+        .map(|rpm| rpm as f32)
+        .collect()
+}
+
+#[cfg(not(target_os = "macos"))]
+fn fan_rpms() -> Vec<f32> {
+    Vec::new()
+}
+
+pub fn snapshot(state: &mut SysStateInner) -> SystemStats {
+    state.sys.refresh_cpu_usage();
+    state.sys.refresh_memory();
+    state.components.refresh();
+
+    let elapsed_secs = state.last_poll.elapsed().as_secs_f64();
+    state.networks.refresh();
+    let (network_download_kbps, network_upload_kbps) =
+        network_throughput_kbps(&state.networks, elapsed_secs);
+    state.last_poll = Instant::now();
 
     let (disk_used_gb, disk_total_gb) = disk_usage_gb();
     let network = network_status();
+    let battery = battery_status();
 
     SystemStats {
-        cpu_percent: sys.global_cpu_usage(),
-        cpu_cores: sys.cpus().iter().map(|c| c.cpu_usage()).collect(),
-        ram_used_mb: sys.used_memory() / 1_048_576,
-        ram_total_mb: sys.total_memory() / 1_048_576,
-        swap_used_mb: sys.used_swap() / 1_048_576,
-        swap_total_mb: sys.total_swap() / 1_048_576,
+        cpu_percent: state.sys.global_cpu_usage(),
+        cpu_cores: state.sys.cpus().iter().map(|c| c.cpu_usage()).collect(),
+        ram_used_mb: state.sys.used_memory() / 1_048_576,
+        ram_total_mb: state.sys.total_memory() / 1_048_576,
+        swap_used_mb: state.sys.used_swap() / 1_048_576,
+        swap_total_mb: state.sys.total_swap() / 1_048_576,
         disk_used_gb,
         disk_total_gb,
         gpu_name: gpu_name(),
@@ -310,11 +471,18 @@ pub fn snapshot(sys: &mut System) -> SystemStats {
         network_type: network.interface_type,
         network_name: network.name,
         network_local_ip: network.local_ip,
+        network_download_kbps,
+        network_upload_kbps,
+        cpu_temp_celsius: cpu_temp_celsius(&state.components),
+        battery_percent: battery.percent,
+        battery_charging: battery.charging,
+        uptime_secs: System::uptime(),
+        fan_rpms: fan_rpms(),
     }
 }
 
 #[tauri::command]
 pub fn get_system_stats(state: tauri::State<SysState>) -> Result<SystemStats, String> {
-    let mut sys = state.sys.lock().map_err(|e| e.to_string())?;
-    Ok(snapshot(&mut sys))
+    let mut inner = state.inner.lock().map_err(|e| e.to_string())?;
+    Ok(snapshot(&mut inner))
 }

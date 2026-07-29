@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "DKB Monitor",
-  "version": "1.1.6",
+  "version": "1.2.7",
   "identifier": "com.dangkhoabach.dkb-monitor",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -47,7 +47,7 @@
       "endpoints": [
         "https://updates.dangkhoabach.vn/dkb-monitor/latest.json"
       ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDVCRTE5OTYxQjE1Q0EzMkYKUldRdm8xeXhZWm5oVzNoQm5DTG80SGJqTW04Tm1RVUw0VjlWcVB3M2ZtY3NVUnI4V2liV0p6eWYK"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDlFRkI4QThFNDE4QjZDMzYKUldRMmJJdEJqb3I3bmsveW5pSXBMNWZnQkdFNU9jQVE4TFMvc1BJWDNhT1U3RS8yMlBmSXhBQXcK"
     }
   }
 }

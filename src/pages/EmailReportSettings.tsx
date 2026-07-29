@@ -27,6 +27,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   ssl_alert_threshold_days: 14,
   domain_alert_threshold_days: 30,
   history_retention_days: 90,
+  system_temp_alert_threshold_celsius: 0,
+  battery_low_alert_threshold_percent: 0,
 };
 
 const WEEKDAY_KEYS = [
@@ -69,6 +71,8 @@ export function EmailReportSettingsPage() {
         ssl_alert_threshold_days: settings.ssl_alert_threshold_days,
         domain_alert_threshold_days: settings.domain_alert_threshold_days,
         history_retention_days: settings.history_retention_days,
+        system_temp_alert_threshold_celsius: settings.system_temp_alert_threshold_celsius,
+        battery_low_alert_threshold_percent: settings.battery_low_alert_threshold_percent,
       });
       if (smtpPassword.trim()) {
         await api.saveSmtpPassword(smtpPassword.trim());

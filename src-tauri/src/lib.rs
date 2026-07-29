@@ -162,12 +162,23 @@ pub fn run() {
             let uptime_item = MenuItem::with_id(app, "uptime-stat", "Domains: —", false, None::<&str>)?;
             let cpu_item = MenuItem::with_id(app, "cpu-stat", "CPU: —", false, None::<&str>)?;
             let ram_item = MenuItem::with_id(app, "ram-stat", "RAM: —", false, None::<&str>)?;
+            let temp_item = MenuItem::with_id(app, "temp-stat", "Temperature: —", false, None::<&str>)?;
+            let battery_item = MenuItem::with_id(app, "battery-stat", "Battery: —", false, None::<&str>)?;
             let separator = PredefinedMenuItem::separator(app)?;
             let show_item = MenuItem::with_id(app, "show", "Show DKB Monitor", true, None::<&str>)?;
             let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let tray_menu = Menu::with_items(
                 app,
-                &[&uptime_item, &cpu_item, &ram_item, &separator, &show_item, &quit_item],
+                &[
+                    &uptime_item,
+                    &cpu_item,
+                    &ram_item,
+                    &temp_item,
+                    &battery_item,
+                    &separator,
+                    &show_item,
+                    &quit_item,
+                ],
             )?;
 
             fn refresh_tray_stats(
@@ -175,11 +186,13 @@ pub fn run() {
                 uptime_item: &MenuItem<tauri::Wry>,
                 cpu_item: &MenuItem<tauri::Wry>,
                 ram_item: &MenuItem<tauri::Wry>,
+                temp_item: &MenuItem<tauri::Wry>,
+                battery_item: &MenuItem<tauri::Wry>,
             ) {
                 let sys_state = app.state::<sysstats::SysState>();
                 let stats = {
-                    let mut sys = sys_state.sys.lock().unwrap();
-                    sysstats::snapshot(&mut sys)
+                    let mut inner = sys_state.inner.lock().unwrap();
+                    sysstats::snapshot(&mut inner)
                 };
                 let _ = cpu_item.set_text(format!("CPU: {:.0}%", stats.cpu_percent));
                 let _ = ram_item.set_text(format!(
@@ -187,6 +200,17 @@ pub fn run() {
                     stats.ram_used_mb as f64 / 1024.0,
                     stats.ram_total_mb as f64 / 1024.0
                 ));
+                let _ = temp_item.set_text(match stats.cpu_temp_celsius {
+                    Some(temp) => format!("Temperature: {temp:.0}°C"),
+                    None => "Temperature: N/A".to_string(),
+                });
+                let _ = battery_item.set_text(match stats.battery_percent {
+                    Some(percent) if stats.battery_charging.unwrap_or(false) => {
+                        format!("Battery: {percent:.0}% (Charging)")
+                    }
+                    Some(percent) => format!("Battery: {percent:.0}%"),
+                    None => "Battery: N/A".to_string(),
+                });
 
                 let app_state = app.state::<AppState>();
                 let summary = app_state.db.lock().ok().and_then(|conn| commands::uptime_summary(&conn).ok());
@@ -195,14 +219,14 @@ pub fn run() {
                 }
             }
 
-            refresh_tray_stats(app.handle(), &uptime_item, &cpu_item, &ram_item);
+            refresh_tray_stats(app.handle(), &uptime_item, &cpu_item, &ram_item, &temp_item, &battery_item);
 
             let app_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 let mut interval = tokio::time::interval(Duration::from_secs(3));
                 loop {
                     interval.tick().await;
-                    refresh_tray_stats(&app_handle, &uptime_item, &cpu_item, &ram_item);
+                    refresh_tray_stats(&app_handle, &uptime_item, &cpu_item, &ram_item, &temp_item, &battery_item);
                 }
             });
 

@@ -61,8 +61,10 @@ git push
 - Node.js, Rust (`rustup`), Visual Studio Build Tools (C++ workload) — same
   as any Tauri Windows dev environment.
 - Copy the signing private key (`~/.tauri/dkb-monitor-updater.key` on this
-  Mac) onto the Windows machine, and create `release/.env.release` there
-  (same format as the macOS one, gitignored, never commit it):
+  Mac) onto the Windows machine, and create `.env.release` at the repo root
+  there (same format and location as the macOS one — both scripts read
+  `<repo root>/.env.release`, not `release/.env.release` — gitignored, never
+  commit it):
   ```
   TAURI_SIGNING_PRIVATE_KEY=C:\path\to\dkb-monitor-updater.key
   TAURI_SIGNING_PRIVATE_KEY_PASSWORD=<same password as the macOS .env.release>

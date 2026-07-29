@@ -30,6 +30,10 @@ pub struct AppSettings {
     pub domain_alert_threshold_days: i64,
     /// How long check_results history is kept before being pruned; 0 = keep forever.
     pub history_retention_days: i64,
+    /// CPU/SoC temperature (°C) that triggers a "running hot" alert. 0 disables it.
+    pub system_temp_alert_threshold_celsius: i64,
+    /// Battery percentage (while unplugged) that triggers a "battery low" alert. 0 disables it.
+    pub battery_low_alert_threshold_percent: i64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -48,6 +52,8 @@ pub struct UpdateSettingsInput {
     pub ssl_alert_threshold_days: i64,
     pub domain_alert_threshold_days: i64,
     pub history_retention_days: i64,
+    pub system_temp_alert_threshold_celsius: i64,
+    pub battery_low_alert_threshold_percent: i64,
 }
 
 fn get_setting(conn: &Connection, key: &str, default: &str) -> String {
@@ -83,6 +89,12 @@ pub fn load_settings(conn: &Connection) -> AppSettings {
         ssl_alert_threshold_days: get_setting(conn, "ssl_alert_threshold_days", "14").parse().unwrap_or(14),
         domain_alert_threshold_days: get_setting(conn, "domain_alert_threshold_days", "30").parse().unwrap_or(30),
         history_retention_days: get_setting(conn, "history_retention_days", "90").parse().unwrap_or(90),
+        system_temp_alert_threshold_celsius: get_setting(conn, "system_temp_alert_threshold_celsius", "0")
+            .parse()
+            .unwrap_or(0),
+        battery_low_alert_threshold_percent: get_setting(conn, "battery_low_alert_threshold_percent", "0")
+            .parse()
+            .unwrap_or(0),
     }
 }
 
@@ -192,6 +204,18 @@ pub fn update_settings(state: State<AppState>, settings: UpdateSettingsInput) ->
         .map_err(|e| e.to_string())?;
     set_setting(&conn, "history_retention_days", &settings.history_retention_days.to_string())
         .map_err(|e| e.to_string())?;
+    set_setting(
+        &conn,
+        "system_temp_alert_threshold_celsius",
+        &settings.system_temp_alert_threshold_celsius.to_string(),
+    )
+    .map_err(|e| e.to_string())?;
+    set_setting(
+        &conn,
+        "battery_low_alert_threshold_percent",
+        &settings.battery_low_alert_threshold_percent.to_string(),
+    )
+    .map_err(|e| e.to_string())?;
     Ok(load_settings(&conn))
 }
 

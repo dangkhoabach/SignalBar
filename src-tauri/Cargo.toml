@@ -1,6 +1,6 @@
 [package]
 name = "dkb-monitor"
-version = "1.1.6"
+version = "1.2.7"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"
@@ -43,6 +43,7 @@ tauri-plugin-dialog = "2"
 # on Windows before any of our own #[cfg(...)] code is even reached.
 [target.'cfg(target_os = "macos")'.dependencies]
 smappservice-rs = "0.1.3"
+smc = "0.2.4"
 
 # Windows autostart uses the registry Run key directly instead (see autostart.rs).
 [target.'cfg(target_os = "windows")'.dependencies]

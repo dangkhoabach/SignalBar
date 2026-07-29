@@ -27,6 +27,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   ssl_alert_threshold_days: 14,
   domain_alert_threshold_days: 30,
   history_retention_days: 90,
+  system_temp_alert_threshold_celsius: 0,
+  battery_low_alert_threshold_percent: 0,
 };
 
 export function AlertsDataSettingsPage() {
@@ -62,6 +64,8 @@ export function AlertsDataSettingsPage() {
         ssl_alert_threshold_days: settings.ssl_alert_threshold_days,
         domain_alert_threshold_days: settings.domain_alert_threshold_days,
         history_retention_days: settings.history_retention_days,
+        system_temp_alert_threshold_celsius: settings.system_temp_alert_threshold_celsius,
+        battery_low_alert_threshold_percent: settings.battery_low_alert_threshold_percent,
       });
       toast.success(t("settings.saved"));
     } catch (err) {
@@ -177,6 +181,29 @@ export function AlertsDataSettingsPage() {
               min={1}
               value={settings.domain_alert_threshold_days}
               onChange={(e) => setSettings((s) => ({ ...s, domain_alert_threshold_days: Number(e.target.value) }))}
+            />
+          </div>
+          <div className="grid gap-1.5">
+            <Label>{t("settings.tempThreshold")}</Label>
+            <Input
+              type="number"
+              min={0}
+              value={settings.system_temp_alert_threshold_celsius}
+              onChange={(e) =>
+                setSettings((s) => ({ ...s, system_temp_alert_threshold_celsius: Number(e.target.value) }))
+              }
+            />
+          </div>
+          <div className="grid gap-1.5">
+            <Label>{t("settings.batteryThreshold")}</Label>
+            <Input
+              type="number"
+              min={0}
+              max={100}
+              value={settings.battery_low_alert_threshold_percent}
+              onChange={(e) =>
+                setSettings((s) => ({ ...s, battery_low_alert_threshold_percent: Number(e.target.value) }))
+              }
             />
           </div>
         </div>

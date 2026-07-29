@@ -74,8 +74,84 @@ async fn tick(app: &AppHandle) -> Result<(), String> {
 
     maybe_send_report(app).await;
     maybe_cleanup_history(app);
+    check_system_alerts(app);
 
     Ok(())
+}
+
+/// Fires once when a reading first crosses its threshold, then stays silent
+/// until it drops back below — the same "alert on transition, not on every
+/// tick while still bad" shape as the target down/up alerts above, just with
+/// a single app-wide flag (in `app_settings`) instead of a per-target row,
+/// since there's only one machine to watch here.
+fn check_system_alerts(app: &AppHandle) {
+    let settings = {
+        let state = app.state::<AppState>();
+        let Ok(conn) = state.db.lock() else { return };
+        settings::load_settings(&conn)
+    };
+
+    if settings.system_temp_alert_threshold_celsius <= 0 && settings.battery_low_alert_threshold_percent <= 0 {
+        return;
+    }
+
+    let stats = {
+        let sys_state = app.state::<crate::sysstats::SysState>();
+        let Ok(mut inner) = sys_state.inner.lock() else { return };
+        crate::sysstats::snapshot(&mut inner)
+    };
+
+    if settings.system_temp_alert_threshold_celsius > 0 {
+        if let Some(temp) = stats.cpu_temp_celsius {
+            let is_hot = temp >= settings.system_temp_alert_threshold_celsius as f32;
+            let was_active = alert_flag(app, "system_temp_alert_active");
+            if is_hot && !was_active {
+                notify(
+                    app,
+                    "Nhiệt độ máy đang cao",
+                    &format!("{temp:.0}°C (ngưỡng {}°C)", settings.system_temp_alert_threshold_celsius),
+                );
+                set_alert_flag(app, "system_temp_alert_active", true);
+            } else if !is_hot && was_active {
+                set_alert_flag(app, "system_temp_alert_active", false);
+            }
+        }
+    }
+
+    if settings.battery_low_alert_threshold_percent > 0 {
+        if let Some(percent) = stats.battery_percent {
+            let charging = stats.battery_charging.unwrap_or(false);
+            let is_low = !charging && percent <= settings.battery_low_alert_threshold_percent as f32;
+            let was_active = alert_flag(app, "system_battery_alert_active");
+            if is_low && !was_active {
+                notify(app, "Pin yếu", &format!("Còn {percent:.0}% — hãy cắm sạc"));
+                set_alert_flag(app, "system_battery_alert_active", true);
+            } else if (!is_low || charging) && was_active {
+                set_alert_flag(app, "system_battery_alert_active", false);
+            }
+        }
+    }
+}
+
+fn alert_flag(app: &AppHandle, key: &str) -> bool {
+    let state = app.state::<AppState>();
+    let Ok(conn) = state.db.lock() else { return false };
+    conn.query_row("SELECT value FROM app_settings WHERE key = ?1", params![key], |row| row.get::<_, String>(0))
+        .optional()
+        .ok()
+        .flatten()
+        .as_deref()
+        == Some("1")
+}
+
+fn set_alert_flag(app: &AppHandle, key: &str, active: bool) {
+    let state = app.state::<AppState>();
+    let Ok(conn) = state.db.lock() else { return };
+    let _ = conn.execute(
+        "INSERT INTO app_settings (key, value) VALUES (?1, ?2)
+         ON CONFLICT(key) DO UPDATE SET value = ?2",
+        params![key, if active { "1" } else { "0" }],
+    );
 }
 
 /// check_results accumulates a row per target per check_interval forever

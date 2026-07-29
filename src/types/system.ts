@@ -13,4 +13,11 @@ export interface SystemStats {
   network_type: string | null;
   network_name: string | null;
   network_local_ip: string | null;
+  network_download_kbps: number;
+  network_upload_kbps: number;
+  cpu_temp_celsius: number | null;
+  battery_percent: number | null;
+  battery_charging: boolean | null;
+  uptime_secs: number;
+  fan_rpms: number[];
 }
