@@ -1,7 +1,8 @@
 import { useEffect } from "react";
 import { ThemeProvider, useTheme } from "next-themes";
-import { HashRouter, Route, Routes } from "react-router";
+import { HashRouter, Route, Routes, useNavigate } from "react-router";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { Toaster } from "@/components/ui/sonner";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { AboutDialog } from "@/components/layout/AboutDialog";
@@ -33,6 +34,25 @@ function NativeThemeSync() {
   return null;
 }
 
+/// Backend's notification.rs emits this once the user clicks a native
+/// notification (after already bringing the window forward) — this just
+/// finishes the job by routing to the page the notification was about.
+/// Must live inside <HashRouter> since useNavigate() needs router context.
+function NotificationNavigator() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const unlisten = listen<string>("notification-clicked", (event) => {
+      navigate(event.payload);
+    });
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, [navigate]);
+
+  return null;
+}
+
 function App() {
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
@@ -41,6 +61,7 @@ function App() {
         <UpdateDialog />
         <AboutDialog />
         <HashRouter>
+          <NotificationNavigator />
           <div className="flex h-screen text-foreground">
             <div data-tauri-drag-region className="fixed inset-x-0 top-0 z-30 h-11" />
             <Sidebar />

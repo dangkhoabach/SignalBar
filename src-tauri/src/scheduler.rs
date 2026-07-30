@@ -6,7 +6,6 @@ use crate::AppState;
 use rusqlite::{params, OptionalExtension};
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager};
-use tauri_plugin_notification::NotificationExt;
 
 const TICK_INTERVAL_SECS: u64 = 15;
 const HTTP_TIMEOUT_SECS: u64 = 10;
@@ -110,6 +109,7 @@ fn check_system_alerts(app: &AppHandle) {
                     app,
                     "Nhiệt độ máy đang cao",
                     &format!("{temp:.0}°C (ngưỡng {}°C)", settings.system_temp_alert_threshold_celsius),
+                    Some("/system".to_string()),
                 );
                 set_alert_flag(app, "system_temp_alert_active", true);
             } else if !is_hot && was_active {
@@ -124,7 +124,12 @@ fn check_system_alerts(app: &AppHandle) {
             let is_low = !charging && percent <= settings.battery_low_alert_threshold_percent as f32;
             let was_active = alert_flag(app, "system_battery_alert_active");
             if is_low && !was_active {
-                notify(app, "Pin yếu", &format!("Còn {percent:.0}% — hãy cắm sạc"));
+                notify(
+                    app,
+                    "Pin yếu",
+                    &format!("Còn {percent:.0}% — hãy cắm sạc"),
+                    Some("/system".to_string()),
+                );
                 set_alert_flag(app, "system_battery_alert_active", true);
             } else if (!is_low || charging) && was_active {
                 set_alert_flag(app, "system_battery_alert_active", false);
@@ -394,7 +399,12 @@ fn store_ssl_status(app: &AppHandle, target: &Target, expiry_date: Option<String
 
     if should_alert {
         if let Some(days) = days_remaining {
-            notify(app, &format!("SSL sắp hết hạn: {}", target.name), &format!("Còn {days} ngày"));
+            notify(
+                app,
+                &format!("SSL sắp hết hạn: {}", target.name),
+                &format!("Còn {days} ngày"),
+                Some(format!("/targets/{}", target.id)),
+            );
         }
     }
 
@@ -439,7 +449,12 @@ fn store_domain_status(app: &AppHandle, target: &Target, expiry_date: Option<Str
 
     if should_alert {
         if let Some(days) = days_remaining {
-            notify(app, &format!("Domain sắp hết hạn: {}", target.name), &format!("Còn {days} ngày"));
+            notify(
+                app,
+                &format!("Domain sắp hết hạn: {}", target.name),
+                &format!("Còn {days} ngày"),
+                Some(format!("/targets/{}", target.id)),
+            );
         }
     }
 
@@ -562,14 +577,22 @@ fn store_result(app: &AppHandle, outcome: &CheckOutcome) -> Result<(), String> {
 
     drop(conn);
 
+    let route = Some(format!("/targets/{}", outcome.target_id));
+
     if !outcome.success && new_failures == failure_threshold {
         notify(
             app,
             &format!("{} đang down", outcome.target_name),
             outcome.error_message.as_deref().unwrap_or("Health check thất bại"),
+            route,
         );
     } else if outcome.success && previous_failures >= failure_threshold {
-        notify(app, &format!("{} đã hoạt động lại", outcome.target_name), "Health check đã thành công");
+        notify(
+            app,
+            &format!("{} đã hoạt động lại", outcome.target_name),
+            "Health check đã thành công",
+            route,
+        );
     } else if new_slow == failure_threshold {
         notify(
             app,
@@ -578,15 +601,23 @@ fn store_result(app: &AppHandle, outcome: &CheckOutcome) -> Result<(), String> {
                 "{}ms (ngưỡng {}ms)",
                 outcome.response_time_ms, app_settings.response_time_alert_threshold_ms
             ),
+            route,
         );
     } else if !is_slow && previous_slow >= failure_threshold {
-        notify(app, &format!("{} đã phản hồi bình thường trở lại", outcome.target_name), "Response time đã ổn định");
+        notify(
+            app,
+            &format!("{} đã phản hồi bình thường trở lại", outcome.target_name),
+            "Response time đã ổn định",
+            route,
+        );
     }
 
     Ok(())
 }
 
-fn notify(app: &AppHandle, title: &str, body: &str) {
+/// `route` is a frontend path (e.g. `/targets/42`, `/system`) to navigate to
+/// if the user clicks the notification — see `notification.rs`.
+fn notify(app: &AppHandle, title: &str, body: &str, route: Option<String>) {
     let state = app.state::<AppState>();
     let enabled = state
         .db
@@ -596,7 +627,7 @@ fn notify(app: &AppHandle, title: &str, body: &str) {
     if !enabled {
         return;
     }
-    let _ = app.notification().builder().title(title).body(body).show();
+    crate::notification::show(app, title, body, route);
 }
 
 fn current_consecutive_failures(conn: &rusqlite::Connection, target_id: i64) -> i64 {

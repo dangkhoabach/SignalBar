@@ -4,6 +4,7 @@ mod db;
 mod expiry_check;
 mod mail;
 mod models;
+mod notification;
 mod scheduler;
 mod settings;
 mod sysstats;
@@ -31,7 +32,7 @@ use tauri::{ActivationPolicy, LogicalPosition};
 /// normal Dock presence. Windows/Linux have no equivalent concept — the tray
 /// icon alone is enough for the OS to treat this as a background app, so
 /// there's nothing to toggle there.
-fn show_main_window(app: &tauri::AppHandle) {
+pub(crate) fn show_main_window(app: &tauri::AppHandle) {
     #[cfg(target_os = "macos")]
     let _ = app.set_activation_policy(ActivationPolicy::Regular);
     if let Some(window) = app.get_webview_window("main") {
@@ -64,13 +65,13 @@ fn set_native_theme(window: tauri::Window, theme: String) -> Result<(), String> 
 /// and delivery pipeline work, not a real alert that should be silenced.
 #[tauri::command]
 fn send_test_notification(app: tauri::AppHandle) -> Result<(), String> {
-    use tauri_plugin_notification::NotificationExt;
-    app.notification()
-        .builder()
-        .title("DKB Monitor")
-        .body("Đây là thông báo test. Notification đang hoạt động bình thường.")
-        .show()
-        .map_err(|e| e.to_string())
+    notification::show(
+        &app,
+        "DKB Monitor",
+        "Đây là thông báo test. Notification đang hoạt động bình thường.",
+        None,
+    );
+    Ok(())
 }
 
 /// tauri-plugin-notification's desktop backend always reports permission as

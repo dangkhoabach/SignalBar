@@ -1,6 +1,6 @@
 [package]
 name = "dkb-monitor"
-version = "1.2.7"
+version = "1.2.8"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"
@@ -48,4 +48,14 @@ smc = "0.2.4"
 # Windows autostart uses the registry Run key directly instead (see autostart.rs).
 [target.'cfg(target_os = "windows")'.dependencies]
 winreg = "0.52"
+
+# tauri-plugin-notification's own `.show()` is fire-and-forget (discards the
+# click callback), so notification.rs calls notify-rust directly to get a
+# handle it can wait on. Version pinned to what tauri-plugin-notification
+# itself already pulls in (see its Cargo.toml) so we don't introduce a second,
+# divergent copy in Cargo.lock. Scoped to our two shipped platforms only —
+# unlike the plugin's own dependency line, we don't need the Linux/BSD (dbus)
+# backends this app never builds for.
+[target.'cfg(any(target_os = "macos", windows))'.dependencies]
+notify-rust = "4.11"
 

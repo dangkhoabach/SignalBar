@@ -855,11 +855,12 @@ dependencies = [
 
 [[package]]
 name = "dkb-monitor"
-version = "1.2.7"
+version = "1.2.8"
 dependencies = [
  "aes-gcm",
  "chrono",
  "lettre",
+ "notify-rust",
  "reqwest 0.12.28",
  "rusqlite",
  "serde",
