@@ -224,7 +224,7 @@ async fn maybe_send_report(app: &AppHandle) {
         let Ok(conn) = state.db.lock() else { return };
         let s = settings::load_settings(&conn);
 
-        if !s.smtp_enabled || !s.has_smtp_password {
+        if !s.smtp_enabled || s.smtp_recipient_email.is_empty() {
             return;
         }
 
@@ -252,20 +252,22 @@ async fn maybe_send_report(app: &AppHandle) {
     }
 
     let state = app.state::<AppState>();
-    let (body, password) = {
+    let body = {
         let Ok(conn) = state.db.lock() else { return };
-        let body = match mail::generate_report(&conn, label, days) {
+        match mail::generate_report(&conn, label, days) {
             Ok(b) => b,
             Err(err) => {
                 eprintln!("report generation error: {err}");
                 return;
             }
-        };
-        let Some(password) = settings::smtp_password(&conn) else { return };
-        (body, password)
+        }
     };
 
-    match mail::send_email(&report_settings, &password, &format!("DKB Monitor — {label} Report"), &body).await {
+    let subject = format!("DKB Monitor — {label} Report");
+    let send_result =
+        mail::send_email_via_relay(&state.http_client, &report_settings.smtp_recipient_email, &subject, &body).await;
+
+    match send_result {
         Ok(()) => {
             if let Ok(conn) = state.db.lock() {
                 let today = chrono::Utc::now();

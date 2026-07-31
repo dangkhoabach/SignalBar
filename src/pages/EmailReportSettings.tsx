@@ -14,14 +14,10 @@ import type { AppSettings, SmtpFrequency } from "@/types/settings";
 const DEFAULT_SETTINGS: AppSettings = {
   notifications_enabled: false,
   smtp_enabled: false,
-  smtp_host: "smtp.gmail.com",
-  smtp_port: 587,
-  smtp_sender_email: "",
   smtp_recipient_email: "",
   smtp_frequency: "monthly",
   smtp_day_of_week: 0,
   smtp_day_of_month: 1,
-  has_smtp_password: false,
   failure_alert_threshold: 2,
   response_time_alert_threshold_ms: 0,
   ssl_alert_threshold_days: 14,
@@ -45,7 +41,6 @@ export function EmailReportSettingsPage() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
-  const [smtpPassword, setSmtpPassword] = useState("");
   const [saving, setSaving] = useState(false);
   const [sendingTest, setSendingTest] = useState(false);
 
@@ -59,9 +54,6 @@ export function EmailReportSettingsPage() {
       await api.updateSettings({
         notifications_enabled: settings.notifications_enabled,
         smtp_enabled: settings.smtp_enabled,
-        smtp_host: settings.smtp_host,
-        smtp_port: settings.smtp_port,
-        smtp_sender_email: settings.smtp_sender_email,
         smtp_recipient_email: settings.smtp_recipient_email,
         smtp_frequency: settings.smtp_frequency,
         smtp_day_of_week: settings.smtp_day_of_week,
@@ -74,10 +66,6 @@ export function EmailReportSettingsPage() {
         system_temp_alert_threshold_celsius: settings.system_temp_alert_threshold_celsius,
         battery_low_alert_threshold_percent: settings.battery_low_alert_threshold_percent,
       });
-      if (smtpPassword.trim()) {
-        await api.saveSmtpPassword(smtpPassword.trim());
-        setSmtpPassword("");
-      }
       setSettings(await api.getSettings());
       toast.success(t("settings.saved"));
     } catch (err) {
@@ -117,45 +105,6 @@ export function EmailReportSettingsPage() {
           <Switch
             checked={settings.smtp_enabled}
             onCheckedChange={(checked) => setSettings((s) => ({ ...s, smtp_enabled: checked }))}
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div className="grid gap-1.5">
-            <Label>{t("settings.smtpHost")}</Label>
-            <Input
-              value={settings.smtp_host}
-              onChange={(e) => setSettings((s) => ({ ...s, smtp_host: e.target.value }))}
-            />
-          </div>
-          <div className="grid gap-1.5">
-            <Label>{t("settings.smtpPort")}</Label>
-            <Input
-              type="number"
-              value={settings.smtp_port}
-              onChange={(e) => setSettings((s) => ({ ...s, smtp_port: Number(e.target.value) }))}
-            />
-          </div>
-        </div>
-
-        <div className="grid gap-1.5">
-          <Label>{t("settings.smtpSender")}</Label>
-          <Input
-            type="email"
-            value={settings.smtp_sender_email}
-            onChange={(e) => setSettings((s) => ({ ...s, smtp_sender_email: e.target.value }))}
-          />
-        </div>
-
-        <div className="grid gap-1.5">
-          <Label>{t("settings.smtpPassword")}</Label>
-          <Input
-            type="password"
-            value={smtpPassword}
-            onChange={(e) => setSmtpPassword(e.target.value)}
-            placeholder={
-              settings.has_smtp_password ? "••••••••••••" : t("settings.smtpPasswordPlaceholder")
-            }
           />
         </div>
 
@@ -223,11 +172,7 @@ export function EmailReportSettingsPage() {
           <Button onClick={handleSave} disabled={saving}>
             {t("settings.save")}
           </Button>
-          <Button
-            variant="outline"
-            onClick={handleSendTest}
-            disabled={sendingTest || !settings.has_smtp_password}
-          >
+          <Button variant="outline" onClick={handleSendTest} disabled={sendingTest || !settings.smtp_recipient_email}>
             {t("settings.sendTestEmail")}
           </Button>
         </div>

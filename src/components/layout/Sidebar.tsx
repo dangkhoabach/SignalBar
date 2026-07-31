@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Cpu, LayoutGrid, Settings } from "lucide-react";
-import { NavLink } from "react-router";
+import { Link, useLocation } from "react-router";
 import { listen } from "@tauri-apps/api/event";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/lib/i18n/context";
@@ -9,6 +9,7 @@ import appIcon from "@/app-icon.png";
 
 export function Sidebar() {
   const { t } = useTranslation();
+  const location = useLocation();
   const [downCount, setDownCount] = useState(0);
 
   useEffect(() => {
@@ -25,10 +26,29 @@ export function Sidebar() {
     };
   }, []);
 
+  // Plain prefix matching (via NavLink's `end`) can't express "/" also
+  // covering /targets/:id without also matching every other route, since "/"
+  // is a prefix of everything — so active state is computed by hand instead.
   const navItems = [
-    { to: "/", label: t("nav.overview"), icon: LayoutGrid, end: true, badge: downCount },
-    { to: "/system", label: t("nav.system"), icon: Cpu, end: true },
-    { to: "/settings", label: t("nav.settings"), icon: Settings, end: true },
+    {
+      to: "/",
+      label: t("nav.overview"),
+      icon: LayoutGrid,
+      badge: downCount,
+      isActive: location.pathname === "/" || location.pathname.startsWith("/targets/"),
+    },
+    {
+      to: "/system",
+      label: t("nav.system"),
+      icon: Cpu,
+      isActive: location.pathname === "/system",
+    },
+    {
+      to: "/settings",
+      label: t("nav.settings"),
+      icon: Settings,
+      isActive: location.pathname.startsWith("/settings"),
+    },
   ];
 
   return (
@@ -40,18 +60,15 @@ export function Sidebar() {
 
       <nav className="flex flex-1 flex-col gap-0.5 px-2">
         {navItems.map((item) => (
-          <NavLink
+          <Link
             key={item.to}
             to={item.to}
-            end={item.end}
-            className={({ isActive }) =>
-              cn(
-                "flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
-              )
-            }
+            className={cn(
+              "flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors",
+              item.isActive
+                ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
+            )}
           >
             <item.icon className="size-4" />
             <span className="flex-1">{item.label}</span>
@@ -60,7 +77,7 @@ export function Sidebar() {
                 {item.badge}
               </span>
             )}
-          </NavLink>
+          </Link>
         ))}
       </nav>
     </aside>

@@ -350,8 +350,6 @@ pub fn run() {
             commands::clear_all_targets,
             settings::get_settings,
             settings::update_settings,
-            settings::save_smtp_password,
-            settings::clear_smtp_password,
             settings::send_test_email,
             settings::get_group_order,
             settings::set_group_order,

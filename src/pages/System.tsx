@@ -17,7 +17,7 @@ import {
 import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 import { api } from "@/lib/api";
 import { useTranslation } from "@/lib/i18n/context";
-import { cn } from "@/lib/utils";
+import { cn, formatDateTime } from "@/lib/utils";
 import type { SystemStats } from "@/types/system";
 
 const POLL_INTERVAL_MS = 2000;
@@ -52,6 +52,11 @@ function formatUptime(secs: number) {
   if (days > 0) return `${days}d ${hours}h`;
   if (hours > 0) return `${hours}h ${minutes}m`;
   return `${minutes}m`;
+}
+
+/** Boot time derived from uptime, since the backend only reports the duration. */
+function formatSince(uptimeSecs: number) {
+  return formatDateTime(new Date(Date.now() - uptimeSecs * 1000));
 }
 
 function formatKbps(kbps: number) {
@@ -292,7 +297,11 @@ export function SystemPage() {
           icon={Clock}
           title={t("system.uptime")}
           right={<span className="text-sm font-semibold">{formatUptime(stats.uptime_secs)}</span>}
-        />
+        >
+          <span className="text-xs text-muted-foreground">
+            {t("system.uptimeSince", { time: formatSince(stats.uptime_secs) })}
+          </span>
+        </StatCard>
 
         <StatCard
           icon={stats.network_connected ? (stats.network_type === "Wi-Fi" ? Wifi : Network) : WifiOff}

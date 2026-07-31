@@ -14,14 +14,10 @@ import type { AppSettings } from "@/types/settings";
 const DEFAULT_SETTINGS: AppSettings = {
   notifications_enabled: false,
   smtp_enabled: false,
-  smtp_host: "smtp.gmail.com",
-  smtp_port: 587,
-  smtp_sender_email: "",
   smtp_recipient_email: "",
   smtp_frequency: "monthly",
   smtp_day_of_week: 0,
   smtp_day_of_month: 1,
-  has_smtp_password: false,
   failure_alert_threshold: 2,
   response_time_alert_threshold_ms: 0,
   ssl_alert_threshold_days: 14,
@@ -36,7 +32,6 @@ export function AlertsDataSettingsPage() {
   const { t } = useTranslation();
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [saving, setSaving] = useState(false);
-  const [testingNotification, setTestingNotification] = useState(false);
   const [importing, setImporting] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
@@ -52,9 +47,6 @@ export function AlertsDataSettingsPage() {
       await api.updateSettings({
         notifications_enabled: settings.notifications_enabled,
         smtp_enabled: settings.smtp_enabled,
-        smtp_host: settings.smtp_host,
-        smtp_port: settings.smtp_port,
-        smtp_sender_email: settings.smtp_sender_email,
         smtp_recipient_email: settings.smtp_recipient_email,
         smtp_frequency: settings.smtp_frequency,
         smtp_day_of_week: settings.smtp_day_of_week,
@@ -108,17 +100,6 @@ export function AlertsDataSettingsPage() {
       toast.error(`${t("settings.clearAllDomainsFailed")}: ${String(err)}`);
     } finally {
       setClearing(false);
-    }
-  };
-
-  const handleTestNotification = async () => {
-    setTestingNotification(true);
-    try {
-      await api.sendTestNotification();
-    } catch (err) {
-      toast.error(`${t("settings.testNotificationFailed")}: ${String(err)}`);
-    } finally {
-      setTestingNotification(false);
     }
   };
 
@@ -210,9 +191,6 @@ export function AlertsDataSettingsPage() {
         <div className="flex gap-2">
           <Button onClick={handleSave} disabled={saving}>
             {t("settings.save")}
-          </Button>
-          <Button variant="outline" onClick={handleTestNotification} disabled={testingNotification}>
-            {t("settings.testNotification")}
           </Button>
         </div>
       </div>

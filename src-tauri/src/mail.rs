@@ -1,43 +1,42 @@
-use crate::settings::AppSettings;
-use lettre::message::header::ContentType;
-use lettre::transport::smtp::authentication::Credentials;
-use lettre::{Message, SmtpTransport, Transport};
 use rusqlite::params;
+use serde::{Deserialize, Serialize};
 
-/// Sends a plain-text email via STARTTLS using credentials the caller
-/// retrieved from the OS keychain. Runs the (blocking) lettre transport on
-/// a dedicated thread so it doesn't stall the async runtime.
-pub async fn send_email(settings: &AppSettings, password: &str, subject: &str, body: &str) -> Result<(), String> {
-    let settings = settings.clone();
-    let password = password.to_string();
-    let subject = subject.to_string();
-    let body = body.to_string();
+const RELAY_ENDPOINT: &str = "https://admin.dangkhoabach.vn/api/dkb-monitor/notify";
 
-    tokio::task::spawn_blocking(move || -> Result<(), String> {
-        let email = Message::builder()
-            .from(settings.smtp_sender_email.parse().map_err(|e: lettre::address::AddressError| e.to_string())?)
-            .to(settings
-                .smtp_recipient_email
-                .parse()
-                .map_err(|e: lettre::address::AddressError| e.to_string())?)
-            .subject(subject)
-            .header(ContentType::TEXT_PLAIN)
-            .body(body)
-            .map_err(|e| e.to_string())?;
+#[derive(Serialize)]
+struct RelayRequest<'a> {
+    #[serde(rename = "recipientEmail")]
+    recipient_email: &'a str,
+    subject: &'a str,
+    body: &'a str,
+}
 
-        let creds = Credentials::new(settings.smtp_sender_email.clone(), password);
+#[derive(Deserialize)]
+struct RelayResponse {
+    sent: bool,
+}
 
-        let transport = SmtpTransport::starttls_relay(&settings.smtp_host)
-            .map_err(|e| e.to_string())?
-            .port(settings.smtp_port as u16)
-            .credentials(creds)
-            .build();
+/// Sends through this app's own backend rather than any user-supplied SMTP
+/// account. The server wraps `body` in its own HTML template and relays it
+/// through an SMTP account it already controls, so no email credential of
+/// any kind is ever stored in or shipped with this app.
+pub async fn send_email_via_relay(client: &reqwest::Client, recipient: &str, subject: &str, body: &str) -> Result<(), String> {
+    let response = client
+        .post(RELAY_ENDPOINT)
+        .json(&RelayRequest { recipient_email: recipient, subject, body })
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
 
-        transport.send(&email).map_err(|e| e.to_string())?;
-        Ok(())
-    })
-    .await
-    .map_err(|e| e.to_string())?
+    if !response.status().is_success() {
+        return Err(format!("relay responded with {}", response.status()));
+    }
+
+    let parsed: RelayResponse = response.json().await.map_err(|e| e.to_string())?;
+    if !parsed.sent {
+        return Err("relay could not deliver the email".to_string());
+    }
+    Ok(())
 }
 
 pub fn generate_report(conn: &rusqlite::Connection, label: &str, days: i64) -> Result<String, String> {
