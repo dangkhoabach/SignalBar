@@ -14,6 +14,11 @@ const EXPIRY_CHECK_INTERVAL_SECS: i64 = 86_400; // SSL/domain expiry rarely chan
 pub fn spawn(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_secs(TICK_INTERVAL_SECS));
+        // Default (Burst) fires once per missed tick back-to-back to "catch up" —
+        // after the app sits backgrounded/asleep for hours that means hundreds of
+        // ticks (DB queries + HTTP checks) firing in a tight burst on wake. Delay
+        // just resumes the normal cadence from now instead of catching up.
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         loop {
             interval.tick().await;
             if let Err(err) = tick(&app).await {

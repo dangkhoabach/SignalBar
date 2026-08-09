@@ -225,6 +225,12 @@ pub fn run() {
             let app_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 let mut interval = tokio::time::interval(Duration::from_secs(3));
+                // Same reasoning as scheduler.rs's tick interval: without this, a long
+                // sleep/background stretch makes this burst through every missed tick
+                // on wake, each one spawning several subprocesses (route, networksetup,
+                // pmset, ioreg...) — a real source of the "reopen after a while = lag"
+                // symptom.
+                interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
                 loop {
                     interval.tick().await;
                     refresh_tray_stats(&app_handle, &uptime_item, &cpu_item, &ram_item, &temp_item, &battery_item);

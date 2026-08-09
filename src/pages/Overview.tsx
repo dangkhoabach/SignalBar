@@ -31,7 +31,7 @@ import {
 import { TargetFormDialog } from "@/components/target-form-dialog";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { PauseTargetDialog } from "@/components/pause-target-dialog";
-import { cn, formatDateOnly, isPaused, pausedTooltip } from "@/lib/utils";
+import { cn, formatDateOnly, isPaused, pausedTooltip, rowStatus, type StatusFilter } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { useTranslation } from "@/lib/i18n/context";
 import type { TargetFormValues } from "@/lib/schemas";
@@ -271,6 +271,7 @@ export function OverviewPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTarget, setEditingTarget] = useState<Target | null>(null);
   const [search, setSearch] = useState("");
+  const [statusFilters, setStatusFilters] = useState<Set<StatusFilter>>(new Set());
   const [checkingIds, setCheckingIds] = useState<Set<number>>(new Set());
   const [checkingAll, setCheckingAll] = useState(false);
   const [selectMode, setSelectMode] = useState(false);
@@ -500,7 +501,27 @@ export function OverviewPage() {
     row.target.name.toLowerCase().includes(searchQuery) ||
     row.target.url.toLowerCase().includes(searchQuery);
 
-  const visibleIds = overview.filter(matchesSearch).map((o) => o.target.id);
+  const matchesFilter = (row: TargetOverview) => statusFilters.size === 0 || statusFilters.has(rowStatus(row));
+  const matchesRow = (row: TargetOverview) => matchesSearch(row) && matchesFilter(row);
+
+  const statusCounts = overview.reduce(
+    (counts, row) => {
+      counts[rowStatus(row)]++;
+      return counts;
+    },
+    { up: 0, down: 0, unchecked: 0, disabled: 0, paused: 0 } as Record<StatusFilter, number>,
+  );
+
+  const toggleStatusFilter = (status: StatusFilter) => {
+    setStatusFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(status)) next.delete(status);
+      else next.add(status);
+      return next;
+    });
+  };
+
+  const visibleIds = overview.filter(matchesRow).map((o) => o.target.id);
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
   const toggleSelectAll = () => {
     setSelectedIds((prev) => {
@@ -654,6 +675,51 @@ export function OverviewPage() {
         </div>
       )}
 
+      {overview.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {(
+            [
+              ["up", t("overview.status.up")],
+              ["down", t("overview.status.down")],
+              ["unchecked", t("overview.status.unchecked")],
+              ["paused", t("overview.paused")],
+              ["disabled", t("overview.status.disabled")],
+            ] as [StatusFilter, string][]
+          )
+            .filter(([status]) => statusCounts[status] > 0)
+            .map(([status, label]) => {
+              const active = statusFilters.has(status);
+              return (
+                <button
+                  key={status}
+                  type="button"
+                  onClick={() => toggleStatusFilter(status)}
+                  className={cn(
+                    "flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+                    active
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-transparent text-muted-foreground hover:bg-accent/50",
+                  )}
+                >
+                  {label}
+                  <span className={cn("tabular-nums", active ? "text-primary-foreground/80" : "text-muted-foreground/70")}>
+                    {statusCounts[status]}
+                  </span>
+                </button>
+              );
+            })}
+          {statusFilters.size > 0 && (
+            <button
+              type="button"
+              onClick={() => setStatusFilters(new Set())}
+              className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+            >
+              {t("overview.clearFilters")}
+            </button>
+          )}
+        </div>
+      )}
+
       {selectMode && selectedIds.size > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">
           <span className="text-xs font-medium text-muted-foreground">
@@ -689,14 +755,14 @@ export function OverviewPage() {
             {t("overview.addFirstTarget")}
           </Button>
         </div>
-      ) : searchQuery && !overview.some(matchesSearch) ? (
+      ) : (searchQuery || statusFilters.size > 0) && !overview.some(matchesRow) ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border py-16 text-center">
           <p className="text-sm text-muted-foreground">{t("overview.noSearchResults")}</p>
         </div>
       ) : (
         orderedGroupNames.map((group) => {
           const rows = grouped.get(group) ?? [];
-          const visibleRows = rows.filter(matchesSearch);
+          const visibleRows = rows.filter(matchesRow);
           if (visibleRows.length === 0) return null;
           return (
             <div

@@ -1,7 +1,7 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import type { TranslationKey } from "@/lib/i18n/translations";
-import type { Target } from "@/types/target";
+import type { Target, TargetOverview } from "@/types/target";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -9,6 +9,18 @@ export function cn(...inputs: ClassValue[]) {
 
 export function isPaused(target: Target): boolean {
   return !!target.paused_until && new Date(target.paused_until + "Z") > new Date();
+}
+
+export type StatusFilter = "up" | "down" | "unchecked" | "disabled" | "paused";
+
+/** Same precedence as the status badge shown on each row: disabled beats
+ * paused beats unchecked beats the actual up/down result. */
+export function rowStatus(overview: TargetOverview): StatusFilter {
+  const { target, latest_check } = overview;
+  if (!target.enabled) return "disabled";
+  if (isPaused(target)) return "paused";
+  if (!latest_check) return "unchecked";
+  return latest_check.success ? "up" : "down";
 }
 
 /** The far-future sentinel `pause_target` writes for "paused indefinitely" (see commands.rs). */
