@@ -254,4 +254,146 @@ public struct TargetRepository: Sendable {
             return (row?["up"] ?? 0, row?["total"] ?? 0)
         }
     }
+
+    // MARK: - Scheduling (Phase 4)
+
+    /// Mirrors `scheduler.rs::tick`'s due-target query. `paused_indefinitely`
+    /// is checked explicitly (the old Rust query predates that column and
+    /// only checked the sentinel-date `paused_until`, which this schema no
+    /// longer sets for indefinite pauses — see the Phase 2 migration).
+    public func dueForHTTPCheck() throws -> [Target] {
+        try dbQueue.read { db in
+            try Target.fetchAll(
+                db,
+                sql: """
+                    SELECT * FROM targets
+                    WHERE enabled = 1 AND check_http = 1 AND paused_indefinitely = 0
+                    AND (paused_until IS NULL OR paused_until <= datetime('now'))
+                    AND (last_checked_at IS NULL
+                         OR (julianday('now') - julianday(last_checked_at)) * 86400 >= check_interval_secs)
+                    """
+            )
+        }
+    }
+
+    public func dueForSSLCheck(intervalSecs: Int) throws -> [Target] {
+        try dbQueue.read { db in
+            try Target.fetchAll(
+                db,
+                sql: """
+                    SELECT t.* FROM targets t
+                    LEFT JOIN ssl_status s ON s.target_id = t.id
+                    WHERE t.enabled = 1 AND t.check_ssl = 1 AND t.paused_indefinitely = 0
+                    AND (t.paused_until IS NULL OR t.paused_until <= datetime('now'))
+                    AND (s.last_checked IS NULL
+                         OR (julianday('now') - julianday(s.last_checked)) * 86400 >= ?)
+                    """,
+                arguments: [intervalSecs]
+            )
+        }
+    }
+
+    public func dueForDomainCheck(intervalSecs: Int) throws -> [Target] {
+        try dbQueue.read { db in
+            try Target.fetchAll(
+                db,
+                sql: """
+                    SELECT t.* FROM targets t
+                    LEFT JOIN domain_status d ON d.target_id = t.id
+                    WHERE t.enabled = 1 AND t.check_domain = 1 AND t.paused_indefinitely = 0
+                    AND (t.paused_until IS NULL OR t.paused_until <= datetime('now'))
+                    AND (d.last_checked IS NULL
+                         OR (julianday('now') - julianday(d.last_checked)) * 86400 >= ?)
+                    """,
+                arguments: [intervalSecs]
+            )
+        }
+    }
+
+    public struct AlertTransition: Sendable, Equatable {
+        public let previousFailures: Int
+        public let newFailures: Int
+        public let previousSlow: Int
+        public let newSlow: Int
+        public let isSlow: Bool
+    }
+
+    /// Inserts the check result, bumps `last_checked_at`, and updates the
+    /// consecutive-failure/slow streaks used to decide alert transitions —
+    /// ports `store_result` minus the actual notification call, which the
+    /// caller (Scheduler) makes based on the returned transition.
+    @discardableResult
+    public func storeCheckResult(targetId: Int64, outcome: HttpCheckOutcome, responseTimeAlertThresholdMs: Int) throws -> AlertTransition {
+        try dbQueue.write { db in
+            var result = CheckResult(
+                targetId: targetId, success: outcome.success, statusCode: outcome.statusCode,
+                responseTimeMs: outcome.responseTimeMs, errorMessage: outcome.errorMessage
+            )
+            try result.insert(db)
+            try db.execute(sql: "UPDATE targets SET last_checked_at = datetime('now') WHERE id = ?", arguments: [targetId])
+
+            let previous = try AlertState.fetchOne(db, key: targetId) ?? AlertState(targetId: targetId)
+            let newFailures = outcome.success ? 0 : previous.consecutiveFailures + 1
+            let isSlow = responseTimeAlertThresholdMs > 0 && outcome.success && outcome.responseTimeMs > responseTimeAlertThresholdMs
+            let newSlow = isSlow ? previous.consecutiveSlow + 1 : 0
+
+            let state = AlertState(targetId: targetId, consecutiveFailures: newFailures, consecutiveSlow: newSlow)
+            try state.save(db)
+
+            return AlertTransition(
+                previousFailures: previous.consecutiveFailures, newFailures: newFailures,
+                previousSlow: previous.consecutiveSlow, newSlow: newSlow, isSlow: isSlow
+            )
+        }
+    }
+
+    public struct ExpiryTransition: Sendable, Equatable {
+        public let daysRemaining: Int?
+        public let shouldAlert: Bool
+    }
+
+    @discardableResult
+    public func storeSSLStatus(targetId: Int64, expiryDate: Date?, thresholdDays: Int) throws -> ExpiryTransition {
+        try dbQueue.write { db in
+            let previous = try SslStatus.fetchOne(db, key: targetId)
+            let daysRemaining = Self.daysUntil(expiryDate)
+            let shouldAlert = daysRemaining.map { $0 <= thresholdDays && !Self.alertedToday(previous?.lastAlertSentAt) } ?? false
+
+            let status = SslStatus(
+                targetId: targetId, expiryDate: expiryDate, lastChecked: Date(),
+                lastAlertSentAt: shouldAlert ? Date() : previous?.lastAlertSentAt
+            )
+            try status.save(db)
+            return ExpiryTransition(daysRemaining: daysRemaining, shouldAlert: shouldAlert)
+        }
+    }
+
+    @discardableResult
+    public func storeDomainStatus(targetId: Int64, expiryDate: Date?, thresholdDays: Int) throws -> ExpiryTransition {
+        try dbQueue.write { db in
+            let previous = try DomainStatus.fetchOne(db, key: targetId)
+            let daysRemaining = Self.daysUntil(expiryDate)
+            let shouldAlert = daysRemaining.map { $0 <= thresholdDays && !Self.alertedToday(previous?.lastAlertSentAt) } ?? false
+
+            let status = DomainStatus(
+                targetId: targetId, expiryDate: expiryDate, lastChecked: Date(),
+                lastAlertSentAt: shouldAlert ? Date() : previous?.lastAlertSentAt
+            )
+            try status.save(db)
+            return ExpiryTransition(daysRemaining: daysRemaining, shouldAlert: shouldAlert)
+        }
+    }
+
+    private static func daysUntil(_ date: Date?) -> Int? {
+        guard let date else { return nil }
+        let calendar = Calendar(identifier: .gregorian)
+        let today = calendar.startOfDay(for: Date())
+        let target = calendar.startOfDay(for: date)
+        return calendar.dateComponents([.day], from: today, to: target).day
+    }
+
+    private static func alertedToday(_ lastAlertSentAt: Date?) -> Bool {
+        guard let lastAlertSentAt else { return false }
+        return Calendar(identifier: .gregorian).isDateInToday(lastAlertSentAt)
+    }
 }
