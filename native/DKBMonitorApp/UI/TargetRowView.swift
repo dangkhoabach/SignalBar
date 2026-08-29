@@ -4,6 +4,7 @@ import SwiftUI
 struct TargetRowView: View {
     let overview: TargetOverview
     let viewModel: OverviewViewModel
+    let onViewDetails: () -> Void
 
     private var status: TargetStatus { TargetStatus(overview: overview) }
     private var targetId: Int64 { overview.target.id ?? -1 }
@@ -47,7 +48,10 @@ struct TargetRowView: View {
             .labelsHidden()
             .toggleStyle(.switch)
         }
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2) { onViewDetails() }
         .contextMenu {
+            Button("View Details") { onViewDetails() }
             Button("Check Now") { viewModel.checkNow(id: targetId) }
             Menu("Pause") {
                 Button("30 minutes") { viewModel.pause(id: targetId, duration: 30 * 60) }

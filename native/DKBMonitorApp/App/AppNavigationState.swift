@@ -11,6 +11,12 @@ final class AppNavigationState {
 
     var sidebarSelection: SidebarSection = .domains
 
+    /// Set when a notification click should push `TargetDetailView` for a
+    /// specific target — `OverviewView` observes this and clears it once
+    /// consumed, since `NavigationPath` itself lives in that view's local
+    /// state and isn't reachable from here.
+    var pendingDetailTargetID: Int64?
+
     private init() {}
 
     func handleNotificationRoute(_ route: String) {
@@ -19,6 +25,7 @@ final class AppNavigationState {
         } else if route.hasPrefix("/targets/"), let id = Int64(route.dropFirst("/targets/".count)) {
             sidebarSelection = .domains
             OverviewViewModel.shared.selection = [id]
+            pendingDetailTargetID = id
         }
     }
 }

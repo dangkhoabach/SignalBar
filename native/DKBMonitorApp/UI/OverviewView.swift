@@ -3,44 +3,58 @@ import SwiftUI
 
 struct OverviewView: View {
     @Bindable private var viewModel = OverviewViewModel.shared
+    @Bindable private var navigationState = AppNavigationState.shared
+    @State private var navigationPath = NavigationPath()
     @State private var renamingGroup: String?
     @State private var renameText = ""
 
     var body: some View {
-        VStack(spacing: 0) {
-            toolbar
-            Divider()
-            List(selection: $viewModel.selection) {
-                ForEach(viewModel.filteredGroups, id: \.group) { entry in
-                    Section {
-                        ForEach(entry.items) { overview in
-                            TargetRowView(overview: overview, viewModel: viewModel)
+        NavigationStack(path: $navigationPath) {
+            VStack(spacing: 0) {
+                toolbar
+                Divider()
+                List(selection: $viewModel.selection) {
+                    ForEach(viewModel.filteredGroups, id: \.group) { entry in
+                        Section {
+                            ForEach(entry.items) { overview in
+                                TargetRowView(overview: overview, viewModel: viewModel) {
+                                    navigationPath.append(overview.id)
+                                }
                                 .tag(overview.id)
                                 .draggable(TargetDragItem(id: overview.id))
-                        }
-                        .onMove { indices, newOffset in
-                            viewModel.moveWithinGroup(entry.items, from: indices, to: newOffset)
-                        }
-                    } header: {
-                        Text(entry.group)
-                            .contextMenu {
-                                Button("Rename Group…") {
-                                    renamingGroup = entry.group
-                                    renameText = entry.group
+                            }
+                            .onMove { indices, newOffset in
+                                viewModel.moveWithinGroup(entry.items, from: indices, to: newOffset)
+                            }
+                        } header: {
+                            Text(entry.group)
+                                .contextMenu {
+                                    Button("Rename Group…") {
+                                        renamingGroup = entry.group
+                                        renameText = entry.group
+                                    }
                                 }
-                            }
-                            .dropDestination(for: TargetDragItem.self) { items, _ in
-                                for item in items { viewModel.moveToGroup(id: item.id, group: entry.group) }
-                                return true
-                            }
+                                .dropDestination(for: TargetDragItem.self) { items, _ in
+                                    for item in items { viewModel.moveToGroup(id: item.id, group: entry.group) }
+                                    return true
+                                }
+                        }
                     }
                 }
+                .listStyle(.inset)
             }
-            .listStyle(.inset)
+            .navigationDestination(for: Int64.self) { targetId in
+                TargetDetailView(targetId: targetId)
+            }
         }
         .searchable(text: $viewModel.searchText, prompt: "Search domains")
         .onAppear { viewModel.start() }
         .onDisappear { viewModel.stop() }
+        .onChange(of: navigationState.pendingDetailTargetID) { _, newValue in
+            guard let id = newValue else { return }
+            navigationPath.append(id)
+            navigationState.pendingDetailTargetID = nil
+        }
         .sheet(isPresented: $viewModel.isPresentingAddSheet) {
             TargetFormView(mode: .add) { input in viewModel.addTarget(input) }
         }

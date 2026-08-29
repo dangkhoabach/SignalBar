@@ -1,7 +1,9 @@
-/// The 3 top-level sections per Mục 3's spec. `.system`/`.settings` are
-/// placeholders until Phase 12 fills them in.
+/// Top-level sidebar sections. Settings is deliberately not one of these —
+/// per Phase 12's exit criteria it uses the native `Settings {}` scene
+/// (Cmd+,) instead, the standard macOS idiom, superseding Phase 11's initial
+/// 3-item sidebar wording.
 enum SidebarSection: String, CaseIterable, Identifiable, Hashable {
-    case domains, system, settings
+    case domains, system
 
     var id: Self { self }
 
@@ -9,7 +11,6 @@ enum SidebarSection: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .domains: "Domains"
         case .system: "System"
-        case .settings: "Settings"
         }
     }
 
@@ -17,7 +18,6 @@ enum SidebarSection: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .domains: "network"
         case .system: "cpu"
-        case .settings: "gearshape"
         }
     }
 }

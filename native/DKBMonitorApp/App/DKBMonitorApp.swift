@@ -4,18 +4,23 @@ import DKBMonitorCore
 @main
 struct DKBMonitorApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @AppStorage("themePreference") private var themePreferenceRaw = ThemePreference.system.rawValue
     private let windowDelegate = HideInsteadOfCloseDelegate()
+
+    private var themePreference: ThemePreference {
+        ThemePreference(rawValue: themePreferenceRaw) ?? .system
+    }
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .background(WindowAccessor(delegate: windowDelegate))
+                .preferredColorScheme(themePreference.colorScheme)
         }
 
         Settings {
-            Text("Settings — Phase 12")
-                .padding()
-                .frame(width: 400, height: 200)
+            SettingsView()
+                .preferredColorScheme(themePreference.colorScheme)
         }
 
         // `waveform.path.ecg`: an SF Symbol standing in for the plan's

@@ -1,8 +1,8 @@
 import SwiftUI
 import DKBMonitorCore
 
-/// Sidebar (Domains/System/Settings) + content. Domains is the Phase 11
-/// Overview; System/Settings stay placeholders until Phase 12.
+/// Sidebar (Domains/System) + content. Settings lives in the native
+/// `Settings {}` scene (Cmd+,) per Phase 12.
 struct ContentView: View {
     @Bindable private var navigationState = AppNavigationState.shared
 
@@ -21,11 +21,7 @@ struct ContentView: View {
             case .domains:
                 OverviewView()
             case .system:
-                Text("System — Phase 12")
-                    .foregroundStyle(.secondary)
-            case .settings:
-                Text("Settings — Phase 12")
-                    .foregroundStyle(.secondary)
+                SystemView()
             }
         }
         .frame(minWidth: 760, minHeight: 480)
