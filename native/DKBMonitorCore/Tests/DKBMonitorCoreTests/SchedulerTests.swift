@@ -18,9 +18,9 @@ private actor RecordingReportSender: ReportSending {
     }
 }
 
-private struct StaticStatsProvider: SystemStatsProviding {
-    let value: SystemStatsSnapshot
-    func snapshot() async -> SystemStatsSnapshot { value }
+private struct StaticStatsProvider: SystemStatsProvider {
+    let value: SystemStats
+    func snapshot() async -> SystemStats { value }
 }
 
 @Suite struct SchedulerTests {
@@ -90,7 +90,7 @@ private struct StaticStatsProvider: SystemStatsProviding {
         let notifier = RecordingNotifier()
         let hotScheduler = Scheduler(
             dbQueue: app.dbQueue, notifier: notifier, reportSender: RecordingReportSender(),
-            statsProvider: StaticStatsProvider(value: SystemStatsSnapshot(cpuTempCelsius: 90))
+            statsProvider: StaticStatsProvider(value: SystemStats(cpuTempCelsius: 90))
         )
         await hotScheduler.tick()
         await hotScheduler.tick() // still hot: must not alert again
@@ -101,7 +101,7 @@ private struct StaticStatsProvider: SystemStatsProviding {
 
         let coolScheduler = Scheduler(
             dbQueue: app.dbQueue, notifier: notifier, reportSender: RecordingReportSender(),
-            statsProvider: StaticStatsProvider(value: SystemStatsSnapshot(cpuTempCelsius: 50))
+            statsProvider: StaticStatsProvider(value: SystemStats(cpuTempCelsius: 50))
         )
         await coolScheduler.tick() // clears the flag, no new alert
         await hotScheduler.tick() // hot again: flag was cleared, must alert again

@@ -21,7 +21,7 @@ public actor Scheduler {
     private let stateStore: SchedulerStateStore
     private let notifier: NotificationSending
     private let reportSender: ReportSending
-    private let statsProvider: SystemStatsProviding?
+    private let statsProvider: SystemStatsProvider?
 
     private var loopTask: Task<Void, Never>?
 
@@ -29,7 +29,7 @@ public actor Scheduler {
         dbQueue: DatabaseQueue,
         notifier: NotificationSending,
         reportSender: ReportSending,
-        statsProvider: SystemStatsProviding? = nil
+        statsProvider: SystemStatsProvider? = nil
     ) {
         self.targetRepo = TargetRepository(dbQueue: dbQueue)
         self.settingsRepo = SettingsRepository(dbQueue: dbQueue)
