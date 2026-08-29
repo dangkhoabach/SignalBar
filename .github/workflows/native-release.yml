@@ -24,13 +24,12 @@ name: Native (Swift) Release
 #       SPARKLE_ED_PRIVATE_KEY              — printed by `generate_keys`
 #                                              alongside the public key above
 #
-# STILL OPEN (not wired below — see docs/swift-native-port-plan.md Phase 10
-# notes): publishing the DMG/appcast.xml to admin.dangkhoabach.vn itself.
-# The old Tauri release process for this app was a fully manual upload
-# through that panel's web UI (release/README.md) with no documented API —
-# this workflow publishes to a GitHub Release instead, which is a valid
-# Sparkle host on its own (point SUFeedURL at the release asset URL) until
-# the actual admin.dangkhoabach.vn upload mechanism is confirmed.
+# Confirmed 2026-08-29: admin.dangkhoabach.vn has no upload API, only the
+# same manual web UI the old Tauri release process used (release/README.md)
+# — so GitHub Releases is the real, permanent appcast host here, not a
+# placeholder. `SUFeedURL` in native/project.yml points at
+# github.com/.../releases/latest/download/appcast.xml, which this workflow
+# keeps current on every `v*` tag.
 
 on:
   push:

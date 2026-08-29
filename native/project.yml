@@ -31,7 +31,14 @@ targets:
         # keypair is generated — see docs/swift-native-port-plan.md's Phase
         # 10 notes for the exact one-time setup steps (private half goes
         # into the SPARKLE_ED_PRIVATE_KEY GitHub Actions secret, never here).
-        SUFeedURL: https://admin.dangkhoabach.vn/dkb-monitor-native/appcast.xml
+        # SUFeedURL points at GitHub Releases (not admin.dangkhoabach.vn):
+        # that panel has no upload API, only a manual web UI (confirmed
+        # 2026-08-29 — see release/README.md for the old Tauri app's same
+        # manual-only process) — GitHub Releases is already fully automated
+        # end-to-end by native-release.yml, so it's the real host, not a
+        # placeholder. The "latest" alias always resolves to the most
+        # recent non-prerelease tag.
+        SUFeedURL: https://github.com/dangkhoabach/DKB-Monitor/releases/latest/download/appcast.xml
         SUPublicEDKey: REPLACE_WITH_GENERATED_ED25519_PUBLIC_KEY
         SUEnableAutomaticChecks: true
         SUScheduledCheckInterval: 86400
