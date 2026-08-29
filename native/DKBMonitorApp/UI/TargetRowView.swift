@@ -60,7 +60,6 @@ struct TargetRowView: View {
         // rows until any scroll forces a relayout with the real size.
         .frame(minHeight: 52)
         .contentShape(Rectangle())
-        .onTapGesture(count: 2) { onViewDetails() }
         .contextMenu {
             Button("View Details") { onViewDetails() }
             Button("Check Now") { viewModel.checkNow(id: targetId) }
