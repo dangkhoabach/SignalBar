@@ -40,6 +40,18 @@ final class OverviewViewModel {
 
     func start() {
         guard observationTask == nil, let repo else { return }
+
+        // `ValueObservation`'s first emission always arrives asynchronously
+        // (it's dispatched to GRDB's reader queue, even for the initial
+        // fetch), so without this the List starts empty and jumps to N rows
+        // moments after first appearing. That 0-rows-to-N-rows transition is
+        // exactly what triggers AppKit's `NSTableView` (which backs `List`
+        // on macOS) into caching the wrong row heights until a scroll forces
+        // it to recompute — the "squished/overlapping rows on launch" bug.
+        // A synchronous prefetch means the List already has real data on
+        // its very first layout pass, so that transition never happens.
+        overviews = (try? repo.overview()) ?? overviews
+
         observationTask = Task { [weak self] in
             guard let self else { return }
             do {
