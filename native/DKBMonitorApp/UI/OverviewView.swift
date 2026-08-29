@@ -99,16 +99,24 @@ struct OverviewView: View {
     /// without any extra styling on our part.
     @ToolbarContentBuilder
     private var overviewToolbarContent: some ToolbarContent {
-        ToolbarItemGroup(placement: .automatic) {
-            if !viewModel.selection.isEmpty {
+        // Kept as its own `ToolbarItem` rather than inside the button group
+        // below: macOS visually fuses adjacent `Button`s in a
+        // `ToolbarItemGroup` into one pill-shaped cluster, and a plain
+        // `Text` swept into that same group gets dragged into the pill's
+        // background too, which looks broken since it isn't a button.
+        if !viewModel.selection.isEmpty {
+            ToolbarItem(placement: .automatic) {
                 Text("\(viewModel.selection.count) selected")
                     .foregroundStyle(.secondary)
+            }
+            ToolbarItemGroup(placement: .automatic) {
                 Button("Enable") { viewModel.setEnabledForSelection(true) }
                 Button("Disable") { viewModel.setEnabledForSelection(false) }
                 Button(role: .destructive) { viewModel.deleteSelected() } label: { Text("Delete") }
-                Divider()
             }
+        }
 
+        ToolbarItemGroup(placement: .automatic) {
             Menu {
                 ForEach(TargetStatus.allCases, id: \.self) { status in
                     Toggle(status.localizedLabel, isOn: Binding(
