@@ -1,0 +1,28 @@
+name: DKBMonitorPoC
+options:
+  bundleIdPrefix: com.dangkhoabach.dkbmonitor2.poc
+  deploymentTarget:
+    macOS: "14.0"
+settings:
+  MACOSX_DEPLOYMENT_TARGET: "14.0"
+  SWIFT_VERSION: "6.0"
+  CODE_SIGN_STYLE: Automatic
+  ENABLE_HARDENED_RUNTIME: NO
+targets:
+  DKBMonitorPoC:
+    type: application
+    platform: macOS
+    sources:
+      - PoC
+    info:
+      path: PoC/Info.plist
+      properties:
+        LSUIElement: false
+        NSHumanReadableCopyright: "Proof-of-concept scaffold, not for distribution."
+    entitlements:
+      path: PoC/PoC.entitlements
+      properties:
+        com.apple.security.app-sandbox: false
+        com.apple.security.network.client: true
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.dangkhoabach.dkbmonitor2.poc
