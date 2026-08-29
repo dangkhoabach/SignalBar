@@ -44,14 +44,16 @@ struct TargetDetailView: View {
         }
     }
 
+    /// `GroupBox`, not a hand-drawn background — see the same note on
+    /// `SystemView.statCard`.
     private func tile(_ title: LocalizedStringKey, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        GroupBox {
+            Text(value)
+                .font(.title3.monospacedDigit())
+                .frame(maxWidth: .infinity, alignment: .leading)
+        } label: {
             Text(title).font(.caption).foregroundStyle(.secondary)
-            Text(value).font(.title3.monospacedDigit())
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary.opacity(0.3), in: RoundedRectangle(cornerRadius: 8))
     }
 
     private var latencyChart: some View {

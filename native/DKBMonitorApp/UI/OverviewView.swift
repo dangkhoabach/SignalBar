@@ -10,44 +10,42 @@ struct OverviewView: View {
 
     var body: some View {
         NavigationStack(path: $navigationPath) {
-            VStack(spacing: 0) {
-                toolbar
-                Divider()
-                List(selection: $viewModel.selection) {
-                    ForEach(viewModel.filteredGroups, id: \.group) { entry in
-                        Section {
-                            ForEach(entry.items) { overview in
-                                TargetRowView(overview: overview, viewModel: viewModel) {
-                                    navigationPath.append(overview.id)
-                                }
-                                .tag(overview.id)
-                                .draggable(TargetDragItem(id: overview.id))
+            List(selection: $viewModel.selection) {
+                ForEach(viewModel.filteredGroups, id: \.group) { entry in
+                    Section {
+                        ForEach(entry.items) { overview in
+                            TargetRowView(overview: overview, viewModel: viewModel) {
+                                navigationPath.append(overview.id)
                             }
-                            .onMove { indices, newOffset in
-                                viewModel.moveWithinGroup(entry.items, from: indices, to: newOffset)
-                            }
-                        } header: {
-                            Text(entry.group)
-                                .contextMenu {
-                                    Button("Rename Group…") {
-                                        renamingGroup = entry.group
-                                        renameText = entry.group
-                                    }
-                                }
-                                .dropDestination(for: TargetDragItem.self) { items, _ in
-                                    for item in items { viewModel.moveToGroup(id: item.id, group: entry.group) }
-                                    return true
-                                }
+                            .tag(overview.id)
+                            .draggable(TargetDragItem(id: overview.id))
                         }
+                        .onMove { indices, newOffset in
+                            viewModel.moveWithinGroup(entry.items, from: indices, to: newOffset)
+                        }
+                    } header: {
+                        Text(entry.group)
+                            .contextMenu {
+                                Button("Rename Group…") {
+                                    renamingGroup = entry.group
+                                    renameText = entry.group
+                                }
+                            }
+                            .dropDestination(for: TargetDragItem.self) { items, _ in
+                                for item in items { viewModel.moveToGroup(id: item.id, group: entry.group) }
+                                return true
+                            }
                     }
                 }
-                .listStyle(.inset)
             }
+            .listStyle(.inset)
             .navigationDestination(for: Int64.self) { targetId in
                 TargetDetailView(targetId: targetId)
             }
+            .toolbar {
+                overviewToolbarContent
+            }
         }
-        .searchable(text: $viewModel.searchText, prompt: "Search domains")
         .onAppear { viewModel.start() }
         .onDisappear { viewModel.stop() }
         .onChange(of: navigationState.pendingDetailTargetID) { _, newValue in
@@ -95,8 +93,22 @@ struct OverviewView: View {
         }
     }
 
-    private var toolbar: some View {
-        HStack {
+    /// A real `.toolbar` (not a hand-drawn `HStack`) so these actions merge
+    /// into the window's title bar chrome like any system app — this also
+    /// picks up the Liquid Glass toolbar material automatically on macOS 26+
+    /// without any extra styling on our part.
+    @ToolbarContentBuilder
+    private var overviewToolbarContent: some ToolbarContent {
+        ToolbarItemGroup(placement: .automatic) {
+            if !viewModel.selection.isEmpty {
+                Text("\(viewModel.selection.count) selected")
+                    .foregroundStyle(.secondary)
+                Button("Enable") { viewModel.setEnabledForSelection(true) }
+                Button("Disable") { viewModel.setEnabledForSelection(false) }
+                Button(role: .destructive) { viewModel.deleteSelected() } label: { Text("Delete") }
+                Divider()
+            }
+
             Menu {
                 ForEach(TargetStatus.allCases, id: \.self) { status in
                     Toggle(status.localizedLabel, isOn: Binding(
@@ -108,18 +120,6 @@ struct OverviewView: View {
                 }
             } label: {
                 Label(viewModel.statusFilters.isEmpty ? "All statuses" : "\(viewModel.statusFilters.count) filter(s)", systemImage: "line.3.horizontal.decrease.circle")
-            }
-            .menuStyle(.borderlessButton)
-            .fixedSize()
-
-            Spacer()
-
-            if !viewModel.selection.isEmpty {
-                Text("\(viewModel.selection.count) selected")
-                    .foregroundStyle(.secondary)
-                Button("Enable") { viewModel.setEnabledForSelection(true) }
-                Button("Disable") { viewModel.setEnabledForSelection(false) }
-                Button(role: .destructive) { viewModel.deleteSelected() } label: { Text("Delete") }
             }
 
             Button {
@@ -134,8 +134,6 @@ struct OverviewView: View {
             } label: {
                 Label("Import/Export", systemImage: "square.and.arrow.up.on.square")
             }
-            .menuStyle(.borderlessButton)
-            .fixedSize()
 
             Button {
                 viewModel.isPresentingAddSheet = true
@@ -143,6 +141,5 @@ struct OverviewView: View {
                 Label("Add Target", systemImage: "plus")
             }
         }
-        .padding(8)
     }
 }

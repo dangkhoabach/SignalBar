@@ -5,6 +5,7 @@ import DKBMonitorCore
 /// `Settings {}` scene (Cmd+,) per Phase 12.
 struct ContentView: View {
     @Bindable private var navigationState = AppNavigationState.shared
+    @Bindable private var overviewViewModel = OverviewViewModel.shared
 
     var body: some View {
         NavigationSplitView {
@@ -25,5 +26,13 @@ struct ContentView: View {
             }
         }
         .frame(minWidth: 760, minHeight: 480)
+        // Attached to the NavigationSplitView itself, not to a view nested
+        // inside its detail column — on macOS, `.searchable` on a
+        // NavigationStack nested inside a split view's detail simply never
+        // renders a search field (a known SwiftUI limitation). Only the
+        // Domains section reads `searchText`; showing the field while on
+        // System is a harmless no-op, same tradeoff Mail.app-style sidebar
+        // apps make.
+        .searchable(text: $overviewViewModel.searchText, prompt: Text("Search domains"))
     }
 }

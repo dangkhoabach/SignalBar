@@ -61,22 +61,27 @@ struct SystemView: View {
         "\(stats.uptimeSecs / 3600)h \((stats.uptimeSecs % 3600) / 60)m"
     }
 
+    /// `GroupBox` rather than a hand-drawn `RoundedRectangle` background —
+    /// it adopts whatever material the system gives cards (including the
+    /// Liquid Glass card material on macOS 26+) instead of a fixed opacity
+    /// that would look flat/wrong once the system look changes.
     @ViewBuilder
     private func statCard(title: LocalizedStringKey, value: String, history: [Double]?) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.caption).foregroundStyle(.secondary)
-            Text(value).font(.title3.monospacedDigit())
-            if let history, history.count > 1 {
-                Chart(Array(history.enumerated()), id: \.offset) { sample in
-                    LineMark(x: .value("Tick", sample.offset), y: .value("Value", sample.element))
+        GroupBox {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(value).font(.title3.monospacedDigit())
+                if let history, history.count > 1 {
+                    Chart(Array(history.enumerated()), id: \.offset) { sample in
+                        LineMark(x: .value("Tick", sample.offset), y: .value("Value", sample.element))
+                    }
+                    .chartXAxis(.hidden)
+                    .chartYAxis(.hidden)
+                    .frame(height: 32)
                 }
-                .chartXAxis(.hidden)
-                .chartYAxis(.hidden)
-                .frame(height: 32)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } label: {
+            Text(title).font(.caption).foregroundStyle(.secondary)
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary.opacity(0.3), in: RoundedRectangle(cornerRadius: 8))
     }
 }
