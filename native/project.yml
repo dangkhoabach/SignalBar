@@ -11,6 +11,9 @@ settings:
 packages:
   DKBMonitorCore:
     path: DKBMonitorCore
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: "2.6.4"
 targets:
   DKBMonitorApp:
     type: application
@@ -19,10 +22,19 @@ targets:
       - DKBMonitorApp
     dependencies:
       - package: DKBMonitorCore
+      - package: Sparkle
     info:
       path: DKBMonitorApp/Info.plist
       properties:
         LSUIElement: false
+        # Sparkle (Phase 10). SUPublicEDKey is a placeholder until the real
+        # keypair is generated — see docs/swift-native-port-plan.md's Phase
+        # 10 notes for the exact one-time setup steps (private half goes
+        # into the SPARKLE_ED_PRIVATE_KEY GitHub Actions secret, never here).
+        SUFeedURL: https://admin.dangkhoabach.vn/dkb-monitor-native/appcast.xml
+        SUPublicEDKey: REPLACE_WITH_GENERATED_ED25519_PUBLIC_KEY
+        SUEnableAutomaticChecks: true
+        SUScheduledCheckInterval: 86400
     entitlements:
       path: DKBMonitorApp/DKBMonitorApp.entitlements
       properties:

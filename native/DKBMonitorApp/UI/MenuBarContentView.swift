@@ -11,6 +11,7 @@ struct MenuBarContentView: View {
         Text(model.batteryLabel)
         Divider()
         Button("Show DKB Monitor") { WindowPresenter.showMainWindow() }
+        Button("Check for Updates…") { AppUpdater.checkForUpdates() }
         Button("Quit") { NSApp.terminate(nil) }
     }
 }

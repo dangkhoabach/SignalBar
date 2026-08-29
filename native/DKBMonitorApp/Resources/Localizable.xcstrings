@@ -201,6 +201,16 @@
         }
       }
     },
+    "Check for Updates…" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kiểm tra cập nhật…"
+          }
+        }
+      }
+    },
     "Check All Now" : {
       "localizations" : {
         "vi" : {

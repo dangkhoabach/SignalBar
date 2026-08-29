@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             AppNavigationState.shared.handleNotificationRoute(route)
         }
         Task { await AppScheduler.shared?.start() }
+        _ = AppUpdater.shared // starts Sparkle's check-on-launch loop (Phase 10)
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
