@@ -54,6 +54,11 @@ struct TargetRowView: View {
             .toggleStyle(.switch)
         }
         .padding(.vertical, 10)
+        // Explicit minHeight, not just vertical padding, so List has a
+        // concrete row height to lay out with on the very first frame —
+        // without it, List briefly estimates a smaller height, overlapping
+        // rows until any scroll forces a relayout with the real size.
+        .frame(minHeight: 52)
         .contentShape(Rectangle())
         .onTapGesture(count: 2) { onViewDetails() }
         .contextMenu {

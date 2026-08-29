@@ -40,7 +40,13 @@ targets:
         # recent non-prerelease tag.
         SUFeedURL: https://github.com/dangkhoabach/DKB-Monitor/releases/latest/download/appcast.xml
         SUPublicEDKey: REPLACE_WITH_GENERATED_ED25519_PUBLIC_KEY
-        SUEnableAutomaticChecks: true
+        # Automatic checks stay off until the real keypair above is in place
+        # and at least one release exists — otherwise Sparkle fails every
+        # check (no valid feed to reach) and surfaces an "Unable to Check
+        # For Updates" alert on every single launch. Flip this to true once
+        # Phase 10's real setup is done; "Check for Updates…" in the menu
+        # bar still works manually in the meantime.
+        SUEnableAutomaticChecks: false
         SUScheduledCheckInterval: 86400
     entitlements:
       path: DKBMonitorApp/DKBMonitorApp.entitlements
