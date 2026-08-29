@@ -2,12 +2,14 @@ import Foundation
 
 /// Composed read-model for the Overview list — not a GRDB record itself,
 /// assembled by TargetRepository from several tables per target.
-public struct TargetOverview: Equatable, Sendable {
+public struct TargetOverview: Identifiable, Equatable, Sendable {
     public var target: Target
     public var latestCheck: CheckResult?
     public var sslStatus: SslStatus?
     public var domainStatus: DomainStatus?
     public var uptime24hPct: Double?
+
+    public var id: Int64 { target.id ?? -1 }
 
     public init(target: Target, latestCheck: CheckResult?, sslStatus: SslStatus?, domainStatus: DomainStatus?, uptime24hPct: Double?) {
         self.target = target

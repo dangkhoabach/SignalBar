@@ -7,6 +7,10 @@ import AppKit
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         MenuBarStatsViewModel.shared.start()
+        NotificationManager.shared.onRouteSelected = { route in
+            AppNavigationState.shared.handleNotificationRoute(route)
+        }
+        Task { await AppScheduler.shared?.start() }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

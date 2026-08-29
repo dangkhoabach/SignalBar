@@ -76,10 +76,24 @@ public actor Scheduler {
     private func runHTTPChecks() async throws {
         let due = try targetRepo.dueForHTTPCheck()
         guard !due.isEmpty else { return }
+        try await runHTTPChecks(on: due)
+    }
+
+    /// Runs HTTP checks immediately for specific targets, bypassing the
+    /// due-schedule gate — backs the Overview's "Check Now"/"Check All Now".
+    public func checkNow(targetIds: [Int64]) async {
+        guard !targetIds.isEmpty,
+              let targets = try? targetRepo.list().filter({ targetIds.contains($0.id ?? -1) && $0.checkHTTP }),
+              !targets.isEmpty
+        else { return }
+        try? await runHTTPChecks(on: targets)
+    }
+
+    private func runHTTPChecks(on targets: [Target]) async throws {
         let settings = try settingsRepo.load()
 
         await withTaskGroup(of: (Target, HttpCheckOutcome).self) { group in
-            for target in due {
+            for target in targets {
                 group.addTask {
                     (target, await HttpChecker.check(target: target))
                 }

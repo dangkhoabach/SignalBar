@@ -11,7 +11,6 @@ struct DKBMonitorApp: App {
             ContentView()
                 .background(WindowAccessor(delegate: windowDelegate))
         }
-        .windowResizability(.contentSize)
 
         Settings {
             Text("Settings — Phase 12")

@@ -1,16 +1,33 @@
 import SwiftUI
 import DKBMonitorCore
 
-/// Placeholder — Overview/Sidebar land in Phase 11.
+/// Sidebar (Domains/System/Settings) + content. Domains is the Phase 11
+/// Overview; System/Settings stay placeholders until Phase 12.
 struct ContentView: View {
+    @Bindable private var navigationState = AppNavigationState.shared
+
     var body: some View {
-        VStack(spacing: 8) {
-            Text("DKB Monitor Native")
-                .font(.title2)
-            Text("Core package: \(DKBMonitorCore.version)")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+        NavigationSplitView {
+            List(SidebarSection.allCases, selection: Binding(
+                get: { navigationState.sidebarSelection },
+                set: { if let newValue = $0 { navigationState.sidebarSelection = newValue } }
+            )) { section in
+                Label(section.title, systemImage: section.systemImage)
+                    .tag(section)
+            }
+            .navigationSplitViewColumnWidth(180)
+        } detail: {
+            switch navigationState.sidebarSelection {
+            case .domains:
+                OverviewView()
+            case .system:
+                Text("System — Phase 12")
+                    .foregroundStyle(.secondary)
+            case .settings:
+                Text("Settings — Phase 12")
+                    .foregroundStyle(.secondary)
+            }
         }
-        .frame(width: 480, height: 320)
+        .frame(minWidth: 760, minHeight: 480)
     }
 }
