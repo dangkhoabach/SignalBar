@@ -6,7 +6,7 @@ struct TargetDetailView: View {
     let targetId: Int64
 
     @State private var viewModel = TargetDetailViewModel(
-        repo: (try? AppDatabase(path: AppDatabaseLocation.productionPath().path)).map { TargetRepository(dbQueue: $0.dbQueue) }
+        repo: AppDatabase.shared.map { TargetRepository(dbQueue: $0.dbQueue) }
     )
 
     var body: some View {

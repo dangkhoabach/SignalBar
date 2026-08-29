@@ -20,7 +20,7 @@ final class MenuBarStatsViewModel {
     // app's lifetime, started once from `AppDelegate.applicationDidFinishLaunching`.
     static let shared = MenuBarStatsViewModel(
         statsProvider: SystemStatsService(),
-        targetRepo: (try? AppDatabase(path: AppDatabaseLocation.productionPath().path)).map { TargetRepository(dbQueue: $0.dbQueue) }
+        targetRepo: AppDatabase.shared.map { TargetRepository(dbQueue: $0.dbQueue) }
     )
 
     private let statsProvider: SystemStatsProvider

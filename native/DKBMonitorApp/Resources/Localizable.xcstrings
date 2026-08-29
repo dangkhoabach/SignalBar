@@ -38,6 +38,7 @@
       }
     },
     "%@ selected" : {
+      "extractionState" : "stale",
       "localizations" : {
         "vi" : {
           "stringUnit" : {
@@ -1066,6 +1067,7 @@
       }
     },
     "Search domains" : {
+      "extractionState" : "stale",
       "localizations" : {
         "vi" : {
           "stringUnit" : {

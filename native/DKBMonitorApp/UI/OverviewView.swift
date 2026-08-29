@@ -99,16 +99,13 @@ struct OverviewView: View {
     /// without any extra styling on our part.
     @ToolbarContentBuilder
     private var overviewToolbarContent: some ToolbarContent {
-        // Kept as its own `ToolbarItem` rather than inside the button group
-        // below: macOS visually fuses adjacent `Button`s in a
-        // `ToolbarItemGroup` into one pill-shaped cluster, and a plain
-        // `Text` swept into that same group gets dragged into the pill's
-        // background too, which looks broken since it isn't a button.
+        // No "N selected" label: on a Liquid Glass toolbar, macOS wraps
+        // every item — plain text included — in the same pill-shaped
+        // control chrome, so a text label ends up looking like a
+        // non-functional button. Selection is already visible from the
+        // highlighted rows, matching how Mail/Photos handle bulk-selection
+        // toolbars (buttons only, no count label).
         if !viewModel.selection.isEmpty {
-            ToolbarItem(placement: .automatic) {
-                Text("\(viewModel.selection.count) selected")
-                    .foregroundStyle(.secondary)
-            }
             ToolbarItemGroup(placement: .automatic) {
                 Button("Enable") { viewModel.setEnabledForSelection(true) }
                 Button("Disable") { viewModel.setEnabledForSelection(false) }
@@ -148,6 +145,28 @@ struct OverviewView: View {
             } label: {
                 Label("Add Target", systemImage: "plus")
             }
+        }
+
+        // A hand-built field instead of `.searchable`: that modifier only
+        // works reliably when attached to the top-level `NavigationSplitView`
+        // on macOS (nested `NavigationStack`s don't render it at all), but
+        // attaching it there with a condition to scope it to just this
+        // screen turned out to be unreliable — SwiftUI doesn't consistently
+        // treat the if/else branches of a conditionally-applied `.searchable`
+        // as the same view, so it kept leaking onto Target Detail. Placing a
+        // plain `TextField` inside this `.toolbar` instead rides the same
+        // show/hide mechanism already proven correct for the buttons above.
+        ToolbarItem(placement: .automatic) {
+            HStack(spacing: 6) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(.secondary)
+                TextField("Search domains", text: $viewModel.searchText)
+                    .textFieldStyle(.plain)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .frame(minWidth: 180)
+            .background(.quaternary.opacity(0.4), in: Capsule())
         }
     }
 }

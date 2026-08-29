@@ -6,7 +6,7 @@ import Observation
 @Observable
 final class SettingsViewModel {
     static let shared = SettingsViewModel(
-        repo: (try? AppDatabase(path: AppDatabaseLocation.productionPath().path)).map { SettingsRepository(dbQueue: $0.dbQueue) }
+        repo: AppDatabase.shared.map { SettingsRepository(dbQueue: $0.dbQueue) }
     )
 
     private let repo: SettingsRepository?

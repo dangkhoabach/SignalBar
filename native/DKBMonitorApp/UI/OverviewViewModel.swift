@@ -20,7 +20,7 @@ final class OverviewViewModel {
     static let ungroupedLabel = "Ungrouped"
 
     static let shared = OverviewViewModel(
-        repo: (try? AppDatabase(path: AppDatabaseLocation.productionPath().path)).map { TargetRepository(dbQueue: $0.dbQueue) }
+        repo: AppDatabase.shared.map { TargetRepository(dbQueue: $0.dbQueue) }
     )
 
     private let repo: TargetRepository?

@@ -8,7 +8,7 @@ import GRDB
 /// full schema from scratch on a brand-new install, and (b) transform an
 /// existing Tauri-created DB (which predates GRDB entirely) into the same
 /// end state. Both paths are exercised in `AppDatabaseTests`.
-public struct AppDatabase {
+public struct AppDatabase: Sendable {
     public let dbQueue: DatabaseQueue
 
     public init(path: String) throws {

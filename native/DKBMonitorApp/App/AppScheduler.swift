@@ -8,7 +8,7 @@ import DKBMonitorCore
 /// is main-actor-isolated.
 @MainActor
 enum AppScheduler {
-    static let shared: Scheduler? = (try? AppDatabase(path: AppDatabaseLocation.productionPath().path)).map { db in
+    static let shared: Scheduler? = AppDatabase.shared.map { db in
         Scheduler(
             dbQueue: db.dbQueue,
             notifier: NotificationManager.shared,
