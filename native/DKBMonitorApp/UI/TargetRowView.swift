@@ -10,36 +10,41 @@ struct TargetRowView: View {
     private var targetId: Int64 { overview.target.id ?? -1 }
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 14) {
             Circle()
                 .fill(status.color)
-                .frame(width: 8, height: 8)
+                .frame(width: 10, height: 10)
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(overview.target.name).font(.headline)
-                Text(overview.target.url).font(.caption).foregroundStyle(.secondary)
+                Text(overview.target.url).font(.subheadline).foregroundStyle(.secondary)
             }
 
-            Spacer()
+            Spacer(minLength: 12)
 
-            if let uptime = overview.uptime24hPct {
-                Text("\(uptime, specifier: "%.1f")% uptime")
-                    .font(.caption).foregroundStyle(.secondary)
+            HStack(spacing: 20) {
+                if let uptime = overview.uptime24hPct {
+                    Text("\(uptime, specifier: "%.1f")% uptime")
+                        .frame(minWidth: 90, alignment: .trailing)
+                }
+                if let responseTime = overview.latestCheck?.responseTimeMs {
+                    Text("\(responseTime)ms")
+                        .frame(minWidth: 44, alignment: .trailing)
+                }
+                if let sslExpiry = overview.sslStatus?.expiryDate {
+                    Text("SSL: \(sslExpiry.formatted(date: .abbreviated, time: .omitted))")
+                        .frame(minWidth: 120, alignment: .trailing)
+                }
             }
-            if let responseTime = overview.latestCheck?.responseTimeMs {
-                Text("\(responseTime)ms")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-            if let sslExpiry = overview.sslStatus?.expiryDate {
-                Text("SSL: \(sslExpiry.formatted(date: .abbreviated, time: .omitted))")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
 
             Text(status.localizedLabel)
-                .font(.caption2.bold())
-                .padding(.horizontal, 6).padding(.vertical, 2)
+                .font(.caption.bold())
+                .padding(.horizontal, 8).padding(.vertical, 3)
                 .background(status.color.opacity(0.15), in: Capsule())
                 .foregroundStyle(status.color)
+                .frame(minWidth: 70)
 
             Toggle("", isOn: Binding(
                 get: { overview.target.enabled },
@@ -48,6 +53,7 @@ struct TargetRowView: View {
             .labelsHidden()
             .toggleStyle(.switch)
         }
+        .padding(.vertical, 10)
         .contentShape(Rectangle())
         .onTapGesture(count: 2) { onViewDetails() }
         .contextMenu {

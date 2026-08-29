@@ -38,7 +38,7 @@ struct OverviewView: View {
                     }
                 }
             }
-            .listStyle(.inset)
+            .listStyle(.inset(alternatesRowBackgrounds: true))
             .navigationDestination(for: Int64.self) { targetId in
                 TargetDetailView(targetId: targetId)
             }
