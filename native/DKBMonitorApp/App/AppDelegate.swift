@@ -5,18 +5,16 @@ import AppKit
 /// last window closes, reopen on Dock click, and restore Regular activation
 /// policy (Dock icon) when reopening.
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        MenuBarStatsViewModel.shared.start()
+    }
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
-        NSApp.setActivationPolicy(.regular)
-        if !hasVisibleWindows {
-            for window in sender.windows {
-                window.makeKeyAndOrderFront(nil)
-            }
-        }
-        NSApp.activate(ignoringOtherApps: true)
+        WindowPresenter.showMainWindow()
         return true
     }
 }

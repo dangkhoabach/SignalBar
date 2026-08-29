@@ -103,9 +103,7 @@ extension NotificationManager: UNUserNotificationCenterDelegate {
         }
 
         Task { @MainActor in
-            NSApp.setActivationPolicy(.regular)
-            for window in NSApp.windows { window.makeKeyAndOrderFront(nil) }
-            NSApp.activate(ignoringOtherApps: true)
+            WindowPresenter.showMainWindow()
             if let route {
                 NotificationManager.shared.onRouteSelected?(route)
             }
