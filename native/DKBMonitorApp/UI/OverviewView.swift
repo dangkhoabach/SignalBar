@@ -130,8 +130,13 @@ struct OverviewView: View {
             Button {
                 viewModel.checkAllNow()
             } label: {
-                Label("Check All Now", systemImage: "arrow.clockwise")
+                if viewModel.isCheckingAll {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Label("Check All Now", systemImage: "arrow.clockwise")
+                }
             }
+            .disabled(viewModel.isCheckingAll)
 
             Menu {
                 Button("Export…") { viewModel.exportTargets() }

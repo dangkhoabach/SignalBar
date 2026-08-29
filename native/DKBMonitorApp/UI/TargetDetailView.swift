@@ -23,11 +23,38 @@ struct TargetDetailView: View {
                 }
                 .navigationTitle(detail.target.name)
             } else {
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                skeleton
             }
         }
         .onAppear { viewModel.load(targetId: targetId) }
+    }
+
+    /// `detail` loads via a synchronous DB read (near-instant in practice),
+    /// but a skeleton still reads better than a bare spinner floating in
+    /// otherwise-empty space — the stat tiles, chart, and table all have a
+    /// fixed, well-known shape ahead of time, which is exactly what
+    /// `.redacted(reason: .placeholder)` is for.
+    private var skeleton: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                HStack(spacing: 12) {
+                    tile("Uptime (24h)", "00.0%")
+                    tile("Uptime (7d)", "00.0%")
+                    tile("Incidents", "0")
+                }
+                VStack(alignment: .leading) {
+                    Text("Latency").font(.headline)
+                    Color.clear.frame(height: 160)
+                        .overlay(RoundedRectangle(cornerRadius: 8).fill(.quaternary))
+                }
+                VStack(alignment: .leading) {
+                    Text("History").font(.headline)
+                    RoundedRectangle(cornerRadius: 8).fill(.quaternary).frame(minHeight: 200)
+                }
+            }
+            .padding()
+        }
+        .redacted(reason: .placeholder)
     }
 
     private func statTiles(_ detail: TargetDetail) -> some View {

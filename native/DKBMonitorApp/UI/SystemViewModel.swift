@@ -22,6 +22,13 @@ final class SystemViewModel {
     var downloadHistory: [Double] = []
     var uploadHistory: [Double] = []
 
+    /// True until the first `refresh()` completes. `current` starts as all
+    /// zeros (`SystemStats()`'s default init), which would otherwise flash
+    /// as real "CPU: 0%" values for the brief async gap before the first
+    /// real snapshot lands — this flag lets the view show a skeleton
+    /// instead of misleading zeroed-out numbers.
+    var hasLoadedOnce = false
+
     init(statsProvider: SystemStatsProvider) {
         self.statsProvider = statsProvider
     }
@@ -49,6 +56,7 @@ final class SystemViewModel {
         appendClamped(&ramHistory, ramPercent)
         appendClamped(&downloadHistory, stats.networkDownloadKbps)
         appendClamped(&uploadHistory, stats.networkUploadKbps)
+        hasLoadedOnce = true
     }
 
     private func appendClamped(_ array: inout [Double], _ value: Double) {

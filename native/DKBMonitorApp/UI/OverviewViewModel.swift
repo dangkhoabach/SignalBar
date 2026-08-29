@@ -34,6 +34,15 @@ final class OverviewViewModel {
     var editingTarget: Target?
     var isPresentingAddSheet = false
 
+    /// IDs currently mid-flight in a "Check Now"/"Check All Now" call.
+    /// `Scheduler.checkNow` has no in-progress signal of its own (it's a
+    /// fire-and-forget `async` call whose results surface later via the
+    /// `observeOverview()` DB observation) — this is purely a UI-layer flag
+    /// so a row/toolbar button can show a spinner while the network check
+    /// it kicked off is still running.
+    var checkingIds: Set<Int64> = []
+    var isCheckingAll = false
+
     init(repo: TargetRepository?) {
         self.repo = repo
     }
@@ -186,16 +195,22 @@ final class OverviewViewModel {
     // MARK: - Check now
 
     func checkNow(id: Int64) {
+        checkingIds.insert(id)
         Task {
             await AppScheduler.shared?.checkNow(targetIds: [id])
+            checkingIds.remove(id)
         }
     }
 
     func checkAllNow() {
         let ids = overviews.compactMap { $0.target.id }
         guard !ids.isEmpty else { return }
+        checkingIds.formUnion(ids)
+        isCheckingAll = true
         Task {
             await AppScheduler.shared?.checkNow(targetIds: ids)
+            checkingIds.subtract(ids)
+            isCheckingAll = false
         }
     }
 

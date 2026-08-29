@@ -8,12 +8,19 @@ struct TargetRowView: View {
 
     private var status: TargetStatus { TargetStatus(overview: overview) }
     private var targetId: Int64 { overview.target.id ?? -1 }
+    private var isChecking: Bool { viewModel.checkingIds.contains(targetId) }
 
     var body: some View {
         HStack(spacing: 14) {
-            Circle()
-                .fill(status.color)
-                .frame(width: 10, height: 10)
+            if isChecking {
+                ProgressView()
+                    .controlSize(.small)
+                    .frame(width: 10, height: 10)
+            } else {
+                Circle()
+                    .fill(status.color)
+                    .frame(width: 10, height: 10)
+            }
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(overview.target.name).font(.headline)
@@ -64,6 +71,7 @@ struct TargetRowView: View {
         .contextMenu {
             Button("View Details") { onViewDetails() }
             Button("Check Now") { viewModel.checkNow(id: targetId) }
+                .disabled(isChecking)
             Menu("Pause") {
                 Button("30 minutes") { viewModel.pause(id: targetId, duration: 30 * 60) }
                 Button("1 hour") { viewModel.pause(id: targetId, duration: 60 * 60) }

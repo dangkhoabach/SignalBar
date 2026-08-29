@@ -9,30 +9,47 @@ struct SystemView: View {
 
     var body: some View {
         ScrollView {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 12)], spacing: 12) {
-                statCard(title: "CPU", value: "\(Int(stats.cpuPercent.rounded()))%", history: viewModel.cpuHistory)
-                statCard(title: "RAM", value: ramText, history: viewModel.ramHistory)
-                statCard(title: "Swap", value: swapText, history: nil)
-                statCard(title: "Disk", value: diskText, history: nil)
-                if let gpuName = stats.gpuName {
-                    statCard(title: LocalizedStringKey(gpuName), value: stats.gpuPercent.map { "\(Int($0.rounded()))%" } ?? "N/A", history: nil)
+            if viewModel.hasLoadedOnce {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 12)], spacing: 12) {
+                    statCard(title: "CPU", value: "\(Int(stats.cpuPercent.rounded()))%", history: viewModel.cpuHistory)
+                    statCard(title: "RAM", value: ramText, history: viewModel.ramHistory)
+                    statCard(title: "Swap", value: swapText, history: nil)
+                    statCard(title: "Disk", value: diskText, history: nil)
+                    if let gpuName = stats.gpuName {
+                        statCard(title: LocalizedStringKey(gpuName), value: stats.gpuPercent.map { "\(Int($0.rounded()))%" } ?? "N/A", history: nil)
+                    }
+                    statCard(title: "Temperature", value: stats.cpuTempCelsius.map { "\(Int($0.rounded()))°C" } ?? "N/A", history: nil)
+                    if let battery = stats.batteryPercent {
+                        statCard(title: "Battery", value: "\(Int(battery.rounded()))%\(stats.batteryCharging == true ? " (Charging)" : "")", history: nil)
+                    }
+                    if !stats.fanRPMs.isEmpty {
+                        statCard(title: "Fan", value: stats.fanRPMs.map { "\(Int($0)) RPM" }.joined(separator: ", "), history: nil)
+                    }
+                    statCard(title: "Network", value: networkText, history: nil)
+                    statCard(title: "Download", value: String(format: "%.1f KB/s", stats.networkDownloadKbps), history: viewModel.downloadHistory)
+                    statCard(title: "Upload", value: String(format: "%.1f KB/s", stats.networkUploadKbps), history: viewModel.uploadHistory)
+                    statCard(title: "Uptime", value: uptimeText, history: nil)
                 }
-                statCard(title: "Temperature", value: stats.cpuTempCelsius.map { "\(Int($0.rounded()))°C" } ?? "N/A", history: nil)
-                if let battery = stats.batteryPercent {
-                    statCard(title: "Battery", value: "\(Int(battery.rounded()))%\(stats.batteryCharging == true ? " (Charging)" : "")", history: nil)
-                }
-                if !stats.fanRPMs.isEmpty {
-                    statCard(title: "Fan", value: stats.fanRPMs.map { "\(Int($0)) RPM" }.joined(separator: ", "), history: nil)
-                }
-                statCard(title: "Network", value: networkText, history: nil)
-                statCard(title: "Download", value: String(format: "%.1f KB/s", stats.networkDownloadKbps), history: viewModel.downloadHistory)
-                statCard(title: "Upload", value: String(format: "%.1f KB/s", stats.networkUploadKbps), history: viewModel.uploadHistory)
-                statCard(title: "Uptime", value: uptimeText, history: nil)
+                .padding()
+            } else {
+                skeletonGrid
             }
-            .padding()
         }
         .onAppear { viewModel.start() }
         .onDisappear { viewModel.stop() }
+    }
+
+    /// Same card count/shape as the real grid so the layout doesn't jump
+    /// once real data arrives — placeholder values only exist to give
+    /// `.redacted(reason: .placeholder)` something shimmer-shaped to draw.
+    private var skeletonGrid: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 12)], spacing: 12) {
+            ForEach(0..<9, id: \.self) { _ in
+                statCard(title: "Loading", value: "00%", history: [0, 0])
+            }
+        }
+        .padding()
+        .redacted(reason: .placeholder)
     }
 
     private var ramText: String {
