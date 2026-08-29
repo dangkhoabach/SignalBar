@@ -65,6 +65,13 @@ struct SystemView: View {
     /// it adopts whatever material the system gives cards (including the
     /// Liquid Glass card material on macOS 26+) instead of a fixed opacity
     /// that would look flat/wrong once the system look changes.
+    /// Every card reserves the same sparkline height whether or not it has
+    /// history to plot, so cards without a chart (Swap, Disk, Temperature…)
+    /// don't end up shorter than their row neighbors that do (CPU, RAM,
+    /// Download, Upload) — `LazyVGrid` doesn't equalize row heights across
+    /// columns on its own.
+    private static let sparklineHeight: CGFloat = 32
+
     @ViewBuilder
     private func statCard(title: LocalizedStringKey, value: String, history: [Double]?) -> some View {
         GroupBox {
@@ -76,7 +83,9 @@ struct SystemView: View {
                     }
                     .chartXAxis(.hidden)
                     .chartYAxis(.hidden)
-                    .frame(height: 32)
+                    .frame(height: Self.sparklineHeight)
+                } else {
+                    Color.clear.frame(height: Self.sparklineHeight)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
