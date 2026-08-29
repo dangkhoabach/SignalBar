@@ -1,0 +1,137 @@
+import Foundation
+import GRDB
+
+/// Opens (or creates) the app's SQLite database and keeps it migrated.
+///
+/// Per D4 in the plan: this reads the **same file** the Tauri app already
+/// uses (same bundle id, see D2), so `migrator` must both (a) create the
+/// full schema from scratch on a brand-new install, and (b) transform an
+/// existing Tauri-created DB (which predates GRDB entirely) into the same
+/// end state. Both paths are exercised in `AppDatabaseTests`.
+public struct AppDatabase {
+    public let dbQueue: DatabaseQueue
+
+    public init(path: String) throws {
+        dbQueue = try DatabaseQueue(path: path)
+        try Self.migrator.migrate(dbQueue)
+    }
+
+    /// In-memory database for tests/previews.
+    public init(inMemory: DatabaseQueue) throws {
+        dbQueue = inMemory
+        try Self.migrator.migrate(dbQueue)
+    }
+
+    static var migrator: DatabaseMigrator {
+        var migrator = DatabaseMigrator()
+
+        // Mirrors db.rs::init_db exactly (including every column ever added
+        // via `ensure_column`), so this step is a correct no-op against an
+        // existing Tauri-created DB and a correct fresh create otherwise.
+        migrator.registerMigration("v1_baselineSchema") { db in
+            try db.execute(sql: """
+                CREATE TABLE IF NOT EXISTS targets (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    url TEXT NOT NULL,
+                    group_tag TEXT,
+                    check_interval_secs INTEGER NOT NULL DEFAULT 300,
+                    enabled INTEGER NOT NULL DEFAULT 1,
+                    check_http INTEGER NOT NULL DEFAULT 1,
+                    expected_status INTEGER NOT NULL DEFAULT 200,
+                    check_ssl INTEGER NOT NULL DEFAULT 1,
+                    check_domain INTEGER NOT NULL DEFAULT 0,
+                    custom_path TEXT,
+                    expected_body_contains TEXT,
+                    last_checked_at TEXT,
+                    paused_until TEXT,
+                    sort_order INTEGER,
+                    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+                );
+
+                CREATE TABLE IF NOT EXISTS check_results (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    target_id INTEGER NOT NULL REFERENCES targets(id) ON DELETE CASCADE,
+                    checked_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    success INTEGER NOT NULL,
+                    status_code INTEGER,
+                    response_time_ms INTEGER,
+                    error_message TEXT
+                );
+                CREATE INDEX IF NOT EXISTS idx_check_results_target_time
+                    ON check_results(target_id, checked_at DESC);
+
+                CREATE TABLE IF NOT EXISTS ssl_status (
+                    target_id INTEGER PRIMARY KEY REFERENCES targets(id) ON DELETE CASCADE,
+                    expiry_date TEXT,
+                    last_checked TEXT NOT NULL DEFAULT (datetime('now')),
+                    last_alert_sent_at TEXT
+                );
+
+                CREATE TABLE IF NOT EXISTS domain_status (
+                    target_id INTEGER PRIMARY KEY REFERENCES targets(id) ON DELETE CASCADE,
+                    expiry_date TEXT,
+                    last_checked TEXT NOT NULL DEFAULT (datetime('now')),
+                    last_alert_sent_at TEXT
+                );
+
+                CREATE TABLE IF NOT EXISTS alert_state (
+                    target_id INTEGER PRIMARY KEY REFERENCES targets(id) ON DELETE CASCADE,
+                    consecutive_failures INTEGER NOT NULL DEFAULT 0,
+                    consecutive_slow INTEGER NOT NULL DEFAULT 0,
+                    last_alert_sent_at TEXT
+                );
+
+                CREATE TABLE IF NOT EXISTS app_settings (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL
+                );
+                """)
+
+            try db.addColumnIfMissing(table: "targets", column: "sort_order", type: "INTEGER")
+            try db.execute(sql: "UPDATE targets SET sort_order = id WHERE sort_order IS NULL")
+
+            // Best-effort, same reasoning as the Rust version: an old install
+            // with pre-existing duplicate URLs shouldn't fail the whole migration.
+            do {
+                try db.execute(sql: """
+                    CREATE UNIQUE INDEX IF NOT EXISTS idx_targets_url_unique
+                    ON targets (lower(trim(url)))
+                    """)
+            } catch {
+                // Logged, not fatal — matches db.rs's own comment on this exact case.
+            }
+        }
+
+        // D4's schema cleanup: replace the `paused_until = '9999-12-31...'`
+        // sentinel with an explicit boolean, so every other query only ever
+        // needs `paused_indefinitely OR paused_until > now` instead of also
+        // remembering a magic date.
+        migrator.registerMigration("v2_explicitIndefinitePause") { db in
+            try db.addColumnIfMissing(table: "targets", column: "paused_indefinitely", type: "INTEGER NOT NULL DEFAULT 0")
+            try db.execute(sql: """
+                UPDATE targets
+                SET paused_indefinitely = 1, paused_until = NULL
+                WHERE paused_until = '9999-12-31 00:00:00'
+                """)
+        }
+
+        return migrator
+    }
+}
+
+extension Database {
+    /// Same purpose as db.rs's `ensure_column`: safe to call whether or not
+    /// the column already exists, so migrations stay idempotent against a
+    /// DB that's already at (or past) this point.
+    func addColumnIfMissing(table: String, column: String, type: String) throws {
+        let exists = try Bool.fetchOne(
+            self,
+            sql: "SELECT 1 FROM pragma_table_info(?) WHERE name = ?",
+            arguments: [table, column]
+        ) ?? false
+        if !exists {
+            try execute(sql: "ALTER TABLE \(table) ADD COLUMN \(column) \(type)")
+        }
+    }
+}
