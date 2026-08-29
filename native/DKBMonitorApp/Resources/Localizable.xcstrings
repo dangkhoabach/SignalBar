@@ -1,0 +1,1176 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%.1f%% uptime" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hoạt động: %.1f%%"
+          }
+        }
+      }
+    },
+    "%@ — ongoing" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ — đang diễn ra"
+          }
+        }
+      }
+    },
+    "%lld filter(s)" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld bộ lọc"
+          }
+        }
+      }
+    },
+    "%lld selected" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đã chọn %lld"
+          }
+        }
+      }
+    },
+    "24 hours" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "24 giờ"
+          }
+        }
+      }
+    },
+    "30 minutes" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "30 phút"
+          }
+        }
+      }
+    },
+    "1 hour" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 giờ"
+          }
+        }
+      }
+    },
+    "4 hours" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "4 giờ"
+          }
+        }
+      }
+    },
+    "Add" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thêm"
+          }
+        }
+      }
+    },
+    "Add Target" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thêm mục theo dõi"
+          }
+        }
+      }
+    },
+    "Alerts & Data" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cảnh báo & Dữ liệu"
+          }
+        }
+      }
+    },
+    "All statuses" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tất cả trạng thái"
+          }
+        }
+      }
+    },
+    "Appearance" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Giao diện"
+          }
+        }
+      }
+    },
+    "Auto-detected from domain" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tự nhận diện từ domain"
+          }
+        }
+      }
+    },
+    "Battery" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pin"
+          }
+        }
+      }
+    },
+    "Battery: —" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pin: —"
+          }
+        }
+      }
+    },
+    "Battery: N/A" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pin: N/A"
+          }
+        }
+      }
+    },
+    "Battery: %lld%%" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pin: %lld%%"
+          }
+        }
+      }
+    },
+    "Battery: %lld%% (Charging)" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pin: %lld%% (Đang sạc)"
+          }
+        }
+      }
+    },
+    "Cancel" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hủy"
+          }
+        }
+      }
+    },
+    "Check All Now" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kiểm tra tất cả ngay"
+          }
+        }
+      }
+    },
+    "Check domain expiry" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kiểm tra hạn domain"
+          }
+        }
+      }
+    },
+    "Check HTTP" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kiểm tra HTTP"
+          }
+        }
+      }
+    },
+    "Check interval: %lld min" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chu kỳ kiểm tra: %lld phút"
+          }
+        }
+      }
+    },
+    "Check Now" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kiểm tra ngay"
+          }
+        }
+      }
+    },
+    "Check SSL expiry" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kiểm tra hạn SSL"
+          }
+        }
+      }
+    },
+    "Checks" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kiểm tra"
+          }
+        }
+      }
+    },
+    "Code" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mã"
+          }
+        }
+      }
+    },
+    "CPU: —" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CPU: —"
+          }
+        }
+      }
+    },
+    "CPU: %lld%%" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CPU: %lld%%"
+          }
+        }
+      }
+    },
+    "Custom path (optional)" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đường dẫn tùy chỉnh (tùy chọn)"
+          }
+        }
+      }
+    },
+    "Daily" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hàng ngày"
+          }
+        }
+      }
+    },
+    "Dark" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tối"
+          }
+        }
+      }
+    },
+    "Day of Month: %lld" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ngày trong tháng: %lld"
+          }
+        }
+      }
+    },
+    "Day of Week" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ngày trong tuần"
+          }
+        }
+      }
+    },
+    "Delete" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Xóa"
+          }
+        }
+      }
+    },
+    "Disable" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tắt"
+          }
+        }
+      }
+    },
+    "Disabled" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đã tắt"
+          }
+        }
+      }
+    },
+    "Disk" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ổ đĩa"
+          }
+        }
+      }
+    },
+    "Domain alert: %lld days before" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cảnh báo domain: trước %lld ngày"
+          }
+        }
+      }
+    },
+    "Domain Expires" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Domain hết hạn"
+          }
+        }
+      }
+    },
+    "Domains" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Domain"
+          }
+        }
+      }
+    },
+    "Domains: —" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Domain: —"
+          }
+        }
+      }
+    },
+    "Domains: %lld/%lld up" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Domain: %lld/%lld hoạt động"
+          }
+        }
+      }
+    },
+    "Down" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ngừng hoạt động"
+          }
+        }
+      }
+    },
+    "Download" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tải xuống"
+          }
+        }
+      }
+    },
+    "Edit Target" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sửa mục theo dõi"
+          }
+        }
+      }
+    },
+    "Edit…" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sửa…"
+          }
+        }
+      }
+    },
+    "Email Report" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Báo cáo Email"
+          }
+        }
+      }
+    },
+    "Enable" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bật"
+          }
+        }
+      }
+    },
+    "Enable Email Reports" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bật báo cáo qua Email"
+          }
+        }
+      }
+    },
+    "Enable Notifications" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bật thông báo"
+          }
+        }
+      }
+    },
+    "Error" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lỗi"
+          }
+        }
+      }
+    },
+    "Expected body contains (optional)" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nội dung body mong đợi chứa (tùy chọn)"
+          }
+        }
+      }
+    },
+    "Expected status: %lld" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mã trạng thái mong đợi: %lld"
+          }
+        }
+      }
+    },
+    "Expiry" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hạn sử dụng"
+          }
+        }
+      }
+    },
+    "Export…" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Xuất…"
+          }
+        }
+      }
+    },
+    "Failure alert threshold: %lld" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ngưỡng cảnh báo lỗi: %lld"
+          }
+        }
+      }
+    },
+    "Fan" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quạt"
+          }
+        }
+      }
+    },
+    "Frequency" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tần suất"
+          }
+        }
+      }
+    },
+    "General" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chung"
+          }
+        }
+      }
+    },
+    "Group (optional)" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nhóm (tùy chọn)"
+          }
+        }
+      }
+    },
+    "Group name" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tên nhóm"
+          }
+        }
+      }
+    },
+    "Health Checks" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kiểm tra sức khỏe"
+          }
+        }
+      }
+    },
+    "High temperature alert: %@" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cảnh báo nhiệt độ cao: %@"
+          }
+        }
+      }
+    },
+    "History" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lịch sử"
+          }
+        }
+      }
+    },
+    "Import/Export" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nhập/Xuất"
+          }
+        }
+      }
+    },
+    "Import…" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nhập…"
+          }
+        }
+      }
+    },
+    "Incidents" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sự cố"
+          }
+        }
+      }
+    },
+    "Indefinitely" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vô thời hạn"
+          }
+        }
+      }
+    },
+    "Latency" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Độ trễ"
+          }
+        }
+      }
+    },
+    "Launch at Login" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Khởi động cùng hệ thống"
+          }
+        }
+      }
+    },
+    "Light" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sáng"
+          }
+        }
+      }
+    },
+    "Login Item Error" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lỗi mục khởi động cùng hệ thống"
+          }
+        }
+      }
+    },
+    "Low battery alert: %@" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cảnh báo pin yếu: %@"
+          }
+        }
+      }
+    },
+    "Manage in System Settings…" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quản lý trong Cài đặt Hệ thống…"
+          }
+        }
+      }
+    },
+    "Monthly" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hàng tháng"
+          }
+        }
+      }
+    },
+    "Name" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tên"
+          }
+        }
+      }
+    },
+    "Network" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mạng"
+          }
+        }
+      }
+    },
+    "No checks on this day." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không có lần kiểm tra nào trong ngày này."
+          }
+        }
+      }
+    },
+    "No incidents in this window." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không có sự cố trong khoảng thời gian này."
+          }
+        }
+      }
+    },
+    "OK" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đồng ý"
+          }
+        }
+      }
+    },
+    "Pause" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tạm dừng"
+          }
+        }
+      }
+    },
+    "Paused" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đang tạm dừng"
+          }
+        }
+      }
+    },
+    "Quit" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thoát"
+          }
+        }
+      }
+    },
+    "RAM: —" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "RAM: —"
+          }
+        }
+      }
+    },
+    "RAM: %.1f / %.1f GB" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "RAM: %.1f / %.1f GB"
+          }
+        }
+      }
+    },
+    "Recipient Email" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Email người nhận"
+          }
+        }
+      }
+    },
+    "Rename" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đổi tên"
+          }
+        }
+      }
+    },
+    "Rename Group" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đổi tên nhóm"
+          }
+        }
+      }
+    },
+    "Rename Group…" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đổi tên nhóm…"
+          }
+        }
+      }
+    },
+    "Response" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Phản hồi"
+          }
+        }
+      }
+    },
+    "Resume" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tiếp tục"
+          }
+        }
+      }
+    },
+    "Retention: %@" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thời gian lưu trữ: %@"
+          }
+        }
+      }
+    },
+    "Save" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lưu"
+          }
+        }
+      }
+    },
+    "Search domains" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tìm kiếm domain"
+          }
+        }
+      }
+    },
+    "Show DKB Monitor" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hiện DKB Monitor"
+          }
+        }
+      }
+    },
+    "Slow response threshold: %@" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ngưỡng phản hồi chậm: %@"
+          }
+        }
+      }
+    },
+    "SSL alert: %lld days before" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cảnh báo SSL: trước %lld ngày"
+          }
+        }
+      }
+    },
+    "SSL Expires" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SSL hết hạn"
+          }
+        }
+      }
+    },
+    "Status" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trạng thái"
+          }
+        }
+      }
+    },
+    "Swap" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Swap"
+          }
+        }
+      }
+    },
+    "System" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hệ thống"
+          }
+        }
+      }
+    },
+    "Target" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mục theo dõi"
+          }
+        }
+      }
+    },
+    "Temperature" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nhiệt độ"
+          }
+        }
+      }
+    },
+    "Temperature: N/A" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nhiệt độ: N/A"
+          }
+        }
+      }
+    },
+    "Temperature: %lld°C" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nhiệt độ: %lld°C"
+          }
+        }
+      }
+    },
+    "Time" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thời gian"
+          }
+        }
+      }
+    },
+    "Unchecked" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chưa kiểm tra"
+          }
+        }
+      }
+    },
+    "Up" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hoạt động"
+          }
+        }
+      }
+    },
+    "Upload" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tải lên"
+          }
+        }
+      }
+    },
+    "Uptime" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thời gian hoạt động"
+          }
+        }
+      }
+    },
+    "Uptime (24h)" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hoạt động (24 giờ)"
+          }
+        }
+      }
+    },
+    "Uptime (7d)" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hoạt động (7 ngày)"
+          }
+        }
+      }
+    },
+    "URL" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "URL"
+          }
+        }
+      }
+    },
+    "View Details" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Xem chi tiết"
+          }
+        }
+      }
+    },
+    "Weekly" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hàng tuần"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

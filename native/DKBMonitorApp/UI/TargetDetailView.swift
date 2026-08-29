@@ -44,7 +44,7 @@ struct TargetDetailView: View {
         }
     }
 
-    private func tile(_ title: String, _ value: String) -> some View {
+    private func tile(_ title: LocalizedStringKey, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title).font(.caption).foregroundStyle(.secondary)
             Text(value).font(.title3.monospacedDigit())
@@ -94,7 +94,7 @@ struct TargetDetailView: View {
         }
     }
 
-    private func incidentRangeText(_ incident: Incident) -> String {
+    private func incidentRangeText(_ incident: Incident) -> LocalizedStringKey {
         let start = incident.startedAt.formatted(date: .abbreviated, time: .shortened)
         guard let end = incident.endedAt else { return "\(start) — ongoing" }
         return "\(start) — \(end.formatted(date: .omitted, time: .shortened))"

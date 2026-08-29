@@ -15,7 +15,7 @@ struct SystemView: View {
                 statCard(title: "Swap", value: swapText, history: nil)
                 statCard(title: "Disk", value: diskText, history: nil)
                 if let gpuName = stats.gpuName {
-                    statCard(title: gpuName, value: stats.gpuPercent.map { "\(Int($0.rounded()))%" } ?? "N/A", history: nil)
+                    statCard(title: LocalizedStringKey(gpuName), value: stats.gpuPercent.map { "\(Int($0.rounded()))%" } ?? "N/A", history: nil)
                 }
                 statCard(title: "Temperature", value: stats.cpuTempCelsius.map { "\(Int($0.rounded()))°C" } ?? "N/A", history: nil)
                 if let battery = stats.batteryPercent {
@@ -62,7 +62,7 @@ struct SystemView: View {
     }
 
     @ViewBuilder
-    private func statCard(title: String, value: String, history: [Double]?) -> some View {
+    private func statCard(title: LocalizedStringKey, value: String, history: [Double]?) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title).font(.caption).foregroundStyle(.secondary)
             Text(value).font(.title3.monospacedDigit())

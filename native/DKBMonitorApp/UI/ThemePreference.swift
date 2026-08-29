@@ -5,7 +5,7 @@ enum ThemePreference: String, CaseIterable, Identifiable {
 
     var id: Self { self }
 
-    var label: String {
+    var label: LocalizedStringKey {
         switch self {
         case .system: "System"
         case .light: "Light"

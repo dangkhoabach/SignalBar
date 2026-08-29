@@ -23,7 +23,7 @@ struct TargetRowView: View {
             Spacer()
 
             if let uptime = overview.uptime24hPct {
-                Text(String(format: "%.1f%% uptime", uptime))
+                Text("\(uptime, specifier: "%.1f")% uptime")
                     .font(.caption).foregroundStyle(.secondary)
             }
             if let responseTime = overview.latestCheck?.responseTimeMs {
@@ -35,7 +35,7 @@ struct TargetRowView: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
 
-            Text(status.label)
+            Text(status.localizedLabel)
                 .font(.caption2.bold())
                 .padding(.horizontal, 6).padding(.vertical, 2)
                 .background(status.color.opacity(0.15), in: Capsule())

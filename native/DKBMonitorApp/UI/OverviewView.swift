@@ -99,7 +99,7 @@ struct OverviewView: View {
         HStack {
             Menu {
                 ForEach(TargetStatus.allCases, id: \.self) { status in
-                    Toggle(status.label, isOn: Binding(
+                    Toggle(status.localizedLabel, isOn: Binding(
                         get: { viewModel.statusFilters.contains(status) },
                         set: { isOn in
                             if isOn { viewModel.statusFilters.insert(status) } else { viewModel.statusFilters.remove(status) }

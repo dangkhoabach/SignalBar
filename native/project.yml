@@ -2,6 +2,7 @@ name: DKBMonitorNative
 options:
   deploymentTarget:
     macOS: "14.0"
+  developmentLanguage: en
 settings:
   MACOSX_DEPLOYMENT_TARGET: "14.0"
   SWIFT_VERSION: "6.0"

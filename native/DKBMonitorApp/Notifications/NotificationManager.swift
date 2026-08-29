@@ -38,7 +38,7 @@ public final class NotificationManager: NSObject, NotificationSending, @unchecke
     }
 
     private func registerCategory() {
-        let viewDetails = UNNotificationAction(identifier: Self.viewDetailsActionIdentifier, title: "Xem chi tiết", options: [.foreground])
+        let viewDetails = UNNotificationAction(identifier: Self.viewDetailsActionIdentifier, title: String(localized: "View Details"), options: [.foreground])
         let category = UNNotificationCategory(identifier: Self.categoryIdentifier, actions: [viewDetails], intentIdentifiers: [], options: [])
         UNUserNotificationCenter.current().setNotificationCategories([category])
     }

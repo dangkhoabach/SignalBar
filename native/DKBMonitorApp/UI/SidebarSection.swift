@@ -1,3 +1,5 @@
+import SwiftUI
+
 /// Top-level sidebar sections. Settings is deliberately not one of these —
 /// per Phase 12's exit criteria it uses the native `Settings {}` scene
 /// (Cmd+,) instead, the standard macOS idiom, superseding Phase 11's initial
@@ -7,7 +9,10 @@ enum SidebarSection: String, CaseIterable, Identifiable, Hashable {
 
     var id: Self { self }
 
-    var title: String {
+    /// `LocalizedStringKey` (not `String`) so Xcode's String Catalog
+    /// extraction picks it up (Phase 13) — `Label(_:systemImage:)` only
+    /// looks up the catalog for the `LocalizedStringKey`-typed overload.
+    var title: LocalizedStringKey {
         switch self {
         case .domains: "Domains"
         case .system: "System"
