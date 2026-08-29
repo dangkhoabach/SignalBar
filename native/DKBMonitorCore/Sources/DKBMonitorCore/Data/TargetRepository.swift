@@ -184,22 +184,36 @@ public struct TargetRepository: Sendable {
     }
 
     public func overview() throws -> [TargetOverview] {
-        try dbQueue.read { db in
-            let targets = try Target.order(sql: "sort_order ASC, created_at ASC").fetchAll(db)
-            return try targets.map { target in
-                let latest = try CheckResult
-                    .filter(sql: "target_id = ?", arguments: [target.id])
-                    .order(sql: "checked_at DESC")
-                    .fetchOne(db)
-                let ssl = try SslStatus.fetchOne(db, key: target.id)
-                let domain = try DomainStatus.fetchOne(db, key: target.id)
-                let uptime = try Double.fetchOne(
-                    db,
-                    sql: "SELECT AVG(success) * 100.0 FROM check_results WHERE target_id = ? AND checked_at >= datetime('now', '-1 day')",
-                    arguments: [target.id]
-                )
-                return TargetOverview(target: target, latestCheck: latest, sslStatus: ssl, domainStatus: domain, uptime24hPct: uptime)
-            }
+        try dbQueue.read { db in try Self.overview(db) }
+    }
+
+    /// Reactive counterpart of `overview()` — emits a fresh snapshot whenever
+    /// any table the query touches changes (targets/check_results/ssl_status/
+    /// domain_status), instead of the UI having to poll on a timer. Was
+    /// deliberately deferred from Phase 2 until Phase 11 had a real list to
+    /// bind it to (see docs/swift-native-port-plan.md's Phase 2 notes) —
+    /// writing it earlier would've been speculative, unbindable code.
+    public func observeOverview() -> AsyncValueObservation<[TargetOverview]> {
+        ValueObservation
+            .tracking { db in try Self.overview(db) }
+            .values(in: dbQueue)
+    }
+
+    private static func overview(_ db: Database) throws -> [TargetOverview] {
+        let targets = try Target.order(sql: "sort_order ASC, created_at ASC").fetchAll(db)
+        return try targets.map { target in
+            let latest = try CheckResult
+                .filter(sql: "target_id = ?", arguments: [target.id])
+                .order(sql: "checked_at DESC")
+                .fetchOne(db)
+            let ssl = try SslStatus.fetchOne(db, key: target.id)
+            let domain = try DomainStatus.fetchOne(db, key: target.id)
+            let uptime = try Double.fetchOne(
+                db,
+                sql: "SELECT AVG(success) * 100.0 FROM check_results WHERE target_id = ? AND checked_at >= datetime('now', '-1 day')",
+                arguments: [target.id]
+            )
+            return TargetOverview(target: target, latestCheck: latest, sslStatus: ssl, domainStatus: domain, uptime24hPct: uptime)
         }
     }
 

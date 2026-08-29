@@ -6,12 +6,17 @@ import UniformTypeIdentifiers
 
 /// Drives the Overview list: search/filter/grouping over `TargetOverview`,
 /// selection for bulk actions, and every CRUD/pause/check-now/export-import
-/// action the Phase 11 UI needs. Refreshed every 5s via the same
-/// `Task.sleep`-loop shape as `MenuBarStatsViewModel` (Phase 7).
+/// action the Phase 11 UI needs.
+///
+/// `overviews` is kept live by GRDB's `ValueObservation` (`observeOverview()`)
+/// rather than polling on a timer — it re-emits automatically whenever the
+/// Scheduler (or any CRUD action here) commits a change to the observed
+/// tables, so the list updates the instant the DB changes instead of up to
+/// 5s late. This was deliberately deferred from Phase 2 until Phase 11 had a
+/// real list to bind it to; see docs/swift-native-port-plan.md.
 @MainActor
 @Observable
 final class OverviewViewModel {
-    private static let refreshIntervalSecs: UInt64 = 5
     static let ungroupedLabel = "Ungrouped"
 
     static let shared = OverviewViewModel(
@@ -19,7 +24,7 @@ final class OverviewViewModel {
     )
 
     private let repo: TargetRepository?
-    private var loopTask: Task<Void, Never>?
+    private var observationTask: Task<Void, Never>?
 
     var overviews: [TargetOverview] = []
     var searchText = ""
@@ -34,24 +39,24 @@ final class OverviewViewModel {
     }
 
     func start() {
-        guard loopTask == nil else { return }
-        refresh()
-        loopTask = Task { [weak self] in
-            while let self, !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: Self.refreshIntervalSecs * 1_000_000_000)
-                self.refresh()
+        guard observationTask == nil, let repo else { return }
+        observationTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                for try await snapshot in repo.observeOverview() {
+                    guard !Task.isCancelled else { break }
+                    self.overviews = snapshot
+                }
+            } catch {
+                // Observation stream failed (e.g. DB connection dropped) —
+                // leave the last known snapshot in place rather than crash.
             }
         }
     }
 
     func stop() {
-        loopTask?.cancel()
-        loopTask = nil
-    }
-
-    func refresh() {
-        guard let repo else { return }
-        overviews = (try? repo.overview()) ?? []
+        observationTask?.cancel()
+        observationTask = nil
     }
 
     // MARK: - Search / filter / grouping
@@ -83,7 +88,6 @@ final class OverviewViewModel {
         guard let repo else { return }
         do {
             _ = try repo.add(input)
-            refresh()
         } catch RepositoryError.duplicateURL {
             errorMessage = "A target with this URL already exists."
         } catch {
@@ -95,7 +99,6 @@ final class OverviewViewModel {
         guard let repo else { return }
         do {
             _ = try repo.update(target)
-            refresh()
         } catch RepositoryError.duplicateURL {
             errorMessage = "A target with this URL already exists."
         } catch {
@@ -107,26 +110,22 @@ final class OverviewViewModel {
         guard let repo else { return }
         try? repo.delete(id: id)
         selection.remove(id)
-        refresh()
     }
 
     func deleteSelected() {
         guard let repo, !selection.isEmpty else { return }
         try? repo.delete(ids: Array(selection))
         selection.removeAll()
-        refresh()
     }
 
     func setEnabledForSelection(_ enabled: Bool) {
         guard let repo, !selection.isEmpty else { return }
         try? repo.setEnabled(ids: Array(selection), enabled: enabled)
-        refresh()
     }
 
     func toggleEnabled(_ overview: TargetOverview) {
         guard let repo, let id = overview.target.id else { return }
         try? repo.setEnabled(ids: [id], enabled: !overview.target.enabled)
-        refresh()
     }
 
     // MARK: - Pause / resume
@@ -134,13 +133,11 @@ final class OverviewViewModel {
     func pause(id: Int64, duration: TimeInterval?) {
         guard let repo else { return }
         try? repo.pause(id: id, until: duration.map { Date().addingTimeInterval($0) })
-        refresh()
     }
 
     func resume(id: Int64) {
         guard let repo else { return }
         try? repo.resume(id: id)
-        refresh()
     }
 
     // MARK: - Ordering / grouping
@@ -160,21 +157,18 @@ final class OverviewViewModel {
             cursor += 1
         }
         try? repo.reorder(ids: allIds)
-        refresh()
     }
 
     func moveToGroup(id: Int64, group: String) {
         guard let repo, var target = overviews.first(where: { $0.target.id == id })?.target else { return }
         target.groupTag = (group == Self.ungroupedLabel) ? nil : group
         try? repo.update(target)
-        refresh()
     }
 
     func renameGroup(from oldName: String, to newName: String) {
         let trimmed = newName.trimmingCharacters(in: .whitespaces)
         guard let repo, !trimmed.isEmpty, trimmed != oldName else { return }
         try? repo.renameGroup(from: oldName, to: trimmed)
-        refresh()
     }
 
     // MARK: - Check now
@@ -182,7 +176,6 @@ final class OverviewViewModel {
     func checkNow(id: Int64) {
         Task {
             await AppScheduler.shared?.checkNow(targetIds: [id])
-            refresh()
         }
     }
 
@@ -191,7 +184,6 @@ final class OverviewViewModel {
         guard !ids.isEmpty else { return }
         Task {
             await AppScheduler.shared?.checkNow(targetIds: ids)
-            refresh()
         }
     }
 
@@ -220,7 +212,6 @@ final class OverviewViewModel {
         do {
             let data = try Data(contentsOf: url)
             try TargetPortability.importInto(repo, data: data)
-            refresh()
         } catch {
             errorMessage = "Import failed: \(error.localizedDescription)"
         }

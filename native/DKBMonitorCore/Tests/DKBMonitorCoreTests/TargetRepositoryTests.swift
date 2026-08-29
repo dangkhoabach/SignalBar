@@ -75,4 +75,18 @@ import Testing
         #expect(overview[0].latestCheck?.success == true)
         #expect(overview[0].uptime24hPct == 100.0)
     }
+
+    @Test func observeOverviewEmitsAgainWhenATargetIsAdded() async throws {
+        let repo = try makeRepo()
+        var iterator = repo.observeOverview().makeAsyncIterator()
+
+        let first = try await iterator.next()
+        #expect(first?.isEmpty == true)
+
+        _ = try repo.add(NewTargetInput(name: "A", url: "https://a.com"))
+
+        let second = try await iterator.next()
+        #expect(second?.count == 1)
+        #expect(second?.first?.target.name == "A")
+    }
 }
