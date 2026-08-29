@@ -1,6 +1,5 @@
-name: DKBMonitorPoC
+name: DKBMonitorNative
 options:
-  bundleIdPrefix: com.dangkhoabach.dkbmonitor2.poc
   deploymentTarget:
     macOS: "14.0"
 settings:
@@ -8,7 +7,33 @@ settings:
   SWIFT_VERSION: "6.0"
   CODE_SIGN_STYLE: Automatic
   ENABLE_HARDENED_RUNTIME: NO
+packages:
+  DKBMonitorCore:
+    path: DKBMonitorCore
 targets:
+  DKBMonitorApp:
+    type: application
+    platform: macOS
+    sources:
+      - DKBMonitorApp
+    dependencies:
+      - package: DKBMonitorCore
+    info:
+      path: DKBMonitorApp/Info.plist
+      properties:
+        LSUIElement: false
+    entitlements:
+      path: DKBMonitorApp/DKBMonitorApp.entitlements
+      properties:
+        com.apple.security.app-sandbox: false
+        com.apple.security.network.client: true
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.dangkhoabach.dkb-monitor
+      PRODUCT_NAME: "DKB Monitor"
+
+  # Phase 0 scaffold, kept for reference — see PoC/ and README.md. Distinct
+  # bundle id (.poc suffix) so it never collides with DKBMonitorApp's real
+  # identity (Login Items/notifications) above.
   DKBMonitorPoC:
     type: application
     platform: macOS

@@ -7,7 +7,26 @@ không phải sản phẩm tách biệt). 2 phần cùng tồn tại song song c
 [../docs/swift-native-port-plan.md](../docs/swift-native-port-plan.md) — checklist được cập
 nhật ở đó khi từng mục hoàn tất.
 
-## Trạng thái hiện tại: Phase 0 (PoC)
+## Trạng thái hiện tại: Phase 1 đang chạy (Phase 0 vẫn cần xác nhận SMC)
+
+Project `native/project.yml` giờ có **2 target**: `DKBMonitorApp` (app thật, bundle id
+`com.dangkhoabach.dkb-monitor` — xem cảnh báo quan trọng bên dưới) và `DKBMonitorPoC` (scaffold
+Phase 0 cũ, giữ tham khảo). Mở `DKBMonitorNative.xcodeproj`, chọn scheme tương ứng.
+
+> ⚠️ **Trước khi chạy scheme `DKBMonitorApp`: thoát hẳn bản Tauri thật** (`/Applications/DKB
+> Monitor.app`, icon dock/tray "DKB Monitor" đang chạy nền) — cả 2 dùng chung bundle id, chạy
+> song song có thể gây nhầm lẫn Login Item/notification/Spotlight. Nếu cần dừng debug build
+> bằng tay: `pgrep -fl "DKB Monitor"` để tìm đúng PID rồi `kill <pid>` — **không** dùng
+> `osascript`/menu Dock theo tên vì có thể trúng nhầm bản thật.
+
+### Cần bạn xác nhận thêm cho Phase 1
+
+- [ ] Chạy scheme `DKBMonitorApp` (đã thoát Tauri thật trước) → đóng window (nút đỏ) → xác nhận
+      app **không thoát**, vẫn còn trong Dock (dù ẩn window). Click lại Dock icon → window mở
+      lại đúng, không bị mất app khỏi Dock/MenuBarExtra cùng lúc.
+- [ ] Mở menu bar icon (waveform) → "Quit" → xác nhận thoát hẳn.
+
+## Phase 0 (PoC) — vẫn còn phần chưa xác nhận
 
 Project hiện tại (`project.yml` + `PoC/`) là **1 app scaffold gộp cả 4 PoC** (SMC, Notification,
 SSL, Login Item) thành các tab trong 1 app, thay vì 4-6 project Xcode tách rời riêng như plan
