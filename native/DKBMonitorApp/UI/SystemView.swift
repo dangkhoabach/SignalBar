@@ -2,35 +2,57 @@ import Charts
 import DKBMonitorCore
 import SwiftUI
 
+/// Ported layout from the old Tauri app's `src/pages/System.tsx`: a fixed
+/// 2-column grid of cards, each combining related metrics (Swap nested under
+/// Memory, fan RPMs nested under Temperature) rather than one metric per
+/// card, with color-coded progress bars and per-core CPU usage — richer than
+/// the original SwiftUI-only redesign, which the user found too sparse next
+/// to the app it's replacing.
 struct SystemView: View {
     @Bindable private var viewModel = SystemViewModel.shared
 
     private var stats: SystemStats { viewModel.current }
 
+    private static let gridSpacing: CGFloat = 18
+    private static let outerPadding: CGFloat = 24
+    private static let sparklineHeight: CGFloat = 32
+    /// `LazyVGrid` sizes each cell to its own content — unlike `Grid`, it
+    /// does not equalize height row-by-row — so cards ranged from CPU's tall
+    /// per-core/sparkline block down to a single-line Storage bar. A shared
+    /// minimum (sized to the tallest card, CPU) makes every card the same
+    /// footprint regardless of how little it has to show.
+    private static let cardMinHeight: CGFloat = 210
+
+    private var ramPercent: Double {
+        stats.ramTotalMB > 0 ? Double(stats.ramUsedMB) / Double(stats.ramTotalMB) * 100 : 0
+    }
+
+    private var swapPercent: Double {
+        stats.swapTotalMB > 0 ? Double(stats.swapUsedMB) / Double(stats.swapTotalMB) * 100 : 0
+    }
+
+    private var diskPercent: Double {
+        stats.diskTotalGB > 0 ? stats.diskUsedGB / stats.diskTotalGB * 100 : 0
+    }
+
     var body: some View {
         ScrollView {
             if viewModel.hasLoadedOnce {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 12)], spacing: 12) {
-                    statCard(title: "CPU", value: "\(Int(stats.cpuPercent.rounded()))%", history: viewModel.cpuHistory)
-                    statCard(title: "RAM", value: ramText, history: viewModel.ramHistory)
-                    statCard(title: "Swap", value: swapText, history: nil)
-                    statCard(title: "Disk", value: diskText, history: nil)
-                    if let gpuName = stats.gpuName {
-                        statCard(title: LocalizedStringKey(gpuName), value: stats.gpuPercent.map { "\(Int($0.rounded()))%" } ?? "N/A", history: nil)
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: Self.gridSpacing), GridItem(.flexible())], spacing: Self.gridSpacing) {
+                    cpuCard
+                    temperatureCard
+                    if stats.gpuName != nil {
+                        gpuCard
                     }
-                    statCard(title: "Temperature", value: stats.cpuTempCelsius.map { "\(Int($0.rounded()))°C" } ?? "N/A", history: nil)
+                    memoryCard
+                    diskCard
+                    networkCard
                     if let battery = stats.batteryPercent {
-                        statCard(title: "Battery", value: "\(Int(battery.rounded()))%\(stats.batteryCharging == true ? " (Charging)" : "")", history: nil)
+                        batteryCard(percent: battery)
                     }
-                    if !stats.fanRPMs.isEmpty {
-                        statCard(title: "Fan", value: stats.fanRPMs.map { "\(Int($0)) RPM" }.joined(separator: ", "), history: nil)
-                    }
-                    statCard(title: "Network", value: networkText, history: nil)
-                    statCard(title: "Download", value: String(format: "%.1f KB/s", stats.networkDownloadKbps), history: viewModel.downloadHistory)
-                    statCard(title: "Upload", value: String(format: "%.1f KB/s", stats.networkUploadKbps), history: viewModel.uploadHistory)
-                    statCard(title: "Uptime", value: uptimeText, history: nil)
+                    uptimeCard
                 }
-                .padding()
+                .padding(Self.outerPadding)
             } else {
                 skeletonGrid
             }
@@ -39,75 +61,273 @@ struct SystemView: View {
         .onDisappear { viewModel.stop() }
     }
 
-    /// Same card count/shape as the real grid so the layout doesn't jump
-    /// once real data arrives — placeholder values only exist to give
-    /// `.redacted(reason: .placeholder)` something shimmer-shaped to draw.
     private var skeletonGrid: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 12)], spacing: 12) {
-            ForEach(0..<9, id: \.self) { _ in
-                statCard(title: "Loading", value: "00%", history: [0, 0])
+        LazyVGrid(columns: [GridItem(.flexible(), spacing: Self.gridSpacing), GridItem(.flexible())], spacing: Self.gridSpacing) {
+            ForEach(0..<8, id: \.self) { _ in
+                card(title: "Loading", systemImage: "circle.dashed", trailingText: "00%") {
+                    StatBar(percent: 0, color: .blue)
+                }
             }
         }
-        .padding()
+        .padding(Self.outerPadding)
         .redacted(reason: .placeholder)
     }
+
+    // MARK: - Cards
+
+    private var cpuCard: some View {
+        card(title: "CPU", systemImage: "cpu", trailingText: "\(Int(stats.cpuPercent.rounded()))%") {
+            StatBar(percent: stats.cpuPercent, color: barColor(stats.cpuPercent))
+            if stats.cpuCores.count > 1 {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Per-core usage").font(.caption).foregroundStyle(.secondary)
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 4), spacing: 6) {
+                        ForEach(Array(stats.cpuCores.enumerated()), id: \.offset) { _, core in
+                            StatBar(percent: core, color: barColor(core), height: 5)
+                        }
+                    }
+                }
+            }
+            sparkline(viewModel.cpuHistory, color: .blue)
+        }
+    }
+
+    private var temperatureCard: some View {
+        card(
+            title: "Temperature",
+            systemImage: "thermometer.medium",
+            trailingText: stats.cpuTempCelsius.map { "\(Int($0.rounded()))°C" },
+            trailingColor: stats.cpuTempCelsius.map(tempColor) ?? .primary
+        ) {
+            if let temp = stats.cpuTempCelsius {
+                StatBar(percent: temp, color: barColor(temp))
+            } else {
+                Text("Not available").font(.caption).foregroundStyle(.secondary)
+            }
+            if !stats.fanRPMs.isEmpty {
+                HStack(spacing: 12) {
+                    ForEach(Array(stats.fanRPMs.enumerated()), id: \.offset) { index, rpm in
+                        Text(stats.fanRPMs.count > 1 ? "Fan \(index + 1) \(Int(rpm)) RPM" : "Fan \(Int(rpm)) RPM")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            if stats.cpuTempCelsius != nil {
+                sparkline(viewModel.tempHistory, color: stats.cpuTempCelsius.map(tempColor) ?? .blue)
+            }
+        }
+    }
+
+    private var memoryCard: some View {
+        card(title: "Memory", systemImage: "memorychip", trailingText: ramText) {
+            StatBar(percent: ramPercent, color: barColor(ramPercent))
+            if stats.swapTotalMB > 0 {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("Swap").font(.caption).foregroundStyle(.secondary)
+                        Spacer()
+                        Text(swapText).font(.caption).foregroundStyle(.secondary)
+                    }
+                    StatBar(percent: swapPercent, color: barColor(swapPercent))
+                }
+            }
+        }
+    }
+
+    private var diskCard: some View {
+        card(title: "Storage", systemImage: "internaldrive", trailingText: diskText) {
+            StatBar(percent: diskPercent, color: barColor(diskPercent))
+        }
+    }
+
+    private var gpuCard: some View {
+        card(
+            title: stats.gpuName.map { LocalizedStringKey($0) } ?? "GPU",
+            systemImage: "square.stack.3d.up",
+            trailingText: stats.gpuPercent.map { "\(Int($0.rounded()))%" }
+        ) {
+            if let gpuPercent = stats.gpuPercent {
+                StatBar(percent: gpuPercent, color: barColor(gpuPercent))
+            } else {
+                Text("Not available").font(.caption).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func batteryCard(percent: Double) -> some View {
+        card(
+            title: "Battery",
+            systemImage: stats.batteryCharging == true ? "battery.100.bolt" : "battery.100",
+            trailingText: "\(Int(percent.rounded()))%"
+        ) {
+            StatBar(percent: percent, color: batteryBarColor(percent))
+            Text(stats.batteryCharging == true ? "Charging" : "On battery")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var uptimeCard: some View {
+        card(title: "Uptime", systemImage: "clock", trailingText: uptimeText) {
+            Text("Since \(uptimeSinceText)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var networkCard: some View {
+        card(
+            title: "Network",
+            systemImage: stats.networkConnected ? (stats.networkType == "Wi-Fi" ? "wifi" : "network") : "wifi.slash",
+            trailingText: stats.networkConnected ? "Connected" : "Disconnected",
+            trailingColor: stats.networkConnected ? .green : .red
+        ) {
+            if stats.networkConnected {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(stats.networkName.map { "\(stats.networkType ?? "Connected") · \($0)" } ?? (stats.networkType ?? "Connected"))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if let ip = stats.networkLocalIP {
+                        Text("Local IP: \(ip)").font(.caption).foregroundStyle(.secondary)
+                    }
+                    HStack(spacing: 12) {
+                        Label(formatKbps(stats.networkDownloadKbps), systemImage: "arrow.down")
+                        Label(formatKbps(stats.networkUploadKbps), systemImage: "arrow.up")
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 2)
+                }
+            } else {
+                Text("Not available").font(.caption).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    // MARK: - Formatting
 
     private var ramText: String {
         String(format: "%.1f / %.1f GB", Double(stats.ramUsedMB) / 1024, Double(stats.ramTotalMB) / 1024)
     }
 
     private var swapText: String {
-        stats.swapTotalMB > 0
-            ? String(format: "%.1f / %.1f GB", Double(stats.swapUsedMB) / 1024, Double(stats.swapTotalMB) / 1024)
-            : "None"
+        String(format: "%.1f / %.1f GB", Double(stats.swapUsedMB) / 1024, Double(stats.swapTotalMB) / 1024)
     }
 
     private var diskText: String {
         String(format: "%.0f / %.0f GB", stats.diskUsedGB, stats.diskTotalGB)
     }
 
-    private var networkText: String {
-        guard stats.networkConnected else { return "Disconnected" }
-        var parts = [stats.networkType ?? "Connected"]
-        if let name = stats.networkName { parts.append(name) }
-        if let ip = stats.networkLocalIP { parts.append(ip) }
-        return parts.joined(separator: " · ")
-    }
-
     private var uptimeText: String {
-        "\(stats.uptimeSecs / 3600)h \((stats.uptimeSecs % 3600) / 60)m"
+        let secs = stats.uptimeSecs
+        let days = secs / 86400
+        let hours = (secs % 86400) / 3600
+        let minutes = (secs % 3600) / 60
+        if days > 0 { return "\(days)d \(hours)h" }
+        if hours > 0 { return "\(hours)h \(minutes)m" }
+        return "\(minutes)m"
     }
 
-    /// `GroupBox` rather than a hand-drawn `RoundedRectangle` background —
-    /// it adopts whatever material the system gives cards (including the
-    /// Liquid Glass card material on macOS 26+) instead of a fixed opacity
-    /// that would look flat/wrong once the system look changes.
-    /// Every card reserves the same sparkline height whether or not it has
-    /// history to plot, so cards without a chart (Swap, Disk, Temperature…)
-    /// don't end up shorter than their row neighbors that do (CPU, RAM,
-    /// Download, Upload) — `LazyVGrid` doesn't equalize row heights across
-    /// columns on its own.
-    private static let sparklineHeight: CGFloat = 32
+    /// Boot time derived from uptime, since the stats provider only reports the duration.
+    private var uptimeSinceText: String {
+        Date().addingTimeInterval(-Double(stats.uptimeSecs)).formatted(date: .abbreviated, time: .shortened)
+    }
+
+    private func formatKbps(_ kbps: Double) -> String {
+        kbps >= 1024 ? String(format: "%.1f MB/s", kbps / 1024) : String(format: "%.0f KB/s", kbps)
+    }
+
+    private func barColor(_ percent: Double) -> Color {
+        if percent >= 90 { return .red }
+        if percent >= 70 { return .yellow }
+        return .blue
+    }
+
+    /// Apple's own thermal throttling starts well above 90°C — 70/85 flags
+    /// "running hot" early enough to be a useful heads-up in a monitoring UI.
+    private func tempColor(_ celsius: Double) -> Color {
+        if celsius >= 85 { return .red }
+        if celsius >= 70 { return .yellow }
+        return .primary
+    }
+
+    /// Inverse of `barColor`: for a battery a HIGH percentage is good, so
+    /// "danger at the top end" would be backwards.
+    private func batteryBarColor(_ percent: Double) -> Color {
+        if percent <= 20 { return .red }
+        if percent <= 40 { return .yellow }
+        return .blue
+    }
 
     @ViewBuilder
-    private func statCard(title: LocalizedStringKey, value: String, history: [Double]?) -> some View {
-        GroupBox {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(value).font(.title3.monospacedDigit())
-                if let history, history.count > 1 {
-                    Chart(Array(history.enumerated()), id: \.offset) { sample in
-                        LineMark(x: .value("Tick", sample.offset), y: .value("Value", sample.element))
-                    }
-                    .chartXAxis(.hidden)
-                    .chartYAxis(.hidden)
-                    .frame(height: Self.sparklineHeight)
-                } else {
-                    Color.clear.frame(height: Self.sparklineHeight)
-                }
+    private func sparkline(_ data: [Double], color: Color) -> some View {
+        if data.count > 1 {
+            Chart(Array(data.enumerated()), id: \.offset) { sample in
+                LineMark(x: .value("Tick", sample.offset), y: .value("Value", sample.element))
+                    .interpolationMethod(.catmullRom)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        } label: {
-            Text(title).font(.caption).foregroundStyle(.secondary)
+            .chartXAxis(.hidden)
+            .chartYAxis(.hidden)
+            .foregroundStyle(color)
+            .frame(height: Self.sparklineHeight)
         }
+    }
+
+    /// `GroupBox` with no `label:` (rather than the built-in label slot used
+    /// elsewhere) — the icon/title/value header here is one row inside the
+    /// content, matching the old app's card layout, while still getting
+    /// `GroupBox`'s automatic system material (Liquid Glass on macOS 26+)
+    /// instead of a hand-drawn background.
+    @ViewBuilder
+    private func card<Content: View>(
+        title: LocalizedStringKey,
+        systemImage: String,
+        trailingText: String?,
+        trailingColor: Color = .primary,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Label {
+                        Text(title).font(.subheadline.weight(.medium))
+                    } icon: {
+                        Image(systemName: systemImage)
+                    }
+                    .foregroundStyle(.secondary)
+                    Spacer()
+                    if let trailingText {
+                        Text(trailingText)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(trailingColor)
+                    }
+                }
+                content()
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity, minHeight: Self.cardMinHeight, alignment: .topLeading)
+            .padding(10)
+        }
+    }
+}
+
+/// Thin horizontal progress bar with a color that's chosen by the caller
+/// (green/blue "normal" vs. yellow/red thresholds), replacing the plain
+/// `Chart`-based sparkline-only cards from the previous design.
+private struct StatBar: View {
+    let percent: Double
+    let color: Color
+    var height: CGFloat = 6
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule().fill(.quaternary)
+                Capsule().fill(color)
+                    .frame(width: geo.size.width * CGFloat(min(max(percent, 0), 100)) / 100)
+            }
+        }
+        .frame(height: height)
     }
 }

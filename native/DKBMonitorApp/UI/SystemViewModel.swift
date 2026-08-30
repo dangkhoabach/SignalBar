@@ -21,6 +21,7 @@ final class SystemViewModel {
     var ramHistory: [Double] = []
     var downloadHistory: [Double] = []
     var uploadHistory: [Double] = []
+    var tempHistory: [Double] = []
 
     /// True until the first `refresh()` completes. `current` starts as all
     /// zeros (`SystemStats()`'s default init), which would otherwise flash
@@ -56,6 +57,9 @@ final class SystemViewModel {
         appendClamped(&ramHistory, ramPercent)
         appendClamped(&downloadHistory, stats.networkDownloadKbps)
         appendClamped(&uploadHistory, stats.networkUploadKbps)
+        if let temp = stats.cpuTempCelsius {
+            appendClamped(&tempHistory, temp)
+        }
         hasLoadedOnce = true
     }
 

@@ -68,6 +68,15 @@ struct TargetRowView: View {
         // rows until any scroll forces a relayout with the real size.
         .frame(minHeight: 52)
         .contentShape(Rectangle())
+        // `.simultaneousGesture`, not `.gesture`/`.onTapGesture(count: 2)`:
+        // the latter is *exclusive* and forces SwiftUI to make List's own
+        // single-click-to-select gesture wait out the double-click
+        // disambiguation window before committing (the original delay +
+        // inconsistent selection-color bug). A simultaneous gesture is
+        // recognized alongside List's selection instead of competing with
+        // it for priority, so a single click still selects immediately and
+        // a second one additionally opens the detail view.
+        .simultaneousGesture(TapGesture(count: 2).onEnded { onViewDetails() })
         .contextMenu {
             Button("View Details") { onViewDetails() }
             Button("Check Now") { viewModel.checkNow(id: targetId) }

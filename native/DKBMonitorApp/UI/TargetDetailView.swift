@@ -8,6 +8,7 @@ struct TargetDetailView: View {
     @State private var viewModel = TargetDetailViewModel(
         repo: AppDatabase.shared.map { TargetRepository(dbQueue: $0.dbQueue) }
     )
+    @State private var isShowingCalendar = false
 
     var body: some View {
         Group {
@@ -134,8 +135,35 @@ struct TargetDetailView: View {
             HStack {
                 Text("History").font(.headline)
                 Spacer()
-                DatePicker("", selection: $viewModel.selectedDay, displayedComponents: .date)
-                    .labelsHidden()
+                // `DatePicker`'s own field style on macOS ignores
+                // `.datePickerStyle(.compact)` (that style only exists on
+                // iOS — macOS falls back to the same stepper-field look
+                // either way) and its text-field editor leaves a component
+                // stuck permanently highlighted blue once clicked. A plain
+                // `Button` showing the formatted date, popping a real
+                // `.graphical` calendar, sidesteps both: no text-editing
+                // field means no stuck selection, and it reads as one
+                // pill-shaped control like the Overview search field.
+                Button {
+                    isShowingCalendar = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "calendar")
+                            .foregroundStyle(.secondary)
+                        Text(viewModel.selectedDay.formatted(date: .abbreviated, time: .omitted))
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(.quaternary.opacity(0.4), in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .popover(isPresented: $isShowingCalendar) {
+                    DatePicker("", selection: $viewModel.selectedDay, displayedComponents: .date)
+                        .datePickerStyle(.graphical)
+                        .labelsHidden()
+                        .padding()
+                        .onChange(of: viewModel.selectedDay) { _, _ in isShowingCalendar = false }
+                }
             }
             if viewModel.historyForSelectedDay.isEmpty {
                 Text("No checks on this day.").foregroundStyle(.secondary)

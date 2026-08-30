@@ -145,11 +145,30 @@ struct OverviewView: View {
                 Label("Import/Export", systemImage: "square.and.arrow.up.on.square")
             }
 
+            // A plain, unstyled `Button` — same as Filter/Check All/
+            // Import-Export above — so the system gives it the identical
+            // native round toolbar-button chrome. Every previous attempt
+            // that customized this button's style/background (`.plain` +
+            // manual `Circle()`) stopped looking like a "real" toolbar
+            // control to the system, so it got wrapped in the same generic
+            // glass backing as the search field's raw `TextField` next to
+            // it, and the two generic backings fused into one shape.
             Button {
                 viewModel.isPresentingAddSheet = true
             } label: {
                 Label("Add Target", systemImage: "plus")
             }
+        }
+
+        // Explicit boundary between the button group and the search field:
+        // without it, macOS's Liquid Glass toolbar still merges the last
+        // native button above with the search field's custom view into one
+        // shared glass container, even though they're different
+        // `ToolbarItemGroup`s. `ToolbarSpacer` (macOS 26+) is Apple's own
+        // API for forcing a break in that grouping — on macOS <26 there's
+        // no Liquid Glass merging to begin with, so it's simply a no-op gap.
+        if #available(macOS 26.0, *) {
+            ToolbarSpacer(.fixed, placement: .automatic)
         }
 
         // A hand-built field instead of `.searchable`: that modifier only
@@ -158,9 +177,13 @@ struct OverviewView: View {
         // attaching it there with a condition to scope it to just this
         // screen turned out to be unreliable — SwiftUI doesn't consistently
         // treat the if/else branches of a conditionally-applied `.searchable`
-        // as the same view, so it kept leaking onto Target Detail. Placing a
-        // plain `TextField` inside this `.toolbar` instead rides the same
-        // show/hide mechanism already proven correct for the buttons above.
+        // as the same view, so it kept leaking onto Target Detail.
+        //
+        // No manual `.background(Capsule())` here: now that `ToolbarSpacer`
+        // isolates this as its own toolbar item, macOS's Liquid Glass toolbar
+        // already draws its own glass capsule behind it automatically — our
+        // hand-drawn one just doubled up as a second, slightly-offset
+        // capsule layered inside the system's, reading as a broken border.
         ToolbarItem(placement: .automatic) {
             HStack(spacing: 6) {
                 Image(systemName: "magnifyingglass")
@@ -168,10 +191,8 @@ struct OverviewView: View {
                 TextField("Search domains", text: $viewModel.searchText)
                     .textFieldStyle(.plain)
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5)
+            .padding(.horizontal, 4)
             .frame(minWidth: 180)
-            .background(.quaternary.opacity(0.4), in: Capsule())
         }
     }
 }
