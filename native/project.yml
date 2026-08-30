@@ -27,10 +27,17 @@ targets:
       path: DKBMonitorApp/Info.plist
       properties:
         LSUIElement: false
-        # Sparkle (Phase 10). SUPublicEDKey is a placeholder until the real
-        # keypair is generated — see docs/swift-native-port-plan.md's Phase
-        # 10 notes for the exact one-time setup steps (private half goes
-        # into the SPARKLE_ED_PRIVATE_KEY GitHub Actions secret, never here).
+        # Sparkle (Phase 10). Real EdDSA keypair generated 2026-08-30 via
+        # Sparkle 2.6.4's `generate_keys` tool. SUPublicEDKey below is the
+        # public half. The private half stays in this machine's login
+        # Keychain only (item "Private key for signing Sparkle updates") —
+        # releases are signed manually here via `sign_update`/
+        # `generate_appcast` (same manual-release model as the old Tauri
+        # app's release/README.md), not exported to a GitHub Actions secret.
+        # `native-release.yml`'s CI-based Sparkle-signing step still expects
+        # a `SPARKLE_ED_PRIVATE_KEY` secret and isn't wired up for this
+        # manual flow yet — see docs/swift-native-port-plan.md's Phase 10
+        # notes before relying on that workflow.
         # SUFeedURL points at GitHub Releases (not admin.dangkhoabach.vn):
         # that panel has no upload API, only a manual web UI (confirmed
         # 2026-08-29 — see release/README.md for the old Tauri app's same
@@ -39,13 +46,14 @@ targets:
         # placeholder. The "latest" alias always resolves to the most
         # recent non-prerelease tag.
         SUFeedURL: https://github.com/dangkhoabach/DKB-Monitor/releases/latest/download/appcast.xml
-        SUPublicEDKey: REPLACE_WITH_GENERATED_ED25519_PUBLIC_KEY
-        # Automatic checks stay off until the real keypair above is in place
-        # and at least one release exists — otherwise Sparkle fails every
-        # check (no valid feed to reach) and surfaces an "Unable to Check
-        # For Updates" alert on every single launch. Flip this to true once
-        # Phase 10's real setup is done; "Check for Updates…" in the menu
-        # bar still works manually in the meantime.
+        SUPublicEDKey: yAEEvjvy+kV1gxLltskQ9iBfixVqZguKZrjXTv/lj9g=
+        # Automatic checks stay off until at least one real release exists
+        # at SUFeedURL (the key alone doesn't help if there's no appcast to
+        # reach yet) — otherwise Sparkle fails every check and surfaces an
+        # "Unable to Check For Updates" alert on every single launch. Flip
+        # this to true once the first tagged release has gone through
+        # native-release.yml; "Check for Updates…" in the menu bar will
+        # still fail manually until then too, which is expected.
         SUEnableAutomaticChecks: false
         SUScheduledCheckInterval: 86400
     entitlements:
