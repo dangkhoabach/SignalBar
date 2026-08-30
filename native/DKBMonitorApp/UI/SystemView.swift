@@ -46,6 +46,7 @@ struct SystemView: View {
                             }
                         }
                     }
+                    processesCard
                 }
                 .padding(Self.outerPadding)
             } else {
@@ -97,6 +98,7 @@ struct SystemView: View {
                     placeholder
                 }
             }
+            processesCard
         }
         .padding(Self.outerPadding)
         .redacted(reason: .placeholder)
@@ -231,6 +233,43 @@ struct SystemView: View {
             } else {
                 Text("Not available").font(.caption).foregroundStyle(.secondary)
             }
+        }
+    }
+
+    /// Task-Manager-"Apps"-tab-style list — full width, below the metric
+    /// cards, sorted by CPU descending (already sorted by the view model).
+    /// Shows apps (icon + display name via `NSRunningApplication`), not raw
+    /// process names — a wall of names like `mds_stores` or
+    /// `com.apple.WebKit.Networking` was hard to scan at a glance. A `Table`
+    /// rather than another custom-drawn list: same reasoning as
+    /// `TargetDetailView.historyTable` — get the native macOS table chrome
+    /// (resizable columns, alternating rows) for free.
+    private var processesCard: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 12) {
+                Label {
+                    Text("Top Apps").font(.subheadline.weight(.medium))
+                } icon: {
+                    Image(systemName: "chart.bar.fill")
+                }
+                .foregroundStyle(.secondary)
+
+                Table(viewModel.topApps) {
+                    TableColumn("App") { app in
+                        HStack(spacing: 8) {
+                            if let icon = app.icon {
+                                Image(nsImage: icon).resizable().frame(width: 16, height: 16)
+                            }
+                            Text(app.name)
+                        }
+                    }
+                    TableColumn("CPU") { Text("\($0.cpuPercent, specifier: "%.1f")%") }
+                    TableColumn("Memory") { Text("\($0.memoryMB, specifier: "%.0f") MB") }
+                }
+                .frame(minHeight: 220)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(10)
         }
     }
 

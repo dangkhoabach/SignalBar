@@ -1,6 +1,18 @@
+import AppKit
 import DKBMonitorCore
 import Foundation
 import Observation
+
+/// A user-facing app (not a raw OS process) and its resource usage — the
+/// `ProcessListProvider` pid matched against `NSWorkspace.runningApplications`
+/// for a real name/icon, Task-Manager-"Apps"-tab style.
+struct AppUsage: Identifiable {
+    var id: Int32
+    var name: String
+    var icon: NSImage?
+    var cpuPercent: Double
+    var memoryMB: Double
+}
 
 /// Drives the System pane: polls `SystemStatsProvider` every 2s (per Mục 3)
 /// and keeps a rolling 1-minute window per metric for the sparklines —
@@ -11,9 +23,12 @@ final class SystemViewModel {
     private static let refreshIntervalSecs: UInt64 = 2
     private static let historyLimit = 30
 
-    static let shared = SystemViewModel(statsProvider: SystemStatsService())
+    private static let topProcessCount = 8
+
+    static let shared = SystemViewModel(statsProvider: SystemStatsService(), processProvider: ProcessListService())
 
     private let statsProvider: SystemStatsProvider
+    private let processProvider: ProcessListProvider
     private var loopTask: Task<Void, Never>?
 
     var current = SystemStats()
@@ -22,6 +37,7 @@ final class SystemViewModel {
     var downloadHistory: [Double] = []
     var uploadHistory: [Double] = []
     var tempHistory: [Double] = []
+    var topApps: [AppUsage] = []
 
     /// True until the first `refresh()` completes. `current` starts as all
     /// zeros (`SystemStats()`'s default init), which would otherwise flash
@@ -30,8 +46,9 @@ final class SystemViewModel {
     /// instead of misleading zeroed-out numbers.
     var hasLoadedOnce = false
 
-    init(statsProvider: SystemStatsProvider) {
+    init(statsProvider: SystemStatsProvider, processProvider: ProcessListProvider) {
         self.statsProvider = statsProvider
+        self.processProvider = processProvider
     }
 
     func start() {
@@ -60,7 +77,34 @@ final class SystemViewModel {
         if let temp = stats.cpuTempCelsius {
             appendClamped(&tempHistory, temp)
         }
+        let usages = await processProvider.processUsages()
+        topApps = topApps(from: usages)
         hasLoadedOnce = true
+    }
+
+    /// Matches raw process usages against `NSWorkspace.runningApplications`
+    /// (only user-facing apps — Dock apps and menu-bar/accessory apps, not
+    /// invisible background agents/daemons) so the list reads like Task
+    /// Manager's "Apps" tab instead of a wall of unfamiliar process names
+    /// like `mds_stores` or `com.apple.WebKit.Networking`. Each app keeps
+    /// only its own main process's usage — helper/renderer subprocesses
+    /// (e.g. Chrome's per-tab processes) aren't summed in, so a heavy
+    /// multi-process app can under-report versus Activity Monitor.
+    private func topApps(from usages: [ProcessUsage]) -> [AppUsage] {
+        let usageByPID = Dictionary(uniqueKeysWithValues: usages.map { ($0.pid, $0) })
+        let apps = NSWorkspace.shared.runningApplications.compactMap { app -> AppUsage? in
+            guard app.activationPolicy != .prohibited,
+                  let usage = usageByPID[app.processIdentifier]
+            else { return nil }
+            return AppUsage(
+                id: app.processIdentifier,
+                name: app.localizedName ?? usage.name,
+                icon: app.icon,
+                cpuPercent: usage.cpuPercent,
+                memoryMB: usage.memoryMB
+            )
+        }
+        return Array(apps.sorted { $0.cpuPercent > $1.cpuPercent }.prefix(Self.topProcessCount))
     }
 
     private func appendClamped(_ array: inout [Double], _ value: Double) {
