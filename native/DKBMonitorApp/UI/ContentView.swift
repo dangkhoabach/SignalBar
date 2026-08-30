@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Sidebar (Domains/System) + content. Settings lives in the native
-/// `Settings {}` scene (Cmd+,) per Phase 12.
+/// Sidebar (Domains/System/Settings) + content — Settings is a regular
+/// sidebar tab so the app menu (Cmd+,) and the menu bar's "Settings…" both
+/// land in the same place instead of a separate `Settings {}` window.
 struct ContentView: View {
     @Bindable private var navigationState = AppNavigationState.shared
 
@@ -21,6 +22,8 @@ struct ContentView: View {
                 OverviewView()
             case .system:
                 SystemView()
+            case .settings:
+                SettingsView()
             }
         }
         .frame(minWidth: 760, minHeight: 480)

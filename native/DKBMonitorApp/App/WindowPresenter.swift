@@ -14,4 +14,14 @@ enum WindowPresenter {
         }
         NSApp.activate(ignoringOtherApps: true)
     }
+
+    /// Brings the main window forward and selects the Settings sidebar tab —
+    /// the single entry point for both the app menu's "Settings…" (Cmd+,,
+    /// wired via `CommandGroup(replacing: .appSettings)`) and the menu bar
+    /// extra's "Settings…" item, so both land in the same in-window tab
+    /// instead of a separate `Settings {}` window.
+    static func showSettings() {
+        showMainWindow()
+        AppNavigationState.shared.sidebarSelection = .settings
+    }
 }

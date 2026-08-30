@@ -19,6 +19,9 @@ final class SettingsViewModel {
         }
     }
 
+    var isSendingTestEmail = false
+    var testEmailResultMessage: String?
+
     init(repo: SettingsRepository?) {
         self.repo = repo
     }
@@ -27,5 +30,17 @@ final class SettingsViewModel {
         guard !isLoaded else { return }
         settings = (try? repo?.load()) ?? .defaults
         isLoaded = true
+    }
+
+    /// Ports the Tauri Settings page's "Send Test Email" action — lets the
+    /// user confirm the relay + recipient work before waiting for a real
+    /// scheduled report.
+    func sendTestEmail() async {
+        let recipient = settings.smtpRecipientEmail
+        guard !recipient.isEmpty else { return }
+        isSendingTestEmail = true
+        let sent = await EmailReportSender.sendTestEmail(recipientEmail: recipient)
+        isSendingTestEmail = false
+        testEmailResultMessage = sent ? "Test email sent to \(recipient)." : "Failed to send test email."
     }
 }

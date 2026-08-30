@@ -243,4 +243,19 @@ final class OverviewViewModel {
             errorMessage = "Import failed: \(error.localizedDescription)"
         }
     }
+
+    /// Ports the old Tauri Settings page's destructive "Clear All Domains"
+    /// action (`AlertsDataSettingsPage.handleClearAll`) — there was no
+    /// equivalent bulk-wipe here yet, only per-row/selection delete from the
+    /// Overview list.
+    func clearAllTargets() {
+        guard let repo else { return }
+        do {
+            let ids = try repo.list().compactMap(\.id)
+            guard !ids.isEmpty else { return }
+            try repo.delete(ids: ids)
+        } catch {
+            errorMessage = "Clear all failed: \(error.localizedDescription)"
+        }
+    }
 }

@@ -35,6 +35,17 @@ public struct EmailReportSender: ReportSending {
         let sent: Bool
     }
 
+    /// Ports the old Tauri Settings page's "Send Test Email" button
+    /// (`EmailReportSettingsPage.handleSendTest` → `api.sendTestEmail`),
+    /// which the native Settings UI didn't have a way to call yet.
+    public static func sendTestEmail(recipientEmail: String) async -> Bool {
+        await sendViaRelay(
+            recipientEmail: recipientEmail,
+            subject: "DKB Monitor — Test Email",
+            body: "This is a test email from DKB Monitor to confirm your email report settings are working."
+        )
+    }
+
     static func sendViaRelay(recipientEmail: String, subject: String, body: String) async -> Bool {
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"

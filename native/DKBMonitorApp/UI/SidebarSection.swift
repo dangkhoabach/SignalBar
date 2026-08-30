@@ -1,11 +1,12 @@
 import SwiftUI
 
-/// Top-level sidebar sections. Settings is deliberately not one of these —
-/// per Phase 12's exit criteria it uses the native `Settings {}` scene
-/// (Cmd+,) instead, the standard macOS idiom, superseding Phase 11's initial
-/// 3-item sidebar wording.
+/// Top-level sidebar sections. Settings is one tab among these — opening it
+/// from the app menu (Cmd+,) or the menu bar extra both route into this same
+/// in-window tab via `WindowPresenter.showSettings()` rather than a separate
+/// `Settings {}` scene/window, per the user's request for a single unified
+/// Settings surface.
 enum SidebarSection: String, CaseIterable, Identifiable, Hashable {
-    case domains, system
+    case domains, system, settings
 
     var id: Self { self }
 
@@ -16,6 +17,7 @@ enum SidebarSection: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .domains: "Domains"
         case .system: "System"
+        case .settings: "Settings"
         }
     }
 
@@ -23,6 +25,7 @@ enum SidebarSection: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .domains: "network"
         case .system: "cpu"
+        case .settings: "gearshape"
         }
     }
 }
