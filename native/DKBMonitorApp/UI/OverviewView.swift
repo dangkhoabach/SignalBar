@@ -38,7 +38,13 @@ struct OverviewView: View {
                     }
                 }
             }
-            .listStyle(.inset(alternatesRowBackgrounds: true))
+            // Zebra striping (alternatesRowBackgrounds) fills the List's
+            // entire remaining height with bands sized to NSTableView's
+            // default row height, which doesn't match this list's taller
+            // custom TargetRowView content — the mismatch showed up as
+            // undersized "empty" bands below the real rows. Plain .inset
+            // keeps the same insets without that artifact.
+            .listStyle(.inset)
             .navigationDestination(for: Int64.self) { targetId in
                 TargetDetailView(targetId: targetId)
             }

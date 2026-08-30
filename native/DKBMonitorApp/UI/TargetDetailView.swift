@@ -38,10 +38,10 @@ struct TargetDetailView: View {
     private var skeleton: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                HStack(spacing: 12) {
-                    tile("Uptime (24h)", "00.0%")
-                    tile("Uptime (7d)", "00.0%")
-                    tile("Incidents", "0")
+                HStack(alignment: .top, spacing: 12) {
+                    tile("Uptime (24h)", systemImage: "clock.arrow.circlepath", value: "00.0%")
+                    tile("Uptime (7d)", systemImage: "calendar", value: "00.0%")
+                    tile("Incidents", systemImage: "exclamationmark.triangle", value: "0")
                 }
                 VStack(alignment: .leading) {
                     Text("Latency").font(.headline)
@@ -59,29 +59,50 @@ struct TargetDetailView: View {
     }
 
     private func statTiles(_ detail: TargetDetail) -> some View {
-        HStack(spacing: 12) {
-            tile("Uptime (24h)", detail.uptime24hPct.map { String(format: "%.1f%%", $0) } ?? "n/a")
-            tile("Uptime (7d)", detail.uptime7dPct.map { String(format: "%.1f%%", $0) } ?? "n/a")
-            tile("Incidents", "\(detail.incidents.count)")
+        HStack(alignment: .top, spacing: 12) {
+            tile(
+                "Uptime (24h)", systemImage: "clock.arrow.circlepath",
+                value: detail.uptime24hPct.map { String(format: "%.1f%%", $0) } ?? "n/a"
+            )
+            tile(
+                "Uptime (7d)", systemImage: "calendar",
+                value: detail.uptime7dPct.map { String(format: "%.1f%%", $0) } ?? "n/a"
+            )
+            tile(
+                "Incidents", systemImage: "exclamationmark.triangle",
+                value: "\(detail.incidents.count)"
+            )
             if let sslExpiry = detail.sslStatus?.expiryDate {
-                tile("SSL Expires", sslExpiry.formatted(date: .abbreviated, time: .omitted))
+                tile("SSL Expires", systemImage: "lock.fill", value: sslExpiry.formatted(date: .abbreviated, time: .omitted))
             }
             if let domainExpiry = detail.domainStatus?.expiryDate {
-                tile("Domain Expires", domainExpiry.formatted(date: .abbreviated, time: .omitted))
+                tile("Domain Expires", systemImage: "globe", value: domainExpiry.formatted(date: .abbreviated, time: .omitted))
             }
         }
     }
 
-    /// `GroupBox`, not a hand-drawn background — see the same note on
-    /// `SystemView.statCard`.
-    private func tile(_ title: LocalizedStringKey, _ value: String) -> some View {
+    /// Matches `SystemView.card`'s chrome (icon+title header row over a
+    /// `GroupBox`, stretched to fill the row's height) so this page's tiles
+    /// read as the same visual language as the System tab's metric cards,
+    /// instead of the plain `GroupBox(label:)` tiles used before. Unlike
+    /// System's cards, the value text always stays the default color — no
+    /// red/yellow threshold coloring here.
+    private func tile(_ title: LocalizedStringKey, systemImage: String, value: String) -> some View {
         GroupBox {
-            Text(value)
-                .font(.title3.monospacedDigit())
-                .frame(maxWidth: .infinity, alignment: .leading)
-        } label: {
-            Text(title).font(.caption).foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 8) {
+                Label {
+                    Text(title).font(.subheadline.weight(.medium))
+                } icon: {
+                    Image(systemName: systemImage)
+                }
+                .foregroundStyle(.secondary)
+                Text(value)
+                    .font(.title2.weight(.semibold).monospacedDigit())
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(10)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private var latencyChart: some View {
