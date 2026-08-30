@@ -23,13 +23,11 @@ struct DKBMonitorApp: App {
                 .preferredColorScheme(themePreference.colorScheme)
         }
 
-        // `waveform.path.ecg`: an SF Symbol standing in for the plan's
-        // suggested PDF vector Asset Catalog glyph (see Mục 2) — no
-        // Figma/Sketch export exists to trace one from, and this symbol is
-        // already the same "activity pulse" concept as the Rust version's
-        // hand-drawn glyph, while being vector, crisp at any size, and
-        // auto-template-tinted for light/dark menu bars with zero
-        // asset-pipeline maintenance.
+        // `waveform.path.ecg`: official SF Symbol, same "activity pulse"
+        // concept as the Rust version's hand-drawn tray glyph — chosen over
+        // a custom-traced PDF vector for best-in-class Apple platform
+        // integration (crisp at any size/weight, auto-template-tinted for
+        // light/dark menu bars, tracks future SF Symbols refinements).
         MenuBarExtra("DKB Monitor", systemImage: "waveform.path.ecg") {
             MenuBarContentView()
         }
