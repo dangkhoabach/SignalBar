@@ -14,16 +14,26 @@ final class HideInsteadOfCloseDelegate: NSObject, NSWindowDelegate {
     }
 }
 
-/// SwiftUI's `WindowGroup` has no direct API to intercept close behavior —
-/// this reaches into AppKit once via `NSViewRepresentable` to grab the
-/// window and attach the delegate above.
+/// SwiftUI's `WindowGroup` has no direct API to intercept close behavior or
+/// hide the title text — this reaches into AppKit once via
+/// `NSViewRepresentable` to grab the window and configure both. Ported from
+/// DKB-Downloader's `WindowAccessor` (`native/DKBDownloaderApp/App/
+/// WindowAccessor.swift`), which already solved the "DKB Monitor" title bar
+/// text the user didn't want — `titleVisibility = .hidden` alone leaves an
+/// empty gray strip above the toolbar, so it's paired with
+/// `titlebarAppearsTransparent` and `.fullSizeContentView` (same as
+/// Downloader) to let the toolbar sit flush at the very top instead.
 struct WindowAccessor: NSViewRepresentable {
     let delegate: HideInsteadOfCloseDelegate
 
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
         DispatchQueue.main.async {
-            view.window?.delegate = delegate
+            guard let window = view.window else { return }
+            window.delegate = delegate
+            window.titlebarAppearsTransparent = true
+            window.titleVisibility = .hidden
+            window.styleMask.insert(.fullSizeContentView)
         }
         return view
     }

@@ -5,10 +5,15 @@ import DKBMonitorCore
 struct DKBMonitorApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @AppStorage("themePreference") private var themePreferenceRaw = ThemePreference.system.rawValue
+    @AppStorage("languagePreference") private var languageRaw = AppLocale.systemDefault.rawValue
     private let windowDelegate = HideInsteadOfCloseDelegate()
 
     private var themePreference: ThemePreference {
         ThemePreference(rawValue: themePreferenceRaw) ?? .system
+    }
+
+    private var appLocale: AppLocale {
+        AppLocale(rawValue: languageRaw) ?? .systemDefault
     }
 
     var body: some Scene {
@@ -16,6 +21,7 @@ struct DKBMonitorApp: App {
             ContentView()
                 .background(WindowAccessor(delegate: windowDelegate))
                 .preferredColorScheme(themePreference.colorScheme)
+                .environment(\.locale, appLocale.locale)
         }
         .commands {
             // Replaces the default "Settings…" menu item (still Cmd+,) so it
@@ -46,6 +52,7 @@ struct DKBMonitorApp: App {
         // light/dark menu bars, tracks future SF Symbols refinements).
         MenuBarExtra("DKB Monitor", systemImage: "waveform.path.ecg") {
             MenuBarContentView()
+                .environment(\.locale, appLocale.locale)
         }
     }
 }

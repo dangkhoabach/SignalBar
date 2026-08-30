@@ -119,7 +119,11 @@ struct OverviewView: View {
             }
         }
 
-        ToolbarItemGroup(placement: .automatic) {
+        // `.navigation` pins this group to the toolbar's leading edge, right
+        // next to the sidebar toggle — keeps Filter/Check All Now on the
+        // left exactly as before, now that Add/Import-Export/Search have
+        // moved to the trailing edge below.
+        ToolbarItemGroup(placement: .navigation) {
             Menu {
                 ForEach(TargetStatus.allCases, id: \.self) { status in
                     Toggle(status.localizedLabel, isOn: Binding(
@@ -143,7 +147,28 @@ struct OverviewView: View {
                 }
             }
             .disabled(viewModel.isCheckingAll)
+        }
 
+        // The actual push-to-the-right: a *flexible* spacer consumes all
+        // the toolbar's remaining width at this exact point in the
+        // sequence, shoving everything declared after it to the trailing
+        // edge. `.navigation`/`.primaryAction` placements alone only
+        // control which customizable "section" an item belongs to — they
+        // don't add any gap between sections, which is why Import/Export,
+        // Add, and Search were still rendering bunched up on the left next
+        // to Filter/Check All Now before this was added. Pre-macOS 26 has
+        // no flexible toolbar spacer API in SwiftUI, so this group still
+        // renders left-packed there — same tradeoff already accepted for
+        // the `ToolbarSpacer(.fixed, ...)` below.
+        if #available(macOS 26.0, *) {
+            ToolbarSpacer(.flexible, placement: .primaryAction)
+        }
+
+        // `.primaryAction` pins this group to the toolbar's trailing edge —
+        // Import/Export and Add Target now sit on the right, next to the
+        // search field below, per the user's request to move these away
+        // from the left-aligned Filter/Check All Now group.
+        ToolbarItemGroup(placement: .primaryAction) {
             Menu {
                 Button("Export…") { viewModel.exportTargets() }
                 Button("Import…") { viewModel.importTargets() }
@@ -174,7 +199,7 @@ struct OverviewView: View {
         // API for forcing a break in that grouping — on macOS <26 there's
         // no Liquid Glass merging to begin with, so it's simply a no-op gap.
         if #available(macOS 26.0, *) {
-            ToolbarSpacer(.fixed, placement: .automatic)
+            ToolbarSpacer(.fixed, placement: .primaryAction)
         }
 
         // A real `NSSearchField` bridge instead of `.searchable`: that
@@ -187,7 +212,7 @@ struct OverviewView: View {
         // leaking onto Target Detail. A hand-rolled `TextField` avoided that
         // leak but never quite matched the system search field's bezel —
         // `NativeSearchField` is the actual control, so it matches exactly.
-        ToolbarItem(placement: .automatic) {
+        ToolbarItem(placement: .primaryAction) {
             NativeSearchField(text: $viewModel.searchText, placeholder: "Search domains")
                 .frame(minWidth: 200)
         }
