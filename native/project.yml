@@ -64,6 +64,11 @@ targets:
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: com.dangkhoabach.dkb-monitor
       PRODUCT_NAME: "DKB Monitor"
+      # App icon reused from the old Tauri app's src-tauri/icons/icon.icns
+      # (1024x1024 source, re-sliced into DKBMonitorApp/Resources/
+      # Assets.xcassets/AppIcon.appiconset) so Dock/Finder show the same
+      # dark-rounded-square pulse glyph as the previous app.
+      ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
 
   # Phase 0 scaffold, kept for reference — see PoC/ and README.md. Distinct
   # bundle id (.poc suffix) so it never collides with DKBMonitorApp's real
