@@ -11,14 +11,24 @@ import SwiftUI
 /// `cardPairs`) rather than `LazyVGrid`, so each row's height matches its
 /// own tallest card instead of either leaving every short card badly
 /// mismatched or forcing one fixed height on every card in the page.
+private enum ProcessSortKey {
+    case name, status, cpu, memory
+}
+
 struct SystemView: View {
     @Bindable private var viewModel = SystemViewModel.shared
+    @State private var processSearchText = ""
+    @State private var processSortKey: ProcessSortKey = .cpu
+    @State private var processSortAscending = false
 
     private var stats: SystemStats { viewModel.current }
 
     private static let gridSpacing: CGFloat = 18
     private static let outerPadding: CGFloat = 24
     private static let sparklineHeight: CGFloat = 32
+    private static let statusColumnWidth: CGFloat = 90
+    private static let cpuColumnWidth: CGFloat = 56
+    private static let memoryColumnWidth: CGFloat = 150
 
     private var ramPercent: Double {
         stats.ramTotalMB > 0 ? Double(stats.ramUsedMB) / Double(stats.ramTotalMB) * 100 : 0
@@ -55,6 +65,19 @@ struct SystemView: View {
         }
         .onAppear { viewModel.start() }
         .onDisappear { viewModel.stop() }
+        .toolbar {
+            // A real window-toolbar search field (same `NativeSearchField`
+            // bridge `OverviewView` uses), not one embedded in the card's
+            // own body — a `TextField`/`NSSearchField` sitting inside a
+            // plain `GroupBox` never gets the Liquid Glass material macOS 26
+            // gives genuine toolbar items, so it looked visually
+            // inconsistent with Domains' search box. Placing it here fixes
+            // that by construction: it's the same kind of toolbar item.
+            ToolbarItem(placement: .primaryAction) {
+                NativeSearchField(text: $processSearchText, placeholder: "Filter apps")
+                    .frame(minWidth: 200)
+            }
+        }
     }
 
     /// Pairs of cards laid out with `HStack`, not `LazyVGrid` — an `HStack`
@@ -237,39 +260,137 @@ struct SystemView: View {
     }
 
     /// Task-Manager-"Apps"-tab-style list — full width, below the metric
-    /// cards, sorted by CPU descending (already sorted by the view model).
-    /// Shows apps (icon + display name via `NSRunningApplication`), not raw
-    /// process names — a wall of names like `mds_stores` or
-    /// `com.apple.WebKit.Networking` was hard to scan at a glance. A `Table`
-    /// rather than another custom-drawn list: same reasoning as
-    /// `TargetDetailView.historyTable` — get the native macOS table chrome
-    /// (resizable columns, alternating rows) for free.
+    /// cards. Shows apps (icon + display name via `NSRunningApplication`),
+    /// not raw process names — a wall of names like `mds_stores` or
+    /// `com.apple.WebKit.Networking` was hard to scan at a glance.
+    ///
+    /// A hand-drawn column list, not a native `Table` — `Table` on macOS is
+    /// always backed by its own `NSScrollView`, so no matter how precisely
+    /// its frame was sized to fit every row, it kept reserving/showing its
+    /// own scroller, fighting the page's outer `ScrollView` for scroll
+    /// events. A plain `VStack` of rows has no scroll machinery of its own
+    /// at all, so the page's `ScrollView` is unambiguously the only one.
+    /// This also happens to fix Quit/Force Quit for real: `Table`'s
+    /// per-cell `.contextMenu` never fired (`NSTableView` intercepts
+    /// right-click for row selection first) — a plain view's `.contextMenu`
+    /// has no such interception.
+    ///
+    /// Named "Running Apps" rather than the earlier "Top Apps" — that name
+    /// stopped fitting once the hard top-8 cap was removed; this now lists
+    /// every running app, not just the busiest few.
+    ///
+    /// Sort order and the search filter live here (not the view model)
+    /// because `viewModel.topApps` is replaced wholesale every 2s refresh —
+    /// re-deriving the visible rows from that plus local `@State` on every
+    /// render keeps the user's chosen sort/filter stable across refreshes
+    /// without any extra "reapply after reload" bookkeeping.
     private var processesCard: some View {
         GroupBox {
             VStack(alignment: .leading, spacing: 12) {
                 Label {
-                    Text("Top Apps").font(.subheadline.weight(.medium))
+                    Text("Running Apps").font(.subheadline.weight(.medium))
                 } icon: {
                     Image(systemName: "chart.bar.fill")
                 }
                 .foregroundStyle(.secondary)
 
-                Table(viewModel.topApps) {
-                    TableColumn("App") { app in
-                        HStack(spacing: 8) {
-                            if let icon = app.icon {
-                                Image(nsImage: icon).resizable().frame(width: 16, height: 16)
+                VStack(spacing: 0) {
+                    processesHeaderRow
+                    Divider()
+                    if filteredSortedApps.isEmpty {
+                        Text("No apps found.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .padding(.vertical, 8)
+                    } else {
+                        ForEach(filteredSortedApps) { app in
+                            processRow(app)
+                            if app.id != filteredSortedApps.last?.id {
+                                Divider()
                             }
-                            Text(app.name)
                         }
                     }
-                    TableColumn("CPU") { Text("\($0.cpuPercent, specifier: "%.1f")%") }
-                    TableColumn("Memory") { Text("\($0.memoryMB, specifier: "%.0f") MB") }
                 }
-                .frame(minHeight: 220)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(10)
+        }
+    }
+
+    private var processesHeaderRow: some View {
+        HStack(spacing: 8) {
+            processSortButton("App", key: .name)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            processSortButton("Status", key: .status)
+                .frame(width: Self.statusColumnWidth, alignment: .leading)
+            processSortButton("CPU", key: .cpu)
+                .frame(width: Self.cpuColumnWidth, alignment: .trailing)
+            processSortButton("Memory", key: .memory)
+                .frame(width: Self.memoryColumnWidth, alignment: .trailing)
+        }
+        .padding(.bottom, 4)
+    }
+
+    private func processSortButton(_ title: LocalizedStringKey, key: ProcessSortKey) -> some View {
+        Button {
+            if processSortKey == key {
+                processSortAscending.toggle()
+            } else {
+                processSortKey = key
+                processSortAscending = false
+            }
+        } label: {
+            HStack(spacing: 2) {
+                Text(title)
+                if processSortKey == key {
+                    Image(systemName: processSortAscending ? "chevron.up" : "chevron.down")
+                }
+            }
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func processRow(_ app: AppUsage) -> some View {
+        HStack(spacing: 8) {
+            HStack(spacing: 8) {
+                if let icon = app.icon {
+                    Image(nsImage: icon).resizable().frame(width: 16, height: 16)
+                }
+                Text(app.name).lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Text(app.status.label)
+                .foregroundStyle(.secondary)
+                .frame(width: Self.statusColumnWidth, alignment: .leading)
+            Text("\(app.cpuPercent, specifier: "%.1f")%")
+                .frame(width: Self.cpuColumnWidth, alignment: .trailing)
+            Text("\(app.memoryMB, specifier: "%.0f") MB (\(app.memoryPercent, specifier: "%.1f")%)")
+                .frame(width: Self.memoryColumnWidth, alignment: .trailing)
+        }
+        .font(.callout)
+        .padding(.vertical, 4)
+        .contextMenu {
+            Button("Quit") { app.runningApplication.terminate() }
+            Button("Force Quit", role: .destructive) { app.runningApplication.forceTerminate() }
+        }
+    }
+
+    private var filteredSortedApps: [AppUsage] {
+        let filtered = processSearchText.isEmpty
+            ? viewModel.topApps
+            : viewModel.topApps.filter { $0.name.localizedCaseInsensitiveContains(processSearchText) }
+        return filtered.sorted { a, b in
+            let ascending: Bool
+            switch processSortKey {
+            case .name: ascending = a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
+            case .status: ascending = a.status.rawValue < b.status.rawValue
+            case .cpu: ascending = a.cpuPercent < b.cpuPercent
+            case .memory: ascending = a.memoryMB < b.memoryMB
+            }
+            return processSortAscending ? ascending : !ascending
         }
     }
 

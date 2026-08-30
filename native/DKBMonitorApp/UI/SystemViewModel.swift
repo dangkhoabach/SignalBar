@@ -2,6 +2,24 @@ import AppKit
 import DKBMonitorCore
 import Foundation
 import Observation
+import SwiftUI
+
+/// Coarse approximation of Windows Task Manager's Status column.
+/// `NSRunningApplication` exposes no "Not Responding" signal (that requires
+/// pinging the app's main thread/window server, which is a much bigger
+/// feature on its own), so this sticks to the 3 states AppKit already knows
+/// for free: `isHidden`/`isActive`.
+enum AppRunState: String {
+    case active, hidden, background
+
+    var label: LocalizedStringKey {
+        switch self {
+        case .active: "Active"
+        case .hidden: "Hidden"
+        case .background: "Background"
+        }
+    }
+}
 
 /// A user-facing app (not a raw OS process) and its resource usage — the
 /// `ProcessListProvider` pid matched against `NSWorkspace.runningApplications`
@@ -12,6 +30,13 @@ struct AppUsage: Identifiable {
     var icon: NSImage?
     var cpuPercent: Double
     var memoryMB: Double
+    var memoryPercent: Double
+    var status: AppRunState
+    /// Kept for "Quit"/"Force Quit" row actions — `terminate()`/
+    /// `forceTerminate()` need the live `NSRunningApplication`, not just its
+    /// pid (the app isn't sandboxed, so no extra entitlement is needed to
+    /// quit another user-facing app the same way Activity Monitor does).
+    var runningApplication: NSRunningApplication
 }
 
 /// Drives the System pane: polls `SystemStatsProvider` every 2s (per Mục 3)
@@ -22,8 +47,6 @@ struct AppUsage: Identifiable {
 final class SystemViewModel {
     private static let refreshIntervalSecs: UInt64 = 2
     private static let historyLimit = 30
-
-    private static let topProcessCount = 8
 
     static let shared = SystemViewModel(statsProvider: SystemStatsService(), processProvider: ProcessListService())
 
@@ -90,21 +113,31 @@ final class SystemViewModel {
     /// only its own main process's usage — helper/renderer subprocesses
     /// (e.g. Chrome's per-tab processes) aren't summed in, so a heavy
     /// multi-process app can under-report versus Activity Monitor.
+    ///
+    /// Returns every matched app (no top-N cap) sorted by CPU descending —
+    /// `SystemView` re-sorts/filters this on top per the Table's own sort
+    /// order and search text, so the default order here only matters before
+    /// the user has touched either.
     private func topApps(from usages: [ProcessUsage]) -> [AppUsage] {
         let usageByPID = Dictionary(uniqueKeysWithValues: usages.map { ($0.pid, $0) })
+        let totalRAMMB = Double(current.ramTotalMB)
         let apps = NSWorkspace.shared.runningApplications.compactMap { app -> AppUsage? in
             guard app.activationPolicy != .prohibited,
                   let usage = usageByPID[app.processIdentifier]
             else { return nil }
+            let status: AppRunState = app.isHidden ? .hidden : (app.isActive ? .active : .background)
             return AppUsage(
                 id: app.processIdentifier,
                 name: app.localizedName ?? usage.name,
                 icon: app.icon,
                 cpuPercent: usage.cpuPercent,
-                memoryMB: usage.memoryMB
+                memoryMB: usage.memoryMB,
+                memoryPercent: totalRAMMB > 0 ? usage.memoryMB / totalRAMMB * 100 : 0,
+                status: status,
+                runningApplication: app
             )
         }
-        return Array(apps.sorted { $0.cpuPercent > $1.cpuPercent }.prefix(Self.topProcessCount))
+        return apps.sorted { $0.cpuPercent > $1.cpuPercent }
     }
 
     private func appendClamped(_ array: inout [Double], _ value: Double) {
