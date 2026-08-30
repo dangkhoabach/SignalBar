@@ -2,12 +2,15 @@ import Charts
 import DKBMonitorCore
 import SwiftUI
 
-/// Ported layout from the old Tauri app's `src/pages/System.tsx`: a fixed
-/// 2-column grid of cards, each combining related metrics (Swap nested under
-/// Memory, fan RPMs nested under Temperature) rather than one metric per
-/// card, with color-coded progress bars and per-core CPU usage — richer than
-/// the original SwiftUI-only redesign, which the user found too sparse next
-/// to the app it's replacing.
+/// Ported layout from the old Tauri app's `src/pages/System.tsx`: a 2-column
+/// grid of cards, each combining related metrics (Swap nested under Memory,
+/// fan RPMs nested under Temperature) rather than one metric per card, with
+/// color-coded progress bars and per-core CPU usage — richer than the
+/// original SwiftUI-only redesign, which the user found too sparse next to
+/// the app it's replacing. Laid out as `HStack`-paired rows (see
+/// `cardPairs`) rather than `LazyVGrid`, so each row's height matches its
+/// own tallest card instead of either leaving every short card badly
+/// mismatched or forcing one fixed height on every card in the page.
 struct SystemView: View {
     @Bindable private var viewModel = SystemViewModel.shared
 
@@ -16,12 +19,6 @@ struct SystemView: View {
     private static let gridSpacing: CGFloat = 18
     private static let outerPadding: CGFloat = 24
     private static let sparklineHeight: CGFloat = 32
-    /// `LazyVGrid` sizes each cell to its own content — unlike `Grid`, it
-    /// does not equalize height row-by-row — so cards ranged from CPU's tall
-    /// per-core/sparkline block down to a single-line Storage bar. A shared
-    /// minimum (sized to the tallest card, CPU) makes every card the same
-    /// footprint regardless of how little it has to show.
-    private static let cardMinHeight: CGFloat = 210
 
     private var ramPercent: Double {
         stats.ramTotalMB > 0 ? Double(stats.ramUsedMB) / Double(stats.ramTotalMB) * 100 : 0
@@ -38,19 +35,17 @@ struct SystemView: View {
     var body: some View {
         ScrollView {
             if viewModel.hasLoadedOnce {
-                LazyVGrid(columns: [GridItem(.flexible(), spacing: Self.gridSpacing), GridItem(.flexible())], spacing: Self.gridSpacing) {
-                    cpuCard
-                    temperatureCard
-                    if stats.gpuName != nil {
-                        gpuCard
+                VStack(spacing: Self.gridSpacing) {
+                    ForEach(Array(cardPairs.enumerated()), id: \.offset) { _, pair in
+                        HStack(alignment: .top, spacing: Self.gridSpacing) {
+                            pair.0
+                            if let second = pair.1 {
+                                second
+                            } else {
+                                Color.clear
+                            }
+                        }
                     }
-                    memoryCard
-                    diskCard
-                    networkCard
-                    if let battery = stats.batteryPercent {
-                        batteryCard(percent: battery)
-                    }
-                    uptimeCard
                 }
                 .padding(Self.outerPadding)
             } else {
@@ -61,11 +56,45 @@ struct SystemView: View {
         .onDisappear { viewModel.stop() }
     }
 
+    /// Pairs of cards laid out with `HStack`, not `LazyVGrid` — an `HStack`
+    /// gives every child the same proposed height (the row's tallest
+    /// natural content), so a short card (Storage) and a tall one
+    /// (Network) sharing a row end up visually equal-height *for that row*,
+    /// while a different row (e.g. CPU/Temperature, both naturally tall) is
+    /// free to be taller overall. `LazyVGrid` never did this — each cell
+    /// sized independently — and forcing one fixed height across every card
+    /// regardless of row (an earlier attempt) just turned simple cards like
+    /// Storage/Uptime into mostly-empty boxes.
+    private var cardPairs: [(AnyView, AnyView?)] {
+        var cards: [AnyView] = [AnyView(cpuCard), AnyView(temperatureCard)]
+        if stats.gpuName != nil { cards.append(AnyView(gpuCard)) }
+        cards.append(AnyView(memoryCard))
+        cards.append(AnyView(diskCard))
+        cards.append(AnyView(networkCard))
+        if let battery = stats.batteryPercent { cards.append(AnyView(batteryCard(percent: battery))) }
+        cards.append(AnyView(uptimeCard))
+
+        var pairs: [(AnyView, AnyView?)] = []
+        var index = 0
+        while index < cards.count {
+            let second = index + 1 < cards.count ? cards[index + 1] : nil
+            pairs.append((cards[index], second))
+            index += 2
+        }
+        return pairs
+    }
+
     private var skeletonGrid: some View {
-        LazyVGrid(columns: [GridItem(.flexible(), spacing: Self.gridSpacing), GridItem(.flexible())], spacing: Self.gridSpacing) {
-            ForEach(0..<8, id: \.self) { _ in
-                card(title: "Loading", systemImage: "circle.dashed", trailingText: "00%") {
-                    StatBar(percent: 0, color: .blue)
+        let placeholder = AnyView(
+            card(title: "Loading", systemImage: "circle.dashed", trailingText: "00%") {
+                StatBar(percent: 0, color: .blue)
+            }
+        )
+        return VStack(spacing: Self.gridSpacing) {
+            ForEach(0..<4, id: \.self) { _ in
+                HStack(alignment: .top, spacing: Self.gridSpacing) {
+                    placeholder
+                    placeholder
                 }
             }
         }
@@ -306,9 +335,17 @@ struct SystemView: View {
                 content()
                 Spacer(minLength: 0)
             }
-            .frame(maxWidth: .infinity, minHeight: Self.cardMinHeight, alignment: .topLeading)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
             .padding(10)
         }
+        // Applied to the whole `GroupBox`, not just its inner content: an
+        // `HStack` row proposes the same height to every child (the row's
+        // tallest natural content), and only a view that explicitly accepts
+        // `maxHeight: .infinity` at its outermost level actually stretches
+        // its drawn background to fill that proposal — the `Spacer` above
+        // then absorbs the extra space so a short card's header still sits
+        // at the top instead of centered in the taller row.
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
 

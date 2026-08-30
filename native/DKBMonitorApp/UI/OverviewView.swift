@@ -24,7 +24,7 @@ struct OverviewView: View {
                             viewModel.moveWithinGroup(entry.items, from: indices, to: newOffset)
                         }
                     } header: {
-                        Text(entry.group)
+                        (Text(entry.group) + Text(" (\(entry.items.count))").foregroundStyle(.tertiary))
                             .contextMenu {
                                 Button("Rename Group…") {
                                     renamingGroup = entry.group
@@ -171,28 +171,19 @@ struct OverviewView: View {
             ToolbarSpacer(.fixed, placement: .automatic)
         }
 
-        // A hand-built field instead of `.searchable`: that modifier only
-        // works reliably when attached to the top-level `NavigationSplitView`
-        // on macOS (nested `NavigationStack`s don't render it at all), but
-        // attaching it there with a condition to scope it to just this
-        // screen turned out to be unreliable — SwiftUI doesn't consistently
-        // treat the if/else branches of a conditionally-applied `.searchable`
-        // as the same view, so it kept leaking onto Target Detail.
-        //
-        // No manual `.background(Capsule())` here: now that `ToolbarSpacer`
-        // isolates this as its own toolbar item, macOS's Liquid Glass toolbar
-        // already draws its own glass capsule behind it automatically — our
-        // hand-drawn one just doubled up as a second, slightly-offset
-        // capsule layered inside the system's, reading as a broken border.
+        // A real `NSSearchField` bridge instead of `.searchable`: that
+        // modifier only works reliably when attached to the top-level
+        // `NavigationSplitView` on macOS (nested `NavigationStack`s don't
+        // render it at all), but attaching it there with a condition to
+        // scope it to just this screen turned out to be unreliable — SwiftUI
+        // doesn't consistently treat the if/else branches of a
+        // conditionally-applied `.searchable` as the same view, so it kept
+        // leaking onto Target Detail. A hand-rolled `TextField` avoided that
+        // leak but never quite matched the system search field's bezel —
+        // `NativeSearchField` is the actual control, so it matches exactly.
         ToolbarItem(placement: .automatic) {
-            HStack(spacing: 6) {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(.secondary)
-                TextField("Search domains", text: $viewModel.searchText)
-                    .textFieldStyle(.plain)
-            }
-            .padding(.horizontal, 4)
-            .frame(minWidth: 180)
+            NativeSearchField(text: $viewModel.searchText, placeholder: "Search domains")
+                .frame(minWidth: 200)
         }
     }
 }
