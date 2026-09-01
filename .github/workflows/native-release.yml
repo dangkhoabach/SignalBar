@@ -7,11 +7,11 @@ name: Native (Swift) Release
 #
 # ONE-TIME SETUP REQUIRED before this workflow can run past the build step —
 # none of these can be filled in by an agent, they're your credentials:
-#   - SUPublicEDKey in native/project.yml is still the placeholder string;
+#   - SUPublicEDKey in project.yml is still the placeholder string;
 #     generate a real EdDSA keypair (Sparkle's `generate_keys` tool — grab
 #     the prebuilt binary from a Sparkle release tarball at
 #     https://github.com/sparkle-project/Sparkle/releases, matching the
-#     version pinned in native/project.yml) and paste the public half in.
+#     version pinned in project.yml) and paste the public half in.
 #   - Repo secrets to add (Settings > Secrets and variables > Actions):
 #       APPLE_DEVELOPER_ID_CERT_P12_BASE64  — `base64 -i cert.p12 | pbcopy`
 #       APPLE_DEVELOPER_ID_CERT_PASSWORD    — the .p12's export password
@@ -25,9 +25,9 @@ name: Native (Swift) Release
 #                                              alongside the public key above
 #
 # Confirmed 2026-08-29: admin.dangkhoabach.vn has no upload API, only the
-# same manual web UI the old Tauri release process used (release/README.md)
+# same manual web UI the old (now-removed) Tauri release process used
 # — so GitHub Releases is the real, permanent appcast host here, not a
-# placeholder. `SUFeedURL` in native/project.yml points at
+# placeholder. `SUFeedURL` in project.yml points at
 # github.com/.../releases/latest/download/appcast.xml, which this workflow
 # keeps current on every `v*` tag.
 
@@ -49,14 +49,13 @@ jobs:
           xcodebuild -version
 
       - name: Test DKBMonitorCore (headless package)
-        working-directory: native/DKBMonitorCore
+        working-directory: DKBMonitorCore
         run: swift test
 
       - name: Install xcodegen
         run: brew install xcodegen
 
       - name: Generate Xcode project
-        working-directory: native
         run: xcodegen generate
 
       - name: Import Developer ID signing certificate
@@ -75,7 +74,6 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
 
       - name: Archive
-        working-directory: native
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
@@ -86,7 +84,6 @@ jobs:
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID"
 
       - name: Export archive
-        working-directory: native
         run: |
           cat > "$RUNNER_TEMP/exportOptions.plist" <<'EOF'
           <?xml version="1.0" encoding="UTF-8"?>
@@ -135,7 +132,7 @@ jobs:
           SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
         run: |
           # `generate_appcast` ships in Sparkle's release tarball, pinned to
-          # the same version as native/project.yml's SPM dependency — bump
+          # the same version as project.yml's SPM dependency — bump
           # both together if you ever change one.
           SPARKLE_VERSION="2.6.4"
           curl -fsSL -o "$RUNNER_TEMP/sparkle-tools.tar.xz" \

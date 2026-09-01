@@ -20,25 +20,24 @@ A personal, native macOS menu-bar app for monitoring the uptime, SSL certificate
 - **Swift 6 + SwiftUI**, targeting macOS 14+.
 - **`DKBMonitorCore`** — a headless Swift package (Foundation + GRDB only, no AppKit) holding the domain logic: target CRUD, the HTTP/SSL/domain check scheduler, alert/report generation, and SQLite storage via [GRDB](https://github.com/groue/GRDB.swift).
 - **`DKBMonitorApp`** — the app target: SwiftUI views, `MenuBarExtra`, AppKit-only system integration (SMC temperature/fan reads via IOKit, process list via `libproc`, login item, notifications), and [Sparkle](https://sparkle-project.org/) for auto-updates.
-- **`xcodegen`** generates the `.xcodeproj` from `native/project.yml` — the project file itself isn't committed.
+- **`xcodegen`** generates the `.xcodeproj` from `project.yml` — the project file itself isn't committed.
 
 ## Project structure
 
 ```
-native/
-  project.yml                        xcodegen spec (targets, deps, Info.plist, Sparkle keys)
-  DKBMonitorApp/
-    App/                              App/Scene setup, window management, Sparkle updater, login item
-    UI/                               SwiftUI views + view models (Overview, System, Settings, Target detail)
-    System/                           SMC reader, process list (libproc), system stats service
-    Notifications/                    UNUserNotificationCenter wrapper, click-to-navigate routing
-  DKBMonitorCore/
-    Sources/DKBMonitorCore/
-      Domain/                         Scheduler, HttpChecker, ExpiryChecker, EmailReportSender, ReportGenerator
-      Data/                           AppDatabase (GRDB), TargetRepository, SettingsRepository
-      Models/                         Target, TargetOverview, Incident, CheckResult, ExpiryStatus
-      System/                         Cross-platform-safe stats/process value types
-    Tests/                            swift-testing suite for DKBMonitorCore
+project.yml                          xcodegen spec (targets, deps, Info.plist, Sparkle keys)
+DKBMonitorApp/
+  App/                                App/Scene setup, window management, Sparkle updater, login item
+  UI/                                 SwiftUI views + view models (Overview, System, Settings, Target detail)
+  System/                             SMC reader, process list (libproc), system stats service
+  Notifications/                      UNUserNotificationCenter wrapper, click-to-navigate routing
+DKBMonitorCore/
+  Sources/DKBMonitorCore/
+    Domain/                           Scheduler, HttpChecker, ExpiryChecker, EmailReportSender, ReportGenerator
+    Data/                             AppDatabase (GRDB), TargetRepository, SettingsRepository
+    Models/                           Target, TargetOverview, Incident, CheckResult, ExpiryStatus
+    System/                           Cross-platform-safe stats/process value types
+  Tests/                              swift-testing suite for DKBMonitorCore
 docs/
   swift-native-port-plan.md           full history of the Tauri → native port
 ```
@@ -47,7 +46,6 @@ docs/
 
 ```bash
 brew install xcodegen
-cd native
 xcodegen generate
 open DKBMonitorNative.xcodeproj
 ```
@@ -55,12 +53,12 @@ open DKBMonitorNative.xcodeproj
 Run the `DKBMonitorApp` scheme from Xcode (choose your signing team under Signing & Capabilities first). `DKBMonitorCore` can also be tested headlessly:
 
 ```bash
-cd native/DKBMonitorCore
+cd DKBMonitorCore
 swift test
 ```
 
 ## Releasing (Check for Updates)
 
-Sparkle reads `SUFeedURL`/`SUPublicEDKey` from `native/project.yml`'s `Info.plist` properties. Releases are published as GitHub Releases (tag `v*`), built by `.github/workflows/native-release.yml`: builds, Developer ID signs, notarizes, DMGs, and Sparkle-signs the app, then attaches the DMG + a generated `appcast.xml` to the release, which `SUFeedURL` points at.
+Sparkle reads `SUFeedURL`/`SUPublicEDKey` from `project.yml`'s `Info.plist` properties. Releases are published as GitHub Releases (tag `v*`), built by `.github/workflows/native-release.yml`: builds, Developer ID signs, notarizes, DMGs, and Sparkle-signs the app, then attaches the DMG + a generated `appcast.xml` to the release, which `SUFeedURL` points at.
 
 The Sparkle EdDSA private key lives in this machine's login Keychain ("Private key for signing Sparkle updates") — see the one-time setup notes at the top of `native-release.yml` and Phase 10 of `docs/swift-native-port-plan.md` before relying on the CI signing step.
