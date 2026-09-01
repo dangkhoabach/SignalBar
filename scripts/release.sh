@@ -56,10 +56,16 @@ OUT_DIR="release-output/$VERSION"
 BUILD_DIR="$OUT_DIR/DerivedData"
 mkdir -p "$OUT_DIR"
 
-echo "==> Building (Release, ad-hoc signed)"
+echo "==> Building (Release, ad-hoc signed, universal arm64+x86_64)"
+# Without an explicit -destination, xcodebuild resolves the implicit "My
+# Mac" destination and only builds for that Mac's own architecture,
+# ignoring the project's ARCHS setting - producing an arm64-only binary on
+# an Apple Silicon build machine, unusable on Intel Macs. The generic
+# platform destination makes it build for every arch in ARCHS instead.
 xcodebuild build \
   -project "$PROJECT" -scheme "$SCHEME" -configuration Release \
   -derivedDataPath "$BUILD_DIR" \
+  -destination "generic/platform=macOS" \
   CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="-" DEVELOPMENT_TEAM=""
 
 APP_PATH="$BUILD_DIR/Build/Products/Release/$APP_NAME.app"

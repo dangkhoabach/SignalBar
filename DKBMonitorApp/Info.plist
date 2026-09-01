@@ -21,7 +21,7 @@
 	<key>LSUIElement</key>
 	<false/>
 	<key>SUEnableAutomaticChecks</key>
-	<false/>
+	<true/>
 	<key>SUFeedURL</key>
 	<string>https://updates.dangkhoabach.vn/dkb-monitor/appcast.xml</string>
 	<key>SUPublicEDKey</key>

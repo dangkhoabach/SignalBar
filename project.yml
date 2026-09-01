@@ -53,14 +53,9 @@ targets:
         # has actually been done for the dkb-monitor slug.
         SUFeedURL: https://updates.dangkhoabach.vn/dkb-monitor/appcast.xml
         SUPublicEDKey: yAEEvjvy+kV1gxLltskQ9iBfixVqZguKZrjXTv/lj9g=
-        # Automatic checks stay off until at least one real release exists
-        # at SUFeedURL (the key alone doesn't help if there's no appcast to
-        # reach yet) — otherwise Sparkle fails every check and surfaces an
-        # "Unable to Check For Updates" alert on every single launch. Flip
-        # this to true once the first tagged release has gone through
-        # native-release.yml; "Check for Updates…" in the menu bar will
-        # still fail manually until then too, which is expected.
-        SUEnableAutomaticChecks: false
+        # First release (2.0.2) is live at SUFeedURL, so automatic checks
+        # are safe to enable now — Sparkle has a real appcast to reach.
+        SUEnableAutomaticChecks: true
         SUScheduledCheckInterval: 86400
     entitlements:
       path: DKBMonitorApp/DKBMonitorApp.entitlements
