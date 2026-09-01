@@ -40,6 +40,15 @@ struct DKBMonitorApp: App {
                 .onChange(of: themePreferenceRaw) { _, _ in applyAppearance() }
         }
         .commands {
+            // Standard Sparkle placement: right under "About DKB Monitor" in
+            // the app menu — matches DKB Downloader's app menu (and this
+            // app's own menu bar extra, see MenuBarContentView).
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates…") {
+                    AppUpdater.checkForUpdates()
+                }
+            }
+
             // Replaces the default "Settings…" menu item (still Cmd+,) so it
             // opens the Settings sidebar tab in the main window instead of a
             // separate `Settings {}` scene — same destination as the menu

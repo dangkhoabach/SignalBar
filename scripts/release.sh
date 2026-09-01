@@ -31,28 +31,28 @@ echo "==> Testing DKBMonitorCore"
 # regenerates Info.plist from project.yml's properties on every `generate`
 # (it doesn't merge), so editing Info.plist directly gets silently
 # discarded the moment this script runs `xcodegen generate` below.
+#
+# Both CFBundleShortVersionString and CFBundleVersion get set to the exact
+# same MAJOR.MINOR.PATCH string the user enters here, matching the
+# sparkle:version/sparkle:shortVersionString pair admin.dangkhoabach.vn's
+# upload form writes into the appcast. An earlier version of this script
+# split the input into a 2-component marketing version plus a separate
+# build number (e.g. "2.0.1" -> version "2.0", build "1") - typing "2.0.1"
+# for a second release produced the exact same CFBundleVersion ("1") as the
+# very first "2.0" release, so Sparkle could never tell the two apart and
+# kept reporting an update as available even once the user was already on
+# the latest DMG.
 CURRENT_VERSION=$(grep -m1 'CFBundleShortVersionString:' "$PROJECT_YML" | sed -E 's/.*CFBundleShortVersionString: *"?([^"]*)"?/\1/')
-CURRENT_BUILD=$(grep -m1 'CFBundleVersion:' "$PROJECT_YML" | sed -E 's/.*CFBundleVersion: *"?([^"]*)"?/\1/')
-read -rp "Current version is $CURRENT_VERSION (build $CURRENT_BUILD). New version as MAJOR.MINOR.BUILD (e.g. 2.0.1 -> version 2.0, build 1) [Enter to keep]: " INPUT
-if [ -z "$INPUT" ]; then
-  VERSION="$CURRENT_VERSION"
-  NEW_BUILD="$CURRENT_BUILD"
-else
-  NEW_BUILD="${INPUT##*.}"
-  VERSION="${INPUT%.*}"
-  if [ "$VERSION" = "$INPUT" ]; then
-    echo "Error: expected MAJOR.MINOR.BUILD (e.g. 2.0.1), got '$INPUT'" >&2
-    exit 1
-  fi
-fi
+read -rp "Current version is $CURRENT_VERSION. New version (e.g. 2.0.1) [Enter to keep]: " INPUT
+VERSION="${INPUT:-$CURRENT_VERSION}"
 sed -i '' -E "s/(CFBundleShortVersionString: )\"?[^\"[:space:]]*\"?/\1\"$VERSION\"/" "$PROJECT_YML"
-sed -i '' -E "s/(CFBundleVersion: )\"?[^\"[:space:]]*\"?/\1\"$NEW_BUILD\"/" "$PROJECT_YML"
-echo "==> Releasing version $VERSION (build $NEW_BUILD)"
+sed -i '' -E "s/(CFBundleVersion: )\"?[^\"[:space:]]*\"?/\1\"$VERSION\"/" "$PROJECT_YML"
+echo "==> Releasing version $VERSION"
 
 echo "==> Regenerating Xcode project"
 xcodegen generate
 
-OUT_DIR="release-output/$VERSION.$NEW_BUILD"
+OUT_DIR="release-output/$VERSION"
 BUILD_DIR="$OUT_DIR/DerivedData"
 mkdir -p "$OUT_DIR"
 
@@ -69,7 +69,6 @@ DMG_PATH="$OUT_DIR/DKB-Monitor-$VERSION.dmg"
 rm -f "$DMG_PATH"
 create-dmg \
   --volname "$APP_NAME" \
-  --background "scripts/dmg-background.png" \
   --window-pos 200 120 \
   --window-size 660 400 \
   --icon-size 100 \

@@ -22,15 +22,15 @@ Developer ID identity + `xcrun notarytool` step added back in.
    already the real public key. Nothing to do here unless that key is ever
    rotated.
 2. **`create-dmg`** — styles the installer DMG's Finder window (icon layout,
-   Applications drop link, and background) instead of a bare `hdiutil` copy:
+   Applications drop link) instead of a bare `hdiutil` copy:
    ```bash
    brew install create-dmg
    ```
-3. **`scripts/dmg-background.png`** — already committed (a dark
-   particle-network image matching dangkhoabach.vn's site style, indigo
-   accent). Nothing to do here unless the look needs to change — regenerate
-   with `python3 scripts/generate-dmg-background.py` (needs Pillow: `pip3
-   install pillow`).
+   No custom background image — a dark particle-network image was tried
+   (`scripts/generate-dmg-background.py`) but Finder always draws icon name
+   labels in black with no way to override that, so "DKB Monitor"/
+   "Applications" were essentially unreadable against it. Back to Finder's
+   plain default background, where the labels are legible.
 
 ## Cutting a release
 
@@ -38,14 +38,23 @@ Developer ID identity + `xcrun notarytool` step added back in.
 ./scripts/release.sh
 ```
 
-Prompts for the version as `MAJOR.MINOR.BUILD` (e.g. `2.0.1` → marketing
-version `2.0`, build `1`; Enter keeps both as they are), writes it into
-`project.yml` (the actual source of truth — see the comment above
-`CFBundleShortVersionString` there; editing `Info.plist` directly gets
-silently discarded by the next `xcodegen generate`), then runs: `swift
-test` → `xcodegen generate` → ad-hoc-signed Release build → DMG →
-Sparkle-sign. Output lands in `release-output/<version>/` (gitignored): the
-`.dmg` and its `.sig` (the raw EdDSA signature, ready to paste as-is).
+Prompts for the version (e.g. `2.0.1`; Enter keeps the current one), writes
+that exact string into both `CFBundleShortVersionString` and
+`CFBundleVersion` in `project.yml` (the actual source of truth — see the
+comment above `CFBundleShortVersionString` there; editing `Info.plist`
+directly gets silently discarded by the next `xcodegen generate`), then
+runs: `swift test` → `xcodegen generate` → ad-hoc-signed Release build →
+DMG → Sparkle-sign. Output lands in `release-output/<version>/`
+(gitignored): the `.dmg` and its `.sig` (the raw EdDSA signature, ready to
+paste as-is).
+
+Both version fields are always set identically — an earlier version of
+this script split the input into a 2-component marketing version plus a
+separate build number (`2.0.1` → version `2.0`, build `1`), which meant a
+second release sharing the same `MAJOR.MINOR` reused the exact same
+`CFBundleVersion` as the first, so Sparkle could never tell the two apart
+and kept reporting an update as available even once the user was already
+on the latest DMG.
 
 ## Uploading a release
 
