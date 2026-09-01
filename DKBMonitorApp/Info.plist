@@ -23,7 +23,7 @@
 	<key>SUEnableAutomaticChecks</key>
 	<false/>
 	<key>SUFeedURL</key>
-	<string>https://github.com/dangkhoabach/DKB-Monitor/releases/latest/download/appcast.xml</string>
+	<string>https://updates.dangkhoabach.vn/dkb-monitor/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>yAEEvjvy+kV1gxLltskQ9iBfixVqZguKZrjXTv/lj9g=</string>
 	<key>SUScheduledCheckInterval</key>

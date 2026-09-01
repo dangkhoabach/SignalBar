@@ -40,6 +40,9 @@ DKBMonitorCore/
   Tests/                              swift-testing suite for DKBMonitorCore
 docs/
   swift-native-port-plan.md           full history of the Tauri → native port
+  release.md                          local build/sign/notarize/publish process
+scripts/
+  release.sh                          builds, signs, notarizes, DMGs, and Sparkle-signs a release
 ```
 
 ## Getting started
@@ -61,6 +64,4 @@ swift test
 
 Sparkle reads `SUFeedURL`/`SUPublicEDKey` from `project.yml`'s `Info.plist` properties. `SUFeedURL` points at `updates.dangkhoabach.vn` (the same domain the old Tauri app's updater used) — not GitHub Releases, which this project doesn't publish to.
 
-Tagging `v*` runs `.github/workflows/native-release.yml`: builds, Developer ID signs, notarizes, DMGs, and Sparkle-signs the app, then uploads the DMG + its `.sig` as workflow artifacts. Publishing from there is manual, same as the old Tauri app's process: download the two artifacts and upload them via admin.dangkhoabach.vn's web UI for the `dkb-monitor` app (installer = the `.dmg`, Sparkle signature = the contents of the `.sig`) — MyWebsiteAPI's `AppReleaseService` generates `appcast.xml` from that upload. `SUFeedURL` only starts resolving once that first upload has actually been done.
-
-The Sparkle EdDSA private key lives in this machine's login Keychain ("Private key for signing Sparkle updates") — see the one-time setup notes at the top of `native-release.yml` and Phase 10 of `docs/swift-native-port-plan.md` before relying on the CI signing step.
+Releases are built, signed, and uploaded entirely from this machine — no CI. Run `./scripts/release.sh`, then upload the resulting DMG + `.sig` via admin.dangkhoabach.vn's web UI. See `docs/release.md` for the one-time setup (Developer ID identity, notarization credentials) and the full cutting-a-release steps.

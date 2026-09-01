@@ -5,6 +5,11 @@ logs
 # Local-only updater signing secrets — never commit
 .env.release
 
+# scripts/release.sh's downloaded Sparkle CLI tools + local build output —
+# both reproducible, neither should be committed.
+.sparkle-tools/
+release-output/
+
 # Xcode / Swift Package Manager
 build/
 .build/
