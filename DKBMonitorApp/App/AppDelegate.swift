@@ -20,6 +20,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
         WindowPresenter.showMainWindow()
-        return true
+        // Reopen is already fully handled above (existing window is unhidden and
+        // brought to front) - returning true here would also let AppKit run its
+        // own default reopen handling, which for a SwiftUI WindowGroup means
+        // instantiating a brand-new window since hasVisibleWindows is false
+        // (the window was only orderOut'd, not closed). That produced a
+        // duplicate window on every Dock-icon reopen.
+        return false
     }
 }
