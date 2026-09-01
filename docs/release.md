@@ -6,30 +6,21 @@ then upload by hand to admin.dangkhoabach.vn): only the build tooling
 changed (`xcodebuild`/`codesign`/Sparkle instead of `cargo tauri build`/
 `tauri-plugin-updater`'s minisign).
 
+No Apple Developer Program membership (the $99/year one) exists for this
+project, same as the old Tauri build — so there's no Developer ID signing
+and no notarization here. Builds are **ad-hoc signed** instead (free,
+built into Xcode/`codesign`), which means end users have to right-click →
+Open on first launch to get past Gatekeeper's "unidentified developer"
+warning — the same experience the Tauri build already had. If a paid
+membership is ever added later, `scripts/release.sh` would need a real
+Developer ID identity + `xcrun notarytool` step added back in.
+
 ## One-time setup
 
-1. **Developer ID signing identity** — must already be in this Mac's login
-   Keychain (`security find-identity -v -p codesigning` should list
-   "Developer ID Application: ..."). This was already required for the old
-   Tauri build too.
-2. **Notarization credentials** — store once as a Keychain profile:
-   ```bash
-   xcrun notarytool store-credentials dkb-release-notarize \
-     --apple-id <your-apple-id-email> \
-     --team-id <APPLE_TEAM_ID> \
-     --password <app-specific-password>
-   ```
-   Generate the app-specific password at appleid.apple.com if you don't
-   already have one saved. `scripts/release.sh` reads the profile name from
-   `$NOTARY_PROFILE`, defaulting to `dkb-release-notarize`.
-3. **Sparkle EdDSA keypair** — already generated (2026-08-30) under the
-   Keychain's default `ed25519` account; `SUPublicEDKey` in `project.yml` is
-   already the real public key. Nothing to do here unless that key is ever
-   rotated.
-4. **`APPLE_TEAM_ID`** — export it in your shell profile (`~/.zshrc` etc.):
-   ```bash
-   export APPLE_TEAM_ID=XXXXXXXXXX
-   ```
+**Sparkle EdDSA keypair** — already generated (2026-08-30) under the
+Keychain's default `ed25519` account; `SUPublicEDKey` in `project.yml` is
+already the real public key. Nothing to do here unless that key is ever
+rotated. That's the only one-time setup this app needs.
 
 ## Cutting a release
 
@@ -38,8 +29,8 @@ changed (`xcodebuild`/`codesign`/Sparkle instead of `cargo tauri build`/
 ```
 
 Prompts for the version (Enter keeps the current one), bumps the build
-number, then runs: `swift test` → `xcodegen generate` → archive → Developer
-ID sign → notarize + staple → DMG → Sparkle-sign. Output lands in
+number, then runs: `swift test` → `xcodegen generate` → ad-hoc-signed
+Release build → DMG → Sparkle-sign. Output lands in
 `release-output/<version>/` (gitignored): the `.dmg` and its `.sig`
 (the raw EdDSA signature, ready to paste as-is).
 

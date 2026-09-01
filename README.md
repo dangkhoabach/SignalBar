@@ -64,4 +64,4 @@ swift test
 
 Sparkle reads `SUFeedURL`/`SUPublicEDKey` from `project.yml`'s `Info.plist` properties. `SUFeedURL` points at `updates.dangkhoabach.vn` (the same domain the old Tauri app's updater used) — not GitHub Releases, which this project doesn't publish to.
 
-Releases are built, signed, and uploaded entirely from this machine — no CI. Run `./scripts/release.sh`, then upload the resulting DMG + `.sig` via admin.dangkhoabach.vn's web UI. See `docs/release.md` for the one-time setup (Developer ID identity, notarization credentials) and the full cutting-a-release steps.
+Releases are built, ad-hoc signed, and uploaded entirely from this machine — no CI, no paid Apple Developer Program membership (so no notarization; first launch needs right-click → Open, same as the old Tauri build). Run `./scripts/release.sh`, then upload the resulting DMG + `.sig` via admin.dangkhoabach.vn's web UI. See `docs/release.md` for details.
