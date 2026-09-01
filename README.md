@@ -1,68 +1,66 @@
 # DKB Monitor
 
-A personal, macOS-first menu-bar app for monitoring the uptime, SSL certificate expiry, and domain expiry of websites and APIs. Built with **Tauri 2 + React + SQLite** for low idle resource usage, since it's designed to run continuously in the background.
+A personal, native macOS menu-bar app for monitoring the uptime, SSL certificate expiry, and domain expiry of websites and APIs, plus live system stats — built to run continuously in the background at near-zero idle cost.
 
 ## Features
 
 - **HTTP health checks** — status code, response time, and optional response-body assertions on a configurable interval per target.
-- **SSL certificate expiry** — checked via the system `openssl`, with native alerts as expiry approaches.
+- **SSL certificate expiry** — checked via the system trust store, with alerts as expiry approaches.
 - **Domain (WHOIS/RDAP) expiry** — resolved via RDAP-over-HTTPS where the TLD supports it, falling back to `whois` otherwise. Some ccTLDs (e.g. `.vn`) don't expose this publicly through any method.
-- **Live system stats** — CPU (total + per-core), memory, swap, disk, GPU, and network status (connection type, Wi-Fi SSID, local IP), refreshed continuously and also surfaced in the menu bar dropdown.
-- **Groups** — targets auto-group by root domain (subdomains fold under it), with drag-and-drop reordering of both targets and groups, and inline group renaming.
-- **Native macOS integration** — menu bar tray with live CPU/RAM/uptime summary, native notifications, launch-at-login, vibrancy-matched light/dark theme.
-- **Scheduled email reports** — a daily/weekly/monthly summary of uptime and incidents sent over SMTP, with the app password stored in the macOS Keychain (never in the database or config).
-- **Bilingual UI** — English and Vietnamese.
+- **Live system stats** — CPU, memory, swap, temperature (SMC), battery, and network, refreshed continuously and surfaced both in a System tab and the menu bar dropdown, with alerts for high temperature/low battery.
+- **Running Apps** — a Task-Manager-style list of user-facing apps with CPU/memory usage and status, sortable, with Quit/Force Quit.
+- **Groups** — targets group by root domain (subdomains fold under it), with drag-and-drop reordering of both targets and groups, and inline group renaming.
+- **Pause/resume checks** — snooze a target for 30m/1h/4h/24h or indefinitely.
+- **Native macOS integration** — `MenuBarExtra` with live CPU/RAM/uptime summary, native notifications (click-to-navigate), launch-at-login, light/dark theme, in-app language switching (English/Vietnamese).
+- **Scheduled email reports** — a weekly/monthly summary of uptime and incidents sent over SMTP, with the app password stored in the macOS Keychain (never in the database or config).
+- **Import/export/clear** domains as JSON.
 
 ## Tech stack
 
-- **Frontend**: React 19 + TypeScript + Vite, Tailwind v4, shadcn/ui on [Base UI](https://base-ui.com/) primitives, `react-router`, `recharts` for latency charts, `sonner` for toasts.
-- **Backend**: Rust + Tauri 2, `rusqlite` (bundled SQLite) for storage, `reqwest` for HTTP checks and RDAP lookups, `lettre` for SMTP, `sysinfo` for system stats, `keyring` for credential storage.
+- **Swift 6 + SwiftUI**, targeting macOS 14+.
+- **`DKBMonitorCore`** — a headless Swift package (Foundation + GRDB only, no AppKit) holding the domain logic: target CRUD, the HTTP/SSL/domain check scheduler, alert/report generation, and SQLite storage via [GRDB](https://github.com/groue/GRDB.swift).
+- **`DKBMonitorApp`** — the app target: SwiftUI views, `MenuBarExtra`, AppKit-only system integration (SMC temperature/fan reads via IOKit, process list via `libproc`, login item, notifications), and [Sparkle](https://sparkle-project.org/) for auto-updates.
+- **`xcodegen`** generates the `.xcodeproj` from `native/project.yml` — the project file itself isn't committed.
 
 ## Project structure
 
 ```
-src/                        React frontend
-  components/                shared UI (shadcn components, layout, dialogs)
-  pages/                      Domains, System, Settings, Email report setup, Target detail
-  lib/                        API bindings, i18n, utils
-src-tauri/src/
-  commands.rs                 Tauri commands (target CRUD, overview, uptime summary, group rename...)
-  scheduler.rs                 background tick loop: HTTP/SSL/domain checks, alerts, scheduled reports
-  expiry_check.rs               SSL/domain expiry + RDAP/whois logic
-  sysstats.rs                   CPU/RAM/disk/GPU/network stats
-  mail.rs                       SMTP sending + report generation
-  settings.rs                   app settings persistence + Keychain access
-  db.rs                         SQLite schema/migrations
-  tray_icon.rs                  menu bar glyph rendering
+native/
+  project.yml                        xcodegen spec (targets, deps, Info.plist, Sparkle keys)
+  DKBMonitorApp/
+    App/                              App/Scene setup, window management, Sparkle updater, login item
+    UI/                               SwiftUI views + view models (Overview, System, Settings, Target detail)
+    System/                           SMC reader, process list (libproc), system stats service
+    Notifications/                    UNUserNotificationCenter wrapper, click-to-navigate routing
+  DKBMonitorCore/
+    Sources/DKBMonitorCore/
+      Domain/                         Scheduler, HttpChecker, ExpiryChecker, EmailReportSender, ReportGenerator
+      Data/                           AppDatabase (GRDB), TargetRepository, SettingsRepository
+      Models/                         Target, TargetOverview, Incident, CheckResult, ExpiryStatus
+      System/                         Cross-platform-safe stats/process value types
+    Tests/                            swift-testing suite for DKBMonitorCore
+docs/
+  swift-native-port-plan.md           full history of the Tauri → native port
 ```
 
 ## Getting started
 
 ```bash
-npm install
-npm run tauri dev     # run in development
-npm run tauri build   # produce a release .app / .dmg
+brew install xcodegen
+cd native
+xcodegen generate
+open DKBMonitorNative.xcodeproj
 ```
 
-Requires Rust (via `rustup`) and Xcode Command Line Tools on macOS.
-
-## Versioning
-
-Each release build bumps the patch version (`src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml`, `package.json`) — e.g. `0.1.3` → `0.1.4`. Minor/major bumps are manual.
-
-## Publishing an update (Check for Updates)
-
-The app checks `https://updates.dangkhoabach.vn/dkb-monitor/latest.json` (Tauri updater plugin, configured in `tauri.conf.json`). To ship a new version:
+Run the `DKBMonitorApp` scheme from Xcode (choose your signing team under Signing & Capabilities first). `DKBMonitorCore` can also be tested headlessly:
 
 ```bash
-set -a; source .env.release; set +a   # loads the local signing key + password (gitignored)
-npm run tauri build
+cd native/DKBMonitorCore
+swift test
 ```
 
-This produces, in addition to the normal `.dmg`:
-- `src-tauri/target/release/bundle/macos/DKB Monitor.app.tar.gz`
-- `src-tauri/target/release/bundle/macos/DKB Monitor.app.tar.gz.sig`
+## Releasing (Check for Updates)
 
-Write `latest.json` (version, notes, `pub_date`, and a `darwin-aarch64` platform entry with the `.sig` file's contents as `signature` and a URL pointing at the artifact once uploaded), then copy `latest.json` + the two files above into `~/MyWebsite/deploy/updates/dkb-monitor/` and run `~/MyWebsite/deploy/publish-update.sh dkb-monitor` to upload them.
+Sparkle reads `SUFeedURL`/`SUPublicEDKey` from `native/project.yml`'s `Info.plist` properties. Releases are published as GitHub Releases (tag `v*`), built by `.github/workflows/native-release.yml`: builds, Developer ID signs, notarizes, DMGs, and Sparkle-signs the app, then attaches the DMG + a generated `appcast.xml` to the release, which `SUFeedURL` points at.
 
-The signing keypair lives at `~/.tauri/dkb-monitor-updater.key` (private, never committed) with its public half embedded in `tauri.conf.json`. Losing the private key means old installs can never verify a new signed update again — back it up somewhere safe.
+The Sparkle EdDSA private key lives in this machine's login Keychain ("Private key for signing Sparkle updates") — see the one-time setup notes at the top of `native-release.yml` and Phase 10 of `docs/swift-native-port-plan.md` before relying on the CI signing step.
