@@ -17,10 +17,15 @@ Developer ID identity + `xcrun notarytool` step added back in.
 
 ## One-time setup
 
-**Sparkle EdDSA keypair** — already generated (2026-08-30) under the
-Keychain's default `ed25519` account; `SUPublicEDKey` in `project.yml` is
-already the real public key. Nothing to do here unless that key is ever
-rotated. That's the only one-time setup this app needs.
+1. **Sparkle EdDSA keypair** — already generated (2026-08-30) under the
+   Keychain's default `ed25519` account; `SUPublicEDKey` in `project.yml` is
+   already the real public key. Nothing to do here unless that key is ever
+   rotated.
+2. **`create-dmg`** — styles the installer DMG's Finder window (icon layout
+   + Applications drop link) instead of a bare `hdiutil` copy:
+   ```bash
+   brew install create-dmg
+   ```
 
 ## Cutting a release
 

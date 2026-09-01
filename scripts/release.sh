@@ -10,6 +10,8 @@
 #   - A Sparkle EdDSA keypair already generated via `generate_keys` — its
 #     private half must already be in this Mac's login Keychain (sign_update
 #     finds it automatically, no path/flag needed).
+#   - `brew install create-dmg` (styles the installer DMG's Finder window -
+#     icon layout + Applications drop link - instead of hdiutil's bare copy).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -19,6 +21,8 @@ APP_NAME="DKB Monitor"
 PROJECT_YML="project.yml"
 SPARKLE_VERSION="2.6.4"
 SPARKLE_TOOLS_DIR=".sparkle-tools"
+
+command -v create-dmg >/dev/null || { echo "Error: create-dmg not found. Run: brew install create-dmg" >&2; exit 1; }
 
 echo "==> Testing DKBMonitorCore"
 (cd DKBMonitorCore && swift test)
@@ -61,13 +65,18 @@ xcodebuild build \
 APP_PATH="$BUILD_DIR/Build/Products/Release/$APP_NAME.app"
 
 echo "==> Creating DMG"
-DMG_ROOT="$OUT_DIR/dmg-root"
-rm -rf "$DMG_ROOT"
-mkdir -p "$DMG_ROOT"
-cp -R "$APP_PATH" "$DMG_ROOT/"
-ln -sf /Applications "$DMG_ROOT/Applications"
 DMG_PATH="$OUT_DIR/DKB-Monitor-$VERSION.dmg"
-hdiutil create -volname "$APP_NAME" -srcfolder "$DMG_ROOT" -ov -format UDZO "$DMG_PATH"
+rm -f "$DMG_PATH"
+create-dmg \
+  --volname "$APP_NAME" \
+  --window-pos 200 120 \
+  --window-size 660 400 \
+  --icon-size 100 \
+  --icon "$APP_NAME.app" 160 185 \
+  --hide-extension "$APP_NAME.app" \
+  --app-drop-link 460 185 \
+  "$DMG_PATH" \
+  "$APP_PATH"
 
 echo "==> Signing update with Sparkle"
 if [ ! -x "$SPARKLE_TOOLS_DIR/bin/sign_update" ]; then
