@@ -28,11 +28,14 @@ rotated. That's the only one-time setup this app needs.
 ./scripts/release.sh
 ```
 
-Prompts for the version (Enter keeps the current one), bumps the build
-number, then runs: `swift test` → `xcodegen generate` → ad-hoc-signed
-Release build → DMG → Sparkle-sign. Output lands in
-`release-output/<version>/` (gitignored): the `.dmg` and its `.sig`
-(the raw EdDSA signature, ready to paste as-is).
+Prompts for the version as `MAJOR.MINOR.BUILD` (e.g. `2.0.1` → marketing
+version `2.0`, build `1`; Enter keeps both as they are), writes it into
+`project.yml` (the actual source of truth — see the comment above
+`CFBundleShortVersionString` there; editing `Info.plist` directly gets
+silently discarded by the next `xcodegen generate`), then runs: `swift
+test` → `xcodegen generate` → ad-hoc-signed Release build → DMG →
+Sparkle-sign. Output lands in `release-output/<version>/` (gitignored): the
+`.dmg` and its `.sig` (the raw EdDSA signature, ready to paste as-is).
 
 ## Uploading a release
 

@@ -16,20 +16,33 @@ cd "$(dirname "$0")/.."
 SCHEME="DKBMonitorApp"
 PROJECT="DKBMonitorNative.xcodeproj"
 APP_NAME="DKB Monitor"
-INFO_PLIST="DKBMonitorApp/Info.plist"
+PROJECT_YML="project.yml"
 SPARKLE_VERSION="2.6.4"
 SPARKLE_TOOLS_DIR=".sparkle-tools"
 
 echo "==> Testing DKBMonitorCore"
 (cd DKBMonitorCore && swift test)
 
-CURRENT_VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$INFO_PLIST")
-CURRENT_BUILD=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$INFO_PLIST")
-read -rp "Current version is $CURRENT_VERSION (build $CURRENT_BUILD). New version [Enter to keep]: " NEW_VERSION
-VERSION="${NEW_VERSION:-$CURRENT_VERSION}"
-NEW_BUILD=$((CURRENT_BUILD + 1))
-/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$INFO_PLIST"
-/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $NEW_BUILD" "$INFO_PLIST"
+# project.yml is the source of truth, not Info.plist - xcodegen fully
+# regenerates Info.plist from project.yml's properties on every `generate`
+# (it doesn't merge), so editing Info.plist directly gets silently
+# discarded the moment this script runs `xcodegen generate` below.
+CURRENT_VERSION=$(grep -m1 'CFBundleShortVersionString:' "$PROJECT_YML" | sed -E 's/.*CFBundleShortVersionString: *"?([^"]*)"?/\1/')
+CURRENT_BUILD=$(grep -m1 'CFBundleVersion:' "$PROJECT_YML" | sed -E 's/.*CFBundleVersion: *"?([^"]*)"?/\1/')
+read -rp "Current version is $CURRENT_VERSION (build $CURRENT_BUILD). New version as MAJOR.MINOR.BUILD (e.g. 2.0.1 -> version 2.0, build 1) [Enter to keep]: " INPUT
+if [ -z "$INPUT" ]; then
+  VERSION="$CURRENT_VERSION"
+  NEW_BUILD="$CURRENT_BUILD"
+else
+  NEW_BUILD="${INPUT##*.}"
+  VERSION="${INPUT%.*}"
+  if [ "$VERSION" = "$INPUT" ]; then
+    echo "Error: expected MAJOR.MINOR.BUILD (e.g. 2.0.1), got '$INPUT'" >&2
+    exit 1
+  fi
+fi
+sed -i '' -E "s/(CFBundleShortVersionString: )\"?[^\"[:space:]]*\"?/\1\"$VERSION\"/" "$PROJECT_YML"
+sed -i '' -E "s/(CFBundleVersion: )\"?[^\"[:space:]]*\"?/\1\"$NEW_BUILD\"/" "$PROJECT_YML"
 echo "==> Releasing version $VERSION (build $NEW_BUILD)"
 
 echo "==> Regenerating Xcode project"
