@@ -2,8 +2,15 @@ name: Native (Swift) Release
 
 # Fires on a `v*` tag push (Phase 10 of docs/swift-native-port-plan.md).
 # Builds + Developer ID signs + notarizes + DMGs + Sparkle-signs the native
-# app, then publishes a GitHub Release with the DMG and a generated
-# appcast.xml attached.
+# app, then uploads the DMG + its Sparkle signature as workflow artifacts.
+#
+# This does NOT publish anywhere automatically — same manual-publish model
+# the old Tauri app used. After this run finishes, download the two
+# artifacts and upload them yourself via admin.dangkhoabach.vn's web UI for
+# the `dkb-monitor` app/slug (installer = the .dmg, Sparkle signature = the
+# contents of the .sig file) so it writes updates.dangkhoabach.vn's
+# appcast.xml, which SUFeedURL in project.yml points at (see
+# docs/swift-native-port-plan.md Phase 10 notes).
 #
 # ONE-TIME SETUP REQUIRED before this workflow can run past the build step —
 # none of these can be filled in by an agent, they're your credentials:
@@ -23,13 +30,6 @@ name: Native (Swift) Release
 #                                              the temporary CI keychain only
 #       SPARKLE_ED_PRIVATE_KEY              — printed by `generate_keys`
 #                                              alongside the public key above
-#
-# Confirmed 2026-08-29: admin.dangkhoabach.vn has no upload API, only the
-# same manual web UI the old (now-removed) Tauri release process used
-# — so GitHub Releases is the real, permanent appcast host here, not a
-# placeholder. `SUFeedURL` in project.yml points at
-# github.com/.../releases/latest/download/appcast.xml, which this workflow
-# keeps current on every `v*` tag.
 
 on:
   push:
@@ -127,33 +127,31 @@ jobs:
           hdiutil create -volname "DKB Monitor" -srcfolder "$DMG_ROOT" -ov -format UDZO \
             "$RUNNER_TEMP/DKB-Monitor-$VERSION.dmg"
 
-      - name: Sign update and generate appcast
+      - name: Sign update with Sparkle
         env:
           SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
         run: |
-          # `generate_appcast` ships in Sparkle's release tarball, pinned to
-          # the same version as project.yml's SPM dependency — bump
-          # both together if you ever change one.
+          # `sign_update` ships in Sparkle's release tarball, pinned to the
+          # same version as project.yml's SPM dependency — bump both
+          # together if you ever change one. Its stdout is the exact
+          # `sparkle:edSignature` value admin.dangkhoabach.vn's upload form
+          # expects for this DMG.
           SPARKLE_VERSION="2.6.4"
           curl -fsSL -o "$RUNNER_TEMP/sparkle-tools.tar.xz" \
             "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz"
           mkdir -p "$RUNNER_TEMP/sparkle-tools"
           tar -xf "$RUNNER_TEMP/sparkle-tools.tar.xz" -C "$RUNNER_TEMP/sparkle-tools"
 
-          APPCAST_DIR="$RUNNER_TEMP/appcast-input"
-          mkdir -p "$APPCAST_DIR"
-          cp "$RUNNER_TEMP/DKB-Monitor-$VERSION.dmg" "$APPCAST_DIR/"
-
-          "$RUNNER_TEMP/sparkle-tools/bin/generate_appcast" \
+          "$RUNNER_TEMP/sparkle-tools/bin/sign_update" \
             --ed-key-file <(echo "$SPARKLE_ED_PRIVATE_KEY") \
-            "$APPCAST_DIR"
+            "$RUNNER_TEMP/DKB-Monitor-$VERSION.dmg" \
+            > "$RUNNER_TEMP/DKB-Monitor-$VERSION.dmg.sig"
 
-          cp "$APPCAST_DIR/appcast.xml" "$RUNNER_TEMP/appcast.xml"
-
-      - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
         with:
-          files: |
+          name: DKB-Monitor-${{ env.VERSION }}
+          path: |
             ${{ runner.temp }}/DKB-Monitor-${{ env.VERSION }}.dmg
-            ${{ runner.temp }}/appcast.xml
-          generate_release_notes: true
+            ${{ runner.temp }}/DKB-Monitor-${{ env.VERSION }}.dmg.sig
+          retention-days: 90

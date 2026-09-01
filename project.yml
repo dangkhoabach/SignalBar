@@ -38,14 +38,14 @@ targets:
         # a `SPARKLE_ED_PRIVATE_KEY` secret and isn't wired up for this
         # manual flow yet — see docs/swift-native-port-plan.md's Phase 10
         # notes before relying on that workflow.
-        # SUFeedURL points at GitHub Releases (not admin.dangkhoabach.vn):
-        # that panel has no upload API, only a manual web UI (confirmed
-        # 2026-08-29 — see release/README.md for the old Tauri app's same
-        # manual-only process) — GitHub Releases is already fully automated
-        # end-to-end by native-release.yml, so it's the real host, not a
-        # placeholder. The "latest" alias always resolves to the most
-        # recent non-prerelease tag.
-        SUFeedURL: https://github.com/dangkhoabach/DKB-Monitor/releases/latest/download/appcast.xml
+        # Same domain the old Tauri app's updater used (updates.dangkhoabach.vn),
+        # just a different file — not GitHub Releases, this project doesn't
+        # publish there. MyWebsiteAPI's AppReleaseService now supports
+        # generating this appcast.xml from a manual admin.dangkhoabach.vn
+        # upload (installer + Sparkle sig) — see docs/swift-native-port-plan.md
+        # Phase 10 notes. It only starts resolving once that first upload
+        # has actually been done for the dkb-monitor slug.
+        SUFeedURL: https://updates.dangkhoabach.vn/dkb-monitor/appcast.xml
         SUPublicEDKey: yAEEvjvy+kV1gxLltskQ9iBfixVqZguKZrjXTv/lj9g=
         # Automatic checks stay off until at least one real release exists
         # at SUFeedURL (the key alone doesn't help if there's no appcast to

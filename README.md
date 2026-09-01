@@ -59,6 +59,8 @@ swift test
 
 ## Releasing (Check for Updates)
 
-Sparkle reads `SUFeedURL`/`SUPublicEDKey` from `project.yml`'s `Info.plist` properties. Releases are published as GitHub Releases (tag `v*`), built by `.github/workflows/native-release.yml`: builds, Developer ID signs, notarizes, DMGs, and Sparkle-signs the app, then attaches the DMG + a generated `appcast.xml` to the release, which `SUFeedURL` points at.
+Sparkle reads `SUFeedURL`/`SUPublicEDKey` from `project.yml`'s `Info.plist` properties. `SUFeedURL` points at `updates.dangkhoabach.vn` (the same domain the old Tauri app's updater used) — not GitHub Releases, which this project doesn't publish to.
+
+Tagging `v*` runs `.github/workflows/native-release.yml`: builds, Developer ID signs, notarizes, DMGs, and Sparkle-signs the app, then uploads the DMG + its `.sig` as workflow artifacts. Publishing from there is manual, same as the old Tauri app's process: download the two artifacts and upload them via admin.dangkhoabach.vn's web UI for the `dkb-monitor` app (installer = the `.dmg`, Sparkle signature = the contents of the `.sig`) — MyWebsiteAPI's `AppReleaseService` generates `appcast.xml` from that upload. `SUFeedURL` only starts resolving once that first upload has actually been done.
 
 The Sparkle EdDSA private key lives in this machine's login Keychain ("Private key for signing Sparkle updates") — see the one-time setup notes at the top of `native-release.yml` and Phase 10 of `docs/swift-native-port-plan.md` before relying on the CI signing step.
