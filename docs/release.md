@@ -21,11 +21,16 @@ Developer ID identity + `xcrun notarytool` step added back in.
    Keychain's default `ed25519` account; `SUPublicEDKey` in `project.yml` is
    already the real public key. Nothing to do here unless that key is ever
    rotated.
-2. **`create-dmg`** — styles the installer DMG's Finder window (icon layout
-   + Applications drop link) instead of a bare `hdiutil` copy:
+2. **`create-dmg`** — styles the installer DMG's Finder window (icon layout,
+   Applications drop link, and background) instead of a bare `hdiutil` copy:
    ```bash
    brew install create-dmg
    ```
+3. **`scripts/dmg-background.png`** — already committed (a dark
+   particle-network image matching dangkhoabach.vn's site style, indigo
+   accent). Nothing to do here unless the look needs to change — regenerate
+   with `python3 scripts/generate-dmg-background.py` (needs Pillow: `pip3
+   install pillow`).
 
 ## Cutting a release
 

@@ -52,7 +52,7 @@ echo "==> Releasing version $VERSION (build $NEW_BUILD)"
 echo "==> Regenerating Xcode project"
 xcodegen generate
 
-OUT_DIR="release-output/$VERSION"
+OUT_DIR="release-output/$VERSION.$NEW_BUILD"
 BUILD_DIR="$OUT_DIR/DerivedData"
 mkdir -p "$OUT_DIR"
 
@@ -69,6 +69,7 @@ DMG_PATH="$OUT_DIR/DKB-Monitor-$VERSION.dmg"
 rm -f "$DMG_PATH"
 create-dmg \
   --volname "$APP_NAME" \
+  --background "scripts/dmg-background.png" \
   --window-pos 200 120 \
   --window-size 660 400 \
   --icon-size 100 \
