@@ -16,12 +16,28 @@ struct DKBMonitorApp: App {
         AppLocale(rawValue: languageRaw) ?? .systemDefault
     }
 
+    // `.preferredColorScheme(nil)` is meant to hand control back to the OS,
+    // but on an already-visible NSWindow that previously had an explicit
+    // scheme applied, SwiftUI doesn't reliably clear the appearance it set
+    // under the hood - switching Dark/Light -> System silently no-ops.
+    // Driving `NSApp.appearance` directly (nil = follow the system) doesn't
+    // have that staleness problem.
+    private func applyAppearance() {
+        switch themePreference {
+        case .system: NSApp.appearance = nil
+        case .light: NSApp.appearance = NSAppearance(named: .aqua)
+        case .dark: NSApp.appearance = NSAppearance(named: .darkAqua)
+        }
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .background(WindowAccessor(delegate: windowDelegate))
                 .preferredColorScheme(themePreference.colorScheme)
                 .environment(\.locale, appLocale.locale)
+                .onAppear { applyAppearance() }
+                .onChange(of: themePreferenceRaw) { _, _ in applyAppearance() }
         }
         .commands {
             // Replaces the default "Settings…" menu item (still Cmd+,) so it
