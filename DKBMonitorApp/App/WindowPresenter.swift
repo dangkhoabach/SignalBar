@@ -9,6 +9,7 @@ import AppKit
 enum WindowPresenter {
     static func showMainWindow() {
         NSApp.setActivationPolicy(.regular)
+        NSApp.unhide(nil)
         for window in NSApp.windows {
             window.makeKeyAndOrderFront(nil)
         }

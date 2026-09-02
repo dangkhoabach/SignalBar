@@ -460,6 +460,11 @@ struct SystemView: View {
             .chartYAxis(.hidden)
             .foregroundStyle(color)
             .frame(height: Self.sparklineHeight)
+            // Purely decorative trend view - the card's trailingText already
+            // announces the current numeric value, and `Chart` has no
+            // meaningful default accessibility representation of its own
+            // (VoiceOver would otherwise stop on an unlabeled element here).
+            .accessibilityHidden(true)
         }
     }
 

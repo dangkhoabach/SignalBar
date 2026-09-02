@@ -218,29 +218,42 @@ public struct TargetRepository: Sendable {
     }
 
     public func detail(targetId: Int64, historyLimit: Int = 100) throws -> TargetDetail? {
-        try dbQueue.read { db in
-            guard let target = try Target.fetchOne(db, key: targetId) else { return nil }
-            let ssl = try SslStatus.fetchOne(db, key: targetId)
-            let domain = try DomainStatus.fetchOne(db, key: targetId)
-            let uptime24h = try Double.fetchOne(
-                db, sql: "SELECT AVG(success) * 100.0 FROM check_results WHERE target_id = ? AND checked_at >= datetime('now', '-1 day')",
-                arguments: [targetId]
-            )
-            let uptime7d = try Double.fetchOne(
-                db, sql: "SELECT AVG(success) * 100.0 FROM check_results WHERE target_id = ? AND checked_at >= datetime('now', '-7 day')",
-                arguments: [targetId]
-            )
-            let history = try CheckResult
-                .filter(sql: "target_id = ?", arguments: [targetId])
-                .order(sql: "checked_at DESC")
-                .limit(historyLimit)
-                .fetchAll(db)
-            return TargetDetail(
-                target: target, sslStatus: ssl, domainStatus: domain,
-                uptime24hPct: uptime24h, uptime7dPct: uptime7d,
-                history: history, incidents: history.buildIncidents()
-            )
-        }
+        try dbQueue.read { db in try Self.detail(db, targetId: targetId, historyLimit: historyLimit) }
+    }
+
+    /// Reactive counterpart of `detail(targetId:historyLimit:)` — same
+    /// motivation as `observeOverview()`: without it, `TargetDetailView`
+    /// only ever loaded once on `.onAppear` and went stale for as long as
+    /// the screen stayed open, even though the scheduler kept writing fresh
+    /// check results in the background.
+    public func observeDetail(targetId: Int64, historyLimit: Int = 100) -> AsyncValueObservation<TargetDetail?> {
+        ValueObservation
+            .tracking { db in try Self.detail(db, targetId: targetId, historyLimit: historyLimit) }
+            .values(in: dbQueue)
+    }
+
+    private static func detail(_ db: Database, targetId: Int64, historyLimit: Int) throws -> TargetDetail? {
+        guard let target = try Target.fetchOne(db, key: targetId) else { return nil }
+        let ssl = try SslStatus.fetchOne(db, key: targetId)
+        let domain = try DomainStatus.fetchOne(db, key: targetId)
+        let uptime24h = try Double.fetchOne(
+            db, sql: "SELECT AVG(success) * 100.0 FROM check_results WHERE target_id = ? AND checked_at >= datetime('now', '-1 day')",
+            arguments: [targetId]
+        )
+        let uptime7d = try Double.fetchOne(
+            db, sql: "SELECT AVG(success) * 100.0 FROM check_results WHERE target_id = ? AND checked_at >= datetime('now', '-7 day')",
+            arguments: [targetId]
+        )
+        let history = try CheckResult
+            .filter(sql: "target_id = ?", arguments: [targetId])
+            .order(sql: "checked_at DESC")
+            .limit(historyLimit)
+            .fetchAll(db)
+        return TargetDetail(
+            target: target, sslStatus: ssl, domainStatus: domain,
+            uptime24hPct: uptime24h, uptime7dPct: uptime7d,
+            history: history, incidents: history.buildIncidents()
+        )
     }
 
     /// (up count, enabled count) among enabled targets, based on each

@@ -8,7 +8,14 @@ import SwiftUI
 /// background instead of quitting.
 final class HideInsteadOfCloseDelegate: NSObject, NSWindowDelegate {
     func windowShouldClose(_ sender: NSWindow) -> Bool {
-        sender.orderOut(nil)
+        // `sender.orderOut(nil)` alone leaves the NSWindow object alive but
+        // invisible - macOS still counts it as an open window, so switching
+        // to .accessory right after leaves Stage Manager showing a ghost
+        // tile for a window with no visible content. `NSApp.hide(nil)` is
+        // the same mechanism as Cmd+H: the whole app (and its windows) is
+        // excluded from Stage Manager/Mission Control/Cmd+Tab while hidden,
+        // which is what "hide instead of close" actually needs here.
+        NSApp.hide(nil)
         NSApp.setActivationPolicy(.accessory)
         return false
     }

@@ -12,8 +12,21 @@ public struct HttpCheckOutcome: Sendable, Equatable {
 /// substring (when configured) match expectations.
 public enum HttpChecker {
     private static let timeout: TimeInterval = 10
+    /// A single transient network-level blip (timeout/DNS hiccup) shouldn't
+    /// count as a full failure on its own - retried once, after a short
+    /// delay, before being reported. Only retries network-level failures
+    /// (no HTTP response at all); a legitimate wrong-status/wrong-body
+    /// response is not retried since it isn't transient.
+    private static let retryDelay: UInt64 = 1_000_000_000
 
     public static func check(target: Target) async -> HttpCheckOutcome {
+        let first = await performCheck(target: target)
+        guard first.statusCode == nil else { return first }
+        try? await Task.sleep(nanoseconds: retryDelay)
+        return await performCheck(target: target)
+    }
+
+    private static func performCheck(target: Target) async -> HttpCheckOutcome {
         let started = Date()
         guard let url = resolvedURL(for: target) else {
             return HttpCheckOutcome(success: false, statusCode: nil, responseTimeMs: 0, errorMessage: "Invalid URL")

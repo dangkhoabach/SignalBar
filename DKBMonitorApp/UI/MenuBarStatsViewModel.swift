@@ -96,4 +96,13 @@ final class MenuBarStatsViewModel {
         guard let domainsUp, let domainsTotal else { return "Domains: —" }
         return "Domains: \(domainsUp)/\(domainsTotal) up"
     }
+
+    /// Drives the menu bar icon's down-state (see `MenuBarIconView`) — the
+    /// icon otherwise looks identical whether every domain is up or several
+    /// are down, so glancing at the menu bar alone never surfaced a problem;
+    /// this required opening the menu every time to find out.
+    var hasDownTargets: Bool {
+        guard let domainsUp, let domainsTotal else { return false }
+        return domainsUp < domainsTotal
+    }
 }

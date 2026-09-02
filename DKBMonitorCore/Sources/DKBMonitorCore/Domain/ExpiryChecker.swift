@@ -210,7 +210,12 @@ actor RDAPBootstrap {
     private var cache: [String: String]?
 
     func baseURL(forTLD tld: String) async -> String? {
-        if cache == nil {
+        // Only cache a non-empty result - `fetch()` returns `[:]` (not nil)
+        // on failure (no network, DNS hiccup, data.iana.org timeout), and an
+        // empty dict cached here would silently stick for the rest of the
+        // process lifetime, forcing every later lookup onto the slower
+        // `whois` fallback even after the network recovers.
+        if cache == nil || cache?.isEmpty == true {
             cache = await Self.fetch()
         }
         return cache?[tld]

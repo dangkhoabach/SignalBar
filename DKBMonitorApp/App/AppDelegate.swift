@@ -12,6 +12,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         Task { await AppScheduler.shared?.start() }
         _ = AppUpdater.shared // starts Sparkle's check-on-launch loop (Phase 10)
+
+        // Scheduler.tick's own loop just sleeps a fixed interval between
+        // runs, so a sleep/wake cycle leaves it waiting out the rest of that
+        // interval before the next check - this forces an immediate
+        // catch-up tick the moment the Mac wakes, instead of waiting up to
+        // `Scheduler.tickIntervalSecs` more. Core has no AppKit dependency,
+        // so it can't observe this notification itself (see Scheduler.tick's
+        // doc comment).
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
+        ) { _ in
+            Task { await AppScheduler.shared?.tick() }
+        }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

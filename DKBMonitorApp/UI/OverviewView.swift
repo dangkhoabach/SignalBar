@@ -97,6 +97,30 @@ struct OverviewView: View {
         } message: {
             Text(viewModel.errorMessage ?? "")
         }
+        .confirmationDialog(
+            "Delete Target?",
+            isPresented: Binding(
+                get: { viewModel.pendingDeleteId != nil },
+                set: { if !$0 { viewModel.pendingDeleteId = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                if let id = viewModel.pendingDeleteId { viewModel.delete(id: id) }
+                viewModel.pendingDeleteId = nil
+            }
+        } message: {
+            Text("This permanently deletes this domain and its history. This cannot be undone.")
+        }
+        .confirmationDialog(
+            "Delete Selected Targets?",
+            isPresented: $viewModel.isPresentingDeleteSelectedConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) { viewModel.deleteSelected() }
+        } message: {
+            Text("This permanently deletes every selected domain and its history. This cannot be undone.")
+        }
     }
 
     /// A real `.toolbar` (not a hand-drawn `HStack`) so these actions merge
@@ -115,7 +139,7 @@ struct OverviewView: View {
             ToolbarItemGroup(placement: .automatic) {
                 Button("Enable") { viewModel.setEnabledForSelection(true) }
                 Button("Disable") { viewModel.setEnabledForSelection(false) }
-                Button(role: .destructive) { viewModel.deleteSelected() } label: { Text("Delete") }
+                Button(role: .destructive) { viewModel.isPresentingDeleteSelectedConfirm = true } label: { Text("Delete") }
             }
         }
 

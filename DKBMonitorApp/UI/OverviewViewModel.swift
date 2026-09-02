@@ -34,6 +34,14 @@ final class OverviewViewModel {
     var editingTarget: Target?
     var isPresentingAddSheet = false
 
+    /// Set by the row context-menu "Delete" to hold off the actual delete
+    /// until the confirmationDialog (driven by this ID) is confirmed —
+    /// matches the confirm-before-delete pattern SettingsView already uses
+    /// for "Clear All Domains".
+    var pendingDeleteId: Int64?
+    /// Same idea for the toolbar's bulk "Delete" over `selection`.
+    var isPresentingDeleteSelectedConfirm = false
+
     /// IDs currently mid-flight in a "Check Now"/"Check All Now" call.
     /// `Scheduler.checkNow` has no in-progress signal of its own (it's a
     /// fire-and-forget `async` call whose results surface later via the

@@ -75,9 +75,11 @@ struct DKBMonitorApp: App {
         // a custom-traced PDF vector for best-in-class Apple platform
         // integration (crisp at any size/weight, auto-template-tinted for
         // light/dark menu bars, tracks future SF Symbols refinements).
-        MenuBarExtra("DKB Monitor", systemImage: "waveform.path.ecg") {
+        MenuBarExtra {
             MenuBarContentView()
                 .environment(\.locale, appLocale.locale)
+        } label: {
+            MenuBarIconView()
         }
     }
 }

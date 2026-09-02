@@ -27,7 +27,8 @@ struct TargetDetailView: View {
                 skeleton
             }
         }
-        .onAppear { viewModel.load(targetId: targetId) }
+        .onAppear { viewModel.start(targetId: targetId) }
+        .onDisappear { viewModel.stop() }
     }
 
     /// `detail` loads via a synchronous DB read (near-instant in practice),

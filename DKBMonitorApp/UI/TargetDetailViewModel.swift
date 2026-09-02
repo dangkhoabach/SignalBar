@@ -7,6 +7,7 @@ import Observation
 final class TargetDetailViewModel {
     private let repo: TargetRepository?
     private(set) var targetId: Int64?
+    private var observationTask: Task<Void, Never>?
 
     var detail: TargetDetail?
     var selectedDay: Date = Calendar.current.startOfDay(for: Date())
@@ -15,9 +16,36 @@ final class TargetDetailViewModel {
         self.repo = repo
     }
 
-    func load(targetId: Int64) {
+    /// Kept live via GRDB's `ValueObservation` (same pattern as
+    /// `OverviewViewModel.start()`) instead of a one-shot load, so the
+    /// chart/history/uptime stay current for as long as the screen is open
+    /// rather than freezing at whatever they were on `.onAppear`.
+    func start(targetId: Int64) {
+        guard let repo else { return }
+        if self.targetId == targetId, observationTask != nil { return }
+        stop()
         self.targetId = targetId
-        detail = try? repo?.detail(targetId: targetId, historyLimit: 500)
+
+        // Synchronous prefetch so the first frame already has data, same
+        // reasoning as OverviewViewModel.start().
+        detail = try? repo.detail(targetId: targetId, historyLimit: 500)
+
+        observationTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                for try await snapshot in repo.observeDetail(targetId: targetId, historyLimit: 500) {
+                    guard !Task.isCancelled else { break }
+                    self.detail = snapshot
+                }
+            } catch {
+                // Observation stream failed - leave the last known snapshot in place.
+            }
+        }
+    }
+
+    func stop() {
+        observationTask?.cancel()
+        observationTask = nil
     }
 
     /// `detail.history` is `checked_at` DESC (repository convention) — kept

@@ -24,6 +24,15 @@ public actor Scheduler {
     private let statsProvider: SystemStatsProvider?
 
     private var loopTask: Task<Void, Never>?
+    /// Target IDs with an HTTP check currently in flight - guards against
+    /// `checkNow`/`checkAllNow` racing the periodic `tick`'s own
+    /// `runHTTPChecks` for the same target. Both call into
+    /// `runHTTPChecks(on:)`, which awaits across `HttpChecker.check` and
+    /// `storeCheckResult`; without this, two concurrent checks for the same
+    /// target could land their `storeCheckResult` writes out of order,
+    /// scrambling the failure/slow-streak counters `AlertTransition` relies
+    /// on (missed or doubled alerts).
+    private var inFlightTargetIds: Set<Int64> = []
 
     public init(
         dbQueue: DatabaseQueue,
@@ -92,8 +101,15 @@ public actor Scheduler {
     private func runHTTPChecks(on targets: [Target]) async throws {
         let settings = try settingsRepo.load()
 
+        // Skip any target whose check is already in flight (from tick or a
+        // concurrent checkNow) rather than starting a second overlapping one.
+        let runnable = targets.filter { !inFlightTargetIds.contains($0.id ?? -1) }
+        guard !runnable.isEmpty else { return }
+        for target in runnable { inFlightTargetIds.insert(target.id ?? -1) }
+        defer { for target in runnable { inFlightTargetIds.remove(target.id ?? -1) } }
+
         await withTaskGroup(of: (Target, HttpCheckOutcome).self) { group in
-            for target in targets {
+            for target in runnable {
                 group.addTask {
                     (target, await HttpChecker.check(target: target))
                 }

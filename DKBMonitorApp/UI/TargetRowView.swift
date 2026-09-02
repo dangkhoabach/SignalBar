@@ -16,10 +16,12 @@ struct TargetRowView: View {
                 ProgressView()
                     .controlSize(.small)
                     .frame(width: 10, height: 10)
+                    .accessibilityLabel("Checking")
             } else {
                 Circle()
                     .fill(status.color)
                     .frame(width: 10, height: 10)
+                    .accessibilityLabel(status.localizedLabel)
             }
 
             VStack(alignment: .leading, spacing: 3) {
@@ -92,7 +94,7 @@ struct TargetRowView: View {
                 Button("Resume") { viewModel.resume(id: targetId) }
             }
             Button("Edit…") { viewModel.editingTarget = overview.target }
-            Button(role: .destructive) { viewModel.delete(id: targetId) } label: { Text("Delete") }
+            Button(role: .destructive) { viewModel.pendingDeleteId = targetId } label: { Text("Delete") }
         }
     }
 }

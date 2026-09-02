@@ -47,9 +47,12 @@ struct TargetFormView: View {
     }
 
     private var isValid: Bool {
+        // `URL(string:)` alone happily parses "http://" (scheme, empty
+        // host) - checking `.host` catches that case at input time instead
+        // of leaving it to fail with a generic error on the first check.
         !name.trimmingCharacters(in: .whitespaces).isEmpty
             && url.contains("://")
-            && URL(string: url) != nil
+            && URL(string: url)?.host?.isEmpty == false
     }
 
     var body: some View {

@@ -43,7 +43,8 @@ echo "==> Testing DKBMonitorCore"
 # kept reporting an update as available even once the user was already on
 # the latest DMG.
 CURRENT_VERSION=$(grep -m1 'CFBundleShortVersionString:' "$PROJECT_YML" | sed -E 's/.*CFBundleShortVersionString: *"?([^"]*)"?/\1/')
-read -rp "Current version is $CURRENT_VERSION. New version (e.g. 2.0.1) [Enter to keep]: " INPUT
+SUGGESTED_VERSION=$(awk -F. '{print $1"."$2"."$3+1}' <<< "$CURRENT_VERSION")
+read -rp "Current version is $CURRENT_VERSION. New version (e.g. $SUGGESTED_VERSION) [Enter to keep]: " INPUT
 VERSION="${INPUT:-$CURRENT_VERSION}"
 sed -i '' -E "s/(CFBundleShortVersionString: )\"?[^\"[:space:]]*\"?/\1\"$VERSION\"/" "$PROJECT_YML"
 sed -i '' -E "s/(CFBundleVersion: )\"?[^\"[:space:]]*\"?/\1\"$VERSION\"/" "$PROJECT_YML"
