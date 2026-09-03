@@ -217,7 +217,7 @@ public actor Scheduler {
         guard let statsProvider, let settings = try? settingsRepo.load() else { return }
         guard settings.systemTempAlertThresholdCelsius > 0 || settings.batteryLowAlertThresholdPercent > 0 else { return }
 
-        let stats = await statsProvider.snapshot()
+        let stats = await statsProvider.snapshotLight()
 
         if settings.systemTempAlertThresholdCelsius > 0, let temp = stats.cpuTempCelsius {
             let isHot = temp >= Double(settings.systemTempAlertThresholdCelsius)

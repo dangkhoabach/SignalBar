@@ -5,8 +5,11 @@ import SwiftUI
 
 /// Drives the `MenuBarExtra` content: CPU/RAM/temperature/battery from
 /// `SystemStatsProvider`, plus a domains up/total summary from the database —
-/// refreshed every 3s via a `Task.sleep` loop (same burst-avoiding shape as
-/// the Scheduler, Phase 4) rather than a `Timer`.
+/// refreshed every 5s via a `Task.sleep` loop (same burst-avoiding shape as
+/// the Scheduler, Phase 4) rather than a `Timer`. Uses `snapshotLight()`
+/// (not `snapshot()`) since the menu bar never shows network/GPU/disk/swap/
+/// fan fields — the full snapshot would fork `route`/`networksetup`/
+/// `ifconfig`/`ioreg` processes on every tick for values nobody reads.
 ///
 /// Exposes `LocalizedStringKey` labels (not pre-formatted `String`s) so
 /// Xcode's String Catalog extraction can localize them (Phase 13) — a
@@ -14,7 +17,7 @@ import SwiftUI
 @MainActor
 @Observable
 final class MenuBarStatsViewModel {
-    private static let refreshIntervalSecs: UInt64 = 3
+    private static let refreshIntervalSecs: UInt64 = 5
 
     // Matches `NotificationManager`'s singleton shape: one instance for the
     // app's lifetime, started once from `AppDelegate.applicationDidFinishLaunching`.
@@ -57,7 +60,7 @@ final class MenuBarStatsViewModel {
     }
 
     func refresh() async {
-        let stats = await statsProvider.snapshot()
+        let stats = await statsProvider.snapshotLight()
 
         cpuPercent = Int(stats.cpuPercent.rounded())
         ramUsedGB = Double(stats.ramUsedMB) / 1024

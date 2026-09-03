@@ -78,4 +78,17 @@ public struct SystemStats: Sendable, Equatable {
 /// frameworks beyond Foundation/Security (see D6 in the port plan).
 public protocol SystemStatsProvider: Sendable {
     func snapshot() async -> SystemStats
+
+    /// Cheap subset (CPU/RAM/temperature/battery only) for callers that poll
+    /// frequently but never display network/GPU/disk/swap/fan fields — skips
+    /// the `Process` spawns (`route`/`networksetup`/`ifconfig`/`ioreg`) those
+    /// fields require. Defaults to the full `snapshot()` so existing
+    /// conformers (test doubles) don't need to implement it.
+    func snapshotLight() async -> SystemStats
+}
+
+extension SystemStatsProvider {
+    public func snapshotLight() async -> SystemStats {
+        await snapshot()
+    }
 }

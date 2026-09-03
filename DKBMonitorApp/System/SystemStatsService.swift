@@ -28,7 +28,32 @@ public actor SystemStatsService: SystemStatsProvider {
     private var gpuNameFetched = false
     private var cachedGPUName: String?
 
+    /// `networkStatus()` shells out to `route`/`networksetup` (up to 3
+    /// process spawns) to resolve the active interface/SSID — values that
+    /// essentially never change between polls. Callers like `SystemView`
+    /// poll every 2s, so re-resolving this on every single poll would fork
+    /// a handful of processes 30x/minute for no benefit; cached and only
+    /// re-resolved once this TTL elapses.
+    private static let networkStatusTTL: TimeInterval = 30
+    private var cachedNetworkStatus: (connected: Bool, type: String?, name: String?, localIP: String?)?
+    private var networkStatusFetchedAt: Date?
+
     public init() {}
+
+    /// CPU/RAM/temperature/battery only — no `Process` spawns. Used by
+    /// callers (menu bar, scheduler system alerts) that poll frequently but
+    /// never surface network/GPU/disk/swap/fan fields.
+    public func snapshotLight() async -> SystemStats {
+        ensureSMCOpen()
+        let (cpuPercent, cpuCores) = cpuUsage()
+        let (ramUsed, ramTotal) = memoryUsageMB()
+        let battery = batteryStatus()
+        return SystemStats(
+            cpuPercent: cpuPercent, cpuCores: cpuCores,
+            ramUsedMB: ramUsed, ramTotalMB: ramTotal,
+            cpuTempCelsius: cpuTempCelsius(), batteryPercent: battery.percent, batteryCharging: battery.charging
+        )
+    }
 
     public func snapshot() async -> SystemStats {
         ensureSMCOpen()
@@ -253,10 +278,23 @@ public actor SystemStatsService: SystemStatsProvider {
     }
 
     private func networkStatus() -> (connected: Bool, type: String?, name: String?, localIP: String?) {
-        guard let device = activeInterface() else { return (false, nil, nil, nil) }
-        let interfaceType = hardwarePort(for: device)
-        let isWiFi = interfaceType?.contains("Wi-Fi") ?? false
-        return (true, interfaceType, isWiFi ? wifiSSID(for: device) : nil, localIPAddress(for: device))
+        if let cachedNetworkStatus, let networkStatusFetchedAt,
+           Date().timeIntervalSince(networkStatusFetchedAt) < Self.networkStatusTTL {
+            return cachedNetworkStatus
+        }
+
+        let resolved: (connected: Bool, type: String?, name: String?, localIP: String?)
+        if let device = activeInterface() {
+            let interfaceType = hardwarePort(for: device)
+            let isWiFi = interfaceType?.contains("Wi-Fi") ?? false
+            resolved = (true, interfaceType, isWiFi ? wifiSSID(for: device) : nil, localIPAddress(for: device))
+        } else {
+            resolved = (false, nil, nil, nil)
+        }
+
+        cachedNetworkStatus = resolved
+        networkStatusFetchedAt = Date()
+        return resolved
     }
 
     // MARK: - GPU (Process — no public API for name or utilization either)
