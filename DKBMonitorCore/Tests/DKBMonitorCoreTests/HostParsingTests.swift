@@ -24,4 +24,14 @@ import Testing
     @Test func plainTwoLabelDomainUnaffected() {
         #expect(HostParsing.extractRegistrableDomain("example.com") == "example.com")
     }
+
+    @Test func normalizeURLAddsHTTPSToABareDomain() {
+        #expect(HostParsing.normalizeURL("example.com") == "https://example.com")
+        #expect(HostParsing.normalizeURL("  example.com  ") == "https://example.com")
+    }
+
+    @Test func normalizeURLLeavesAnExistingSchemeAlone() {
+        #expect(HostParsing.normalizeURL("https://example.com") == "https://example.com")
+        #expect(HostParsing.normalizeURL("http://example.com") == "http://example.com")
+    }
 }

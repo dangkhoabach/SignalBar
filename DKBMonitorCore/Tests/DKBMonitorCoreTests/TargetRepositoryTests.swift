@@ -16,6 +16,13 @@ import Testing
         #expect(target.id != nil)
     }
 
+    @Test func addNormalizesABareDomainToHTTPS() throws {
+        let repo = try makeRepo()
+        let target = try repo.add(NewTargetInput(name: "Site", url: "tools.dangkhoabach.vn"))
+        #expect(target.url == "https://tools.dangkhoabach.vn")
+        #expect(target.groupTag == "dangkhoabach.vn")
+    }
+
     @Test func duplicateURLIsRejectedCaseInsensitively() throws {
         let repo = try makeRepo()
         _ = try repo.add(NewTargetInput(name: "A", url: "https://Example.com"))

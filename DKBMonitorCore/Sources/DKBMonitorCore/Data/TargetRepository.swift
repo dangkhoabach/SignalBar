@@ -54,11 +54,12 @@ public struct TargetRepository: Sendable {
     }
 
     public func add(_ input: NewTargetInput) throws -> Target {
-        try dbQueue.write { db in
+        let url = HostParsing.normalizeURL(input.url)
+        return try dbQueue.write { db in
             var target = Target(
                 name: input.name,
-                url: input.url,
-                groupTag: HostParsing.resolveGroupTag(explicit: input.groupTag, url: input.url),
+                url: url,
+                groupTag: HostParsing.resolveGroupTag(explicit: input.groupTag, url: url),
                 checkIntervalSecs: input.checkIntervalSecs,
                 checkHTTP: input.checkHTTP,
                 expectedStatus: input.expectedStatus,
@@ -82,6 +83,7 @@ public struct TargetRepository: Sendable {
     /// `update_target`'s "whole row" semantics in the Rust version.
     public func update(_ target: Target) throws -> Target {
         var target = target
+        target.url = HostParsing.normalizeURL(target.url)
         target.groupTag = HostParsing.resolveGroupTag(explicit: target.groupTag, url: target.url)
         try dbQueue.write { db in
             do {

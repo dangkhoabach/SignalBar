@@ -8,6 +8,16 @@ public enum HostParsing {
         URL(string: urlString)?.host
     }
 
+    /// Lets the user type a bare domain ("example.com") instead of requiring
+    /// a scheme — everything downstream (`HttpChecker`, `extractHost`,
+    /// `URLSession`) needs `target.url` to already have one, so this is the
+    /// single normalization point both the Add/Edit form and JSON import go
+    /// through (`TargetRepository.add`/`update`).
+    public static func normalizeURL(_ raw: String) -> String {
+        let trimmed = raw.trimmingCharacters(in: .whitespaces)
+        return trimmed.contains("://") ? trimmed : "https://\(trimmed)"
+    }
+
     private static let ccSecondLevel: Set<String> = ["co", "com", "net", "org", "gov", "edu"]
 
     public static func extractRegistrableDomain(_ host: String) -> String {

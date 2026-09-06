@@ -48,12 +48,15 @@ struct TargetFormView: View {
     }
 
     private var isValid: Bool {
-        // `URL(string:)` alone happily parses "http://" (scheme, empty
-        // host) - checking `.host` catches that case at input time instead
-        // of leaving it to fail with a generic error on the first check.
+        // The user can type a bare domain ("example.com") without a scheme —
+        // `HostParsing.normalizeURL` (also applied by `TargetRepository` on
+        // save) adds "https://" before this check, so validation matches
+        // what actually gets stored. `URL(string:)` alone happily parses
+        // "http://" (scheme, empty host) - checking `.host` catches that
+        // case at input time instead of leaving it to fail with a generic
+        // error on the first check.
         !name.trimmingCharacters(in: .whitespaces).isEmpty
-            && url.contains("://")
-            && URL(string: url)?.host?.isEmpty == false
+            && URL(string: HostParsing.normalizeURL(url))?.host?.isEmpty == false
     }
 
     var body: some View {
@@ -61,7 +64,7 @@ struct TargetFormView: View {
             Form {
                 Section("Target") {
                     TextField("Name", text: $name)
-                    TextField("URL", text: $url, prompt: Text("https://example.com"))
+                    TextField("URL", text: $url, prompt: Text("example.com or https://example.com"))
                     TextField("Group (optional)", text: $groupTag, prompt: Text("Auto-detected from domain"))
                 }
                 Section("Checks") {
