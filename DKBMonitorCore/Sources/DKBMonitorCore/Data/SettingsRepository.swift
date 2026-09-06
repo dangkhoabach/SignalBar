@@ -23,6 +23,9 @@ public struct AppSettings: Equatable, Sendable {
     public var systemTempAlertThresholdCelsius: Int
     /// Battery percentage (while unplugged) that triggers a "battery low" alert. 0 disables it.
     public var batteryLowAlertThresholdPercent: Int
+    /// Default HTTP re-check interval (seconds) used to pre-fill new targets'
+    /// own `checkIntervalSecs` — each target can still override it individually.
+    public var httpCheckIntervalSecs: Int
 
     public static let defaults = AppSettings(
         notificationsEnabled: false,
@@ -37,7 +40,8 @@ public struct AppSettings: Equatable, Sendable {
         domainAlertThresholdDays: 30,
         historyRetentionDays: 90,
         systemTempAlertThresholdCelsius: 0,
-        batteryLowAlertThresholdPercent: 0
+        batteryLowAlertThresholdPercent: 0,
+        httpCheckIntervalSecs: 300
     )
 }
 
@@ -70,7 +74,8 @@ public struct SettingsRepository: Sendable {
             domainAlertThresholdDays: try int("domain_alert_threshold_days", d.domainAlertThresholdDays),
             historyRetentionDays: try int("history_retention_days", d.historyRetentionDays),
             systemTempAlertThresholdCelsius: try int("system_temp_alert_threshold_celsius", d.systemTempAlertThresholdCelsius),
-            batteryLowAlertThresholdPercent: try int("battery_low_alert_threshold_percent", d.batteryLowAlertThresholdPercent)
+            batteryLowAlertThresholdPercent: try int("battery_low_alert_threshold_percent", d.batteryLowAlertThresholdPercent),
+            httpCheckIntervalSecs: try int("http_check_interval_secs", d.httpCheckIntervalSecs)
         )
     }
 
@@ -89,6 +94,7 @@ public struct SettingsRepository: Sendable {
             try AppSettingsStore.set(db, key: "history_retention_days", value: String(settings.historyRetentionDays))
             try AppSettingsStore.set(db, key: "system_temp_alert_threshold_celsius", value: String(settings.systemTempAlertThresholdCelsius))
             try AppSettingsStore.set(db, key: "battery_low_alert_threshold_percent", value: String(settings.batteryLowAlertThresholdPercent))
+            try AppSettingsStore.set(db, key: "http_check_interval_secs", value: String(settings.httpCheckIntervalSecs))
         }
     }
 }

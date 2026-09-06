@@ -88,11 +88,22 @@ struct SettingsView: View {
             }
 
             Section("Health Checks") {
+                Picker("Default check interval", selection: $viewModel.settings.httpCheckIntervalSecs) {
+                    Text("1 minute").tag(60)
+                    Text("5 minutes").tag(300)
+                    Text("10 minutes").tag(600)
+                    Text("15 minutes").tag(900)
+                    Text("30 minutes").tag(1800)
+                    Text("1 hour").tag(3600)
+                }
+                Text("How often a newly added domain is re-checked. Existing domains keep their own interval, editable per domain.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 labeledStepper("Failure alert threshold", value: $viewModel.settings.failureAlertThreshold, in: 1...20, suffix: "checks")
                 labeledStepper(
                     "Slow response threshold",
                     value: $viewModel.settings.responseTimeAlertThresholdMs, in: 0...30000, step: 500,
-                    display: viewModel.settings.responseTimeAlertThresholdMs == 0 ? "off" : "\(viewModel.settings.responseTimeAlertThresholdMs)ms"
+                    suffix: "ms", zeroMeans: "off"
                 )
             }
 
@@ -105,12 +116,12 @@ struct SettingsView: View {
                 labeledStepper(
                     "High temperature alert",
                     value: $viewModel.settings.systemTempAlertThresholdCelsius, in: 0...100,
-                    display: viewModel.settings.systemTempAlertThresholdCelsius == 0 ? "off" : "\(viewModel.settings.systemTempAlertThresholdCelsius)°C"
+                    suffix: "°C", zeroMeans: "off"
                 )
                 labeledStepper(
                     "Low battery alert",
                     value: $viewModel.settings.batteryLowAlertThresholdPercent, in: 0...100,
-                    display: viewModel.settings.batteryLowAlertThresholdPercent == 0 ? "off" : "\(viewModel.settings.batteryLowAlertThresholdPercent)%"
+                    suffix: "%", zeroMeans: "off"
                 )
             }
 
@@ -118,7 +129,7 @@ struct SettingsView: View {
                 labeledStepper(
                     "Retention",
                     value: $viewModel.settings.historyRetentionDays, in: 0...365, step: 5,
-                    display: viewModel.settings.historyRetentionDays == 0 ? "forever" : "\(viewModel.settings.historyRetentionDays) days"
+                    suffix: "days", zeroMeans: "forever"
                 )
             }
 
@@ -199,19 +210,78 @@ struct SettingsView: View {
         }
     }
 
+    /// A number field the user can type an exact value into, plus a Stepper
+    /// for quick nudges — replaces a bare `Stepper` label, which only let
+    /// wide-range settings (e.g. 0...365 days) move one click at a time.
     @ViewBuilder
     private func labeledStepper(
         _ title: LocalizedStringKey, value: Binding<Int>, in range: ClosedRange<Int>, step: Int = 1,
-        display: String? = nil, suffix: String? = nil
+        suffix: String? = nil, zeroMeans: String? = nil
     ) -> some View {
-        Stepper(value: value, in: range, step: step) {
+        VStack(alignment: .leading, spacing: 2) {
             HStack {
                 Text(title)
                 Spacer()
-                Text(display ?? "\(value.wrappedValue)\(suffix.map { " \($0)" } ?? "")")
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
+                NumberField(value: value, range: range)
+                if let suffix {
+                    Text(suffix).foregroundStyle(.secondary)
+                }
+                Stepper("", value: value, in: range, step: step)
+                    .labelsHidden()
             }
+            if let zeroMeans, value.wrappedValue == 0 {
+                Text("0 = \(zeroMeans)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    /// Backs `labeledStepper`'s editable number. `TextField(value:format:)`
+    /// alone isn't strict enough here: `.number` still accepts things like
+    /// grouping commas or a leading minus sign that don't make sense for
+    /// these settings, and re-deriving the displayed string from a clamped
+    /// `Binding<Int>` on every keystroke fights the user mid-type (e.g.
+    /// typing "45" into a 1...90 field briefly reads back "4" then "45",
+    /// but typing "99" into that same field snaps to "90" before they can
+    /// backspace). Instead: non-digit characters are stripped as typed, the
+    /// text is free to hold any digit string while focused, and the value
+    /// only round-trips through `range` (parse, clamp, re-render) once on
+    /// blur/Return — so the bound `AppSettings` field is never assigned
+    /// anything outside `range`, but the field itself doesn't self-correct
+    /// out from under an in-progress keystroke.
+    private struct NumberField: View {
+        @Binding var value: Int
+        let range: ClosedRange<Int>
+
+        @State private var text: String = ""
+        @FocusState private var isFocused: Bool
+
+        var body: some View {
+            TextField("", text: $text)
+                .textFieldStyle(.roundedBorder)
+                .multilineTextAlignment(.trailing)
+                .frame(width: 56)
+                .focused($isFocused)
+                .onAppear { text = String(value) }
+                .onChange(of: value) { _, newValue in
+                    if !isFocused { text = String(newValue) }
+                }
+                .onChange(of: text) { _, newValue in
+                    let digitsOnly = newValue.filter(\.isNumber)
+                    if digitsOnly != newValue { text = digitsOnly }
+                }
+                .onChange(of: isFocused) { _, focused in
+                    if !focused { commit() }
+                }
+                .onSubmit { commit() }
+        }
+
+        private func commit() {
+            let parsed = Int(text) ?? range.lowerBound
+            let clamped = min(max(parsed, range.lowerBound), range.upperBound)
+            value = clamped
+            text = String(clamped)
         }
     }
 

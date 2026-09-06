@@ -29,10 +29,11 @@ struct TargetFormView: View {
         self.mode = mode
         self.onSave = onSave
         let target: Target? = if case .edit(let existing) = mode { existing } else { nil }
+        SettingsViewModel.shared.loadIfNeeded()
         _name = State(initialValue: target?.name ?? "")
         _url = State(initialValue: target?.url ?? "")
         _groupTag = State(initialValue: target?.groupTag ?? "")
-        _checkIntervalSecs = State(initialValue: target?.checkIntervalSecs ?? 300)
+        _checkIntervalSecs = State(initialValue: target?.checkIntervalSecs ?? SettingsViewModel.shared.settings.httpCheckIntervalSecs)
         _checkHTTP = State(initialValue: target?.checkHTTP ?? true)
         _expectedStatus = State(initialValue: target?.expectedStatus ?? 200)
         _checkSSL = State(initialValue: target?.checkSSL ?? true)
