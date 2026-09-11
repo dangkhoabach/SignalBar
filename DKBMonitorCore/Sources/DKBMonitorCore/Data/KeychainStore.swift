@@ -72,34 +72,38 @@ public struct KeychainStore: KeychainStoring, Sendable {
     public init() {}
 
     public func set(ref: String, kind: KeychainSecretKind, data: Data) throws {
-        let account = Self.account(ref: ref, kind: kind)
+        try Self.onMainThread {
+            let account = Self.account(ref: ref, kind: kind)
 
-        // Delete-then-add (rather than SecItemUpdate) — simplest way to
-        // guarantee a stale item with different attributes never lingers.
-        let deleteQuery: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: Self.service,
-            kSecAttrAccount as String: account,
-        ]
-        SecItemDelete(deleteQuery as CFDictionary)
+            // Delete-then-add (rather than SecItemUpdate) — simplest way to
+            // guarantee a stale item with different attributes never lingers.
+            let deleteQuery: [String: Any] = [
+                kSecClass as String: kSecClassGenericPassword,
+                kSecAttrService as String: Self.service,
+                kSecAttrAccount as String: account,
+            ]
+            SecItemDelete(deleteQuery as CFDictionary)
 
-        var addQuery = deleteQuery
-        addQuery[kSecValueData as String] = data
-        addQuery[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+            var addQuery = deleteQuery
+            addQuery[kSecValueData as String] = data
+            addQuery[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
 
-        let status = SecItemAdd(addQuery as CFDictionary, nil)
-        guard status == errSecSuccess else { throw KeychainStoreError.unhandledStatus(status) }
+            let status = SecItemAdd(addQuery as CFDictionary, nil)
+            guard status == errSecSuccess else { throw KeychainStoreError.unhandledStatus(status) }
+        }
     }
 
     public func delete(ref: String, kind: KeychainSecretKind) throws {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: Self.service,
-            kSecAttrAccount as String: Self.account(ref: ref, kind: kind),
-        ]
-        let status = SecItemDelete(query as CFDictionary)
-        guard status == errSecSuccess || status == errSecItemNotFound else {
-            throw KeychainStoreError.unhandledStatus(status)
+        try Self.onMainThread {
+            let query: [String: Any] = [
+                kSecClass as String: kSecClassGenericPassword,
+                kSecAttrService as String: Self.service,
+                kSecAttrAccount as String: Self.account(ref: ref, kind: kind),
+            ]
+            let status = SecItemDelete(query as CFDictionary)
+            guard status == errSecSuccess || status == errSecItemNotFound else {
+                throw KeychainStoreError.unhandledStatus(status)
+            }
         }
     }
 
@@ -124,22 +128,44 @@ public struct KeychainStore: KeychainStoring, Sendable {
     }
 
     private func read(ref: String, kind: KeychainSecretKind) throws -> Data {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: Self.service,
-            kSecAttrAccount as String: Self.account(ref: ref, kind: kind),
-            kSecReturnData as String: true,
-        ]
-        var result: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-        guard status == errSecSuccess else {
-            throw status == errSecItemNotFound ? KeychainStoreError.notFound : KeychainStoreError.unhandledStatus(status)
+        try Self.onMainThread {
+            let query: [String: Any] = [
+                kSecClass as String: kSecClassGenericPassword,
+                kSecAttrService as String: Self.service,
+                kSecAttrAccount as String: Self.account(ref: ref, kind: kind),
+                kSecReturnData as String: true,
+            ]
+            var result: CFTypeRef?
+            let status = SecItemCopyMatching(query as CFDictionary, &result)
+            guard status == errSecSuccess else {
+                throw status == errSecItemNotFound ? KeychainStoreError.notFound : KeychainStoreError.unhandledStatus(status)
+            }
+            guard let data = result as? Data else { throw KeychainStoreError.notFound }
+            return data
         }
-        guard let data = result as? Data else { throw KeychainStoreError.notFound }
-        return data
     }
 
     private static func account(ref: String, kind: KeychainSecretKind) -> String {
         "\(ref).\(kind.rawValue)"
+    }
+
+    /// Every `Sec*` call above is routed through this — Apple's own Keychain
+    /// guidance is that access potentially requiring UI (a system "wants to
+    /// access…" confirmation, or an auto-unlock prompt) should happen on the
+    /// main thread; calling from a background thread of the Swift Concurrency
+    /// pool (which every `RemoteCommandExecutor`/`RemoteConnectionService`
+    /// call — none of them are `@MainActor` — runs on, once execution
+    /// crosses that `await` boundary) risks the OS being unable to present
+    /// that UI and failing the call instead (`errSecAuthFailed`/
+    /// `errSecInteractionNotAllowed`) rather than prompting.
+    private static func onMainThread<T: Sendable>(_ body: @Sendable () throws -> T) throws -> T {
+        if Thread.isMainThread {
+            return try body()
+        }
+        var result: Result<T, Error>!
+        DispatchQueue.main.sync {
+            result = Result { try body() }
+        }
+        return try result.get()
     }
 }
