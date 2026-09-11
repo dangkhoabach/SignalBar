@@ -189,8 +189,12 @@ struct RemoteServerDetailView: View {
                     Spacer()
                     Button("Test config") { viewModel.runNginxTest() }
                         .disabled(viewModel.isRunning(RemoteAction.nginxTest.logName))
+                    // Also gated on `isLoadingConfig` — without it, saving
+                    // while the editor is still mid-fetch would overwrite
+                    // the real file with the empty/stale placeholder text
+                    // `configEditorText` holds until the read completes.
                     Button("Save") { viewModel.saveConfig() }
-                        .disabled(viewModel.isRunning("writeFile(\(path))"))
+                        .disabled(viewModel.isLoadingConfig || viewModel.isRunning("writeFile(\(path))"))
                     Button("Reload nginx") { viewModel.requestReload() }
                         .disabled(viewModel.nginxTestPassed != true)
                         .help(

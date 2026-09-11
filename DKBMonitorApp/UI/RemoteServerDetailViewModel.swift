@@ -187,12 +187,23 @@ final class RemoteServerDetailViewModel {
         nginxTestPassed = nil
         isLoadingConfig = true
         Task {
-            defer { isLoadingConfig = false }
+            // Tapping a second path before the first finished loading must
+            // not let the first (now-stale) read land after the second's —
+            // without this guard, a slow first fetch could overwrite the
+            // editor with the *wrong file's* content (and briefly flip
+            // `isLoadingConfig` back to false mid-way through the second
+            // fetch, which would have defeated Save's disabled-while-loading
+            // guard above).
             do {
-                configEditorText = try await executor.readConfig(path: path, on: server)
+                let content = try await executor.readConfig(path: path, on: server)
+                guard openConfigPath == path else { return }
+                configEditorText = content
+                isLoadingConfig = false
             } catch {
+                guard openConfigPath == path else { return }
                 errorMessage = error.localizedDescription
                 openConfigPath = nil
+                isLoadingConfig = false
             }
         }
     }
@@ -293,6 +304,10 @@ final class RemoteServerDetailViewModel {
         guard let server, let executor, let path = selectedLogPath else { return }
         let action = RemoteAction.tailLog(path: path, lines: logLineCount)
         run(key: action.logName, action: action, server: server, executor: executor) { [weak self] result in
+            // Selecting a different log path while this fetch was still in
+            // flight must not let its (now-stale) result land under the
+            // newly-selected path's label.
+            guard self?.selectedLogPath == path else { return }
             self?.logOutput = result.stdout
         }
     }

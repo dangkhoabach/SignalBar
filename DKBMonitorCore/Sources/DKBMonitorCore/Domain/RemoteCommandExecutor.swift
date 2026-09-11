@@ -81,11 +81,19 @@ public struct RemoteCommandExecutor: Sendable {
         let serverId = try requireSavedId(server)
         try requireAuthorized(action, serverId: serverId)
 
-        let connection = try await connect(server: server, forMutatingAction: action.isMutating)
+        // `connection` starts nil and is assigned only once `connect`
+        // actually succeeds — the catch block below only needs to close it
+        // when it exists, but logs the attempt either way, so a connection
+        // failure (bad host, timeout, rejected auth) shows up in the audit
+        // trail exactly like a failed command does, instead of vanishing
+        // silently before anything was ever "executed".
+        var connection: SSHConnection?
         do {
-            let result = try await connection.run(Self.shellCommand(for: action))
-            try? await connection.close()
-            try pinHostKeyIfNeeded(server: server, serverId: serverId, connection: connection)
+            let established = try await connect(server: server, forMutatingAction: action.isMutating)
+            connection = established
+            let result = try await established.run(Self.shellCommand(for: action))
+            try? await established.close()
+            try pinHostKeyIfNeeded(server: server, serverId: serverId, connection: established)
             try? repo.logCommand(
                 serverId: serverId, action: action.logName,
                 exitCode: result.exitCode,
@@ -93,7 +101,7 @@ public struct RemoteCommandExecutor: Sendable {
             )
             return result
         } catch {
-            try? await connection.close()
+            if let connection { try? await connection.close() }
             try? repo.logCommand(serverId: serverId, action: action.logName, exitCode: nil, outputExcerpt: String(String(describing: error).prefix(500)))
             throw error
         }
@@ -218,15 +226,17 @@ public struct RemoteCommandExecutor: Sendable {
         let serverId = try requireSavedId(server)
         try requireConfigPathAuthorized(path, serverId: serverId)
 
-        let connection = try await connect(server: server, forMutatingAction: false)
+        var connection: SSHConnection?
         do {
-            let content = try await connection.readFile(path)
-            try? await connection.close()
-            try pinHostKeyIfNeeded(server: server, serverId: serverId, connection: connection)
+            let established = try await connect(server: server, forMutatingAction: false)
+            connection = established
+            let content = try await established.readFile(path)
+            try? await established.close()
+            try pinHostKeyIfNeeded(server: server, serverId: serverId, connection: established)
             try? repo.logCommand(serverId: serverId, action: "readFile(\(path))", exitCode: 0, outputExcerpt: nil)
             return content
         } catch {
-            try? await connection.close()
+            if let connection { try? await connection.close() }
             try? repo.logCommand(serverId: serverId, action: "readFile(\(path))", exitCode: nil, outputExcerpt: String(String(describing: error).prefix(500)))
             throw error
         }
@@ -236,14 +246,16 @@ public struct RemoteCommandExecutor: Sendable {
         let serverId = try requireSavedId(server)
         try requireConfigPathAuthorized(path, serverId: serverId)
 
-        let connection = try await connect(server: server, forMutatingAction: true)
+        var connection: SSHConnection?
         do {
-            try await connection.writeFile(path, content: content)
-            try? await connection.close()
-            try pinHostKeyIfNeeded(server: server, serverId: serverId, connection: connection)
+            let established = try await connect(server: server, forMutatingAction: true)
+            connection = established
+            try await established.writeFile(path, content: content)
+            try? await established.close()
+            try pinHostKeyIfNeeded(server: server, serverId: serverId, connection: established)
             try? repo.logCommand(serverId: serverId, action: "writeFile(\(path))", exitCode: 0, outputExcerpt: nil)
         } catch {
-            try? await connection.close()
+            if let connection { try? await connection.close() }
             try? repo.logCommand(serverId: serverId, action: "writeFile(\(path))", exitCode: nil, outputExcerpt: String(String(describing: error).prefix(500)))
             throw error
         }

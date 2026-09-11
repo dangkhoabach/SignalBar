@@ -137,14 +137,24 @@ public struct RemoteServerRepository: Sendable {
         }
     }
 
+    /// Also clears whichever sibling Keychain item(s) this credential kind
+    /// *doesn't* use — without this, switching a server from password to
+    /// private key (or dropping a private key's passphrase on edit) leaves
+    /// the old secret behind, and `credential(for:)`'s passphrase fallback
+    /// would silently pair a stale passphrase with a brand-new private key.
     private func storeCredential(ref: String, credential: SSHAuthCredential) throws {
         switch credential {
         case .password(let password):
             try keychain.set(ref: ref, kind: .password, data: Data(password.utf8))
+            try? keychain.delete(ref: ref, kind: .privateKey)
+            try? keychain.delete(ref: ref, kind: .passphrase)
         case .privateKey(let pem, let passphrase):
             try keychain.set(ref: ref, kind: .privateKey, data: Data(pem.utf8))
+            try? keychain.delete(ref: ref, kind: .password)
             if let passphrase, !passphrase.isEmpty {
                 try keychain.set(ref: ref, kind: .passphrase, data: Data(passphrase.utf8))
+            } else {
+                try? keychain.delete(ref: ref, kind: .passphrase)
             }
         }
     }

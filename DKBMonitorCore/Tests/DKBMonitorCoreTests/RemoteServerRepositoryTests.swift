@@ -43,6 +43,48 @@ import Testing
         #expect(passphrase == "pw123")
     }
 
+    @Test func updateFromPrivateKeyToPasswordClearsTheOldKeychainItems() throws {
+        let (repo, keychain) = try makeRepo()
+        var server = try repo.add(NewRemoteServerInput(
+            name: "Prod", host: "1.2.3.4", username: "deploy",
+            credential: .privateKey(pem: "PEM-DATA", passphrase: "pw123")
+        ))
+        server = try repo.update(server, newCredential: .password("newpass"))
+
+        let credential = try repo.credential(for: server, forMutatingAction: false)
+        guard case .password(let password) = credential else {
+            Issue.record("Expected password credential")
+            return
+        }
+        #expect(password == "newpass")
+        #expect(throws: KeychainStoreError.notFound) {
+            _ = try keychain.readForStatusCheck(ref: server.keychainRef, kind: .privateKey)
+        }
+        #expect(throws: KeychainStoreError.notFound) {
+            _ = try keychain.readForStatusCheck(ref: server.keychainRef, kind: .passphrase)
+        }
+    }
+
+    /// Regression test: dropping a private key's passphrase on edit (new
+    /// key, blank passphrase field) must not leave the *old* passphrase
+    /// behind for `credential(for:)` to silently pair with the new key.
+    @Test func updatingPrivateKeyWithoutANewPassphraseClearsTheOldOne() throws {
+        let (repo, _) = try makeRepo()
+        var server = try repo.add(NewRemoteServerInput(
+            name: "Prod", host: "1.2.3.4", username: "deploy",
+            credential: .privateKey(pem: "OLD-PEM", passphrase: "old-passphrase")
+        ))
+        server = try repo.update(server, newCredential: .privateKey(pem: "NEW-PEM", passphrase: nil))
+
+        let credential = try repo.credential(for: server, forMutatingAction: false)
+        guard case .privateKey(let pem, let passphrase) = credential else {
+            Issue.record("Expected private key credential")
+            return
+        }
+        #expect(pem == "NEW-PEM")
+        #expect(passphrase == nil)
+    }
+
     @Test func deleteRemovesServerAndKeychainItems() throws {
         let (repo, keychain) = try makeRepo()
         let server = try repo.add(NewRemoteServerInput(
