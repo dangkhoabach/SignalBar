@@ -16,7 +16,7 @@ enum SidebarSection: String, CaseIterable, Identifiable, Hashable {
     var title: LocalizedStringKey {
         switch self {
         case .domains: "Domains"
-        case .remoteServers: "Remote Servers"
+        case .remoteServers: "Server Manager"
         case .system: "System"
         case .settings: "Settings"
         }

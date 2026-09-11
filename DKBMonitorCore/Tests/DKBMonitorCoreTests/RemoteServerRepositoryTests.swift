@@ -115,12 +115,26 @@ import Testing
         ))
         try repo.addAllowlistEntry(serverId: server.id!, kind: .service, value: "nginx")
         var entries = try repo.allowlist(serverId: server.id!)
-        #expect(entries.count == 1)
-        #expect(entries[0].value == "nginx")
+        let serviceEntries = entries.filter { $0.kind == .service }
+        #expect(serviceEntries.count == 1)
+        #expect(serviceEntries[0].value == "nginx")
 
-        try repo.removeAllowlistEntry(id: entries[0].id!)
+        try repo.removeAllowlistEntry(id: serviceEntries[0].id!)
         entries = try repo.allowlist(serverId: server.id!)
-        #expect(entries.isEmpty)
+        #expect(!entries.contains { $0.kind == .service })
+    }
+
+    /// `add` seeds sensible defaults (D3's Ubuntu/Debian nginx layout) so
+    /// most users don't have to retype the same 3 paths on every server —
+    /// see `RemoteServerRepository.add`'s doc comment.
+    @Test func addSeedsDefaultNginxAndLogAllowlistEntries() throws {
+        let (repo, _) = try makeRepo()
+        let server = try repo.add(NewRemoteServerInput(
+            name: "Prod", host: "1.2.3.4", username: "deploy", credential: .password("s3cr3t")
+        ))
+        let entries = try repo.allowlist(serverId: server.id!)
+        #expect(entries.filter { $0.kind == .nginxConfigPath }.map(\.value) == ["/etc/nginx/nginx.conf"])
+        #expect(Set(entries.filter { $0.kind == .logPath }.map(\.value)) == ["/var/log/nginx/access.log", "/var/log/nginx/error.log"])
     }
 
     @Test func commandLogRecordsAndOrdersByMostRecent() throws {

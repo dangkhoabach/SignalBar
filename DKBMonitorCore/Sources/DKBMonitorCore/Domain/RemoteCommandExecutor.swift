@@ -128,7 +128,7 @@ public struct RemoteCommandExecutor: Sendable {
             guard allowlist.contains(where: { $0.kind == .logPath && $0.value == path }) else {
                 throw RemoteCommandExecutorError.notAllowlisted(path)
             }
-        case .diskUsage, .memoryUsage, .uptime:
+        case .diskUsage, .memoryUsage, .uptime, .cpuUsage, .osInfo:
             break // see RemoteAction.diskUsage's doc comment — nothing to check against.
         }
     }
@@ -136,7 +136,12 @@ public struct RemoteCommandExecutor: Sendable {
     /// Ubuntu/Debian's `systemctl` (D3 in the plan) — `sudo` is required for
     /// every mutating call and assumes the server's sudoers is configured
     /// for passwordless, per-command NOPASSWD entries (see the plan's "Rủi
-    /// ro kỹ thuật" section), not a blanket `sudo` grant.
+    /// ro kỹ thuật" section), not a blanket `sudo` grant. `tailLog`
+    /// deliberately does **not** use `sudo`: a NOPASSWD sudoers wildcard for
+    /// `tail` on an arbitrary path is a bigger privilege-escalation surface
+    /// than it's worth for read-only log access — the setup guide instead
+    /// tells the user to add the SSH user to the `adm` group, which already
+    /// has read access to `/var/log` on Debian/Ubuntu by default.
     private static func shellCommand(for action: RemoteAction) -> String {
         switch action {
         case .serviceStatus(let name): "systemctl is-active \(name)"
@@ -149,6 +154,10 @@ public struct RemoteCommandExecutor: Sendable {
         case .diskUsage: "df -h /"
         case .memoryUsage: "free -m"
         case .uptime: "uptime"
+        // Two samples 0.5s apart — `top`'s first batch-mode iteration
+        // compares against cumulative time since boot, not a live rate.
+        case .cpuUsage: #"top -bn2 -d 0.5 | grep "Cpu(s)" | tail -1"#
+        case .osInfo: "uname -sr; grep PRETTY_NAME /etc/os-release 2>/dev/null"
         }
     }
 
@@ -175,6 +184,19 @@ public struct RemoteCommandExecutor: Sendable {
         return Self.parseUptime(result.stdout)
     }
 
+    public func cpuUsage(on server: RemoteServer) async throws -> RemoteCPUUsage {
+        let result = try await execute(.cpuUsage, on: server)
+        guard let parsed = Self.parseCPUUsage(result.stdout) else {
+            throw RemoteCommandExecutorError.parseFailure("top output")
+        }
+        return parsed
+    }
+
+    public func osInfo(on server: RemoteServer) async throws -> RemoteOSInfo {
+        let result = try await execute(.osInfo, on: server)
+        return Self.parseOSInfo(result.stdout)
+    }
+
     /// Parses `df -h /`'s second line:
     /// ```
     /// Filesystem      Size  Used Avail Use% Mounted on
@@ -188,19 +210,56 @@ public struct RemoteCommandExecutor: Sendable {
         return RemoteDiskUsage(size: fields[1], used: fields[2], available: fields[3], usePercent: fields[4])
     }
 
-    /// Parses `free -m`'s `Mem:` line:
+    /// Parses `free -m`'s `Mem:` (and, if present, `Swap:`) line:
     /// ```
     ///               total        used        free      shared  buff/cache   available
     /// Mem:           7955        1234         123          45        6598        6500
+    /// Swap:          2047           0        2047
     /// ```
     static func parseMemoryUsage(_ output: String) -> RemoteMemoryUsage? {
-        guard let memLine = output.split(separator: "\n").first(where: { $0.hasPrefix("Mem:") }) else { return nil }
+        let lines = output.split(separator: "\n")
+        guard let memLine = lines.first(where: { $0.hasPrefix("Mem:") }) else { return nil }
         let fields = memLine.split(separator: " ", omittingEmptySubsequences: true).map(String.init)
         guard fields.count >= 4,
               let total = Int(fields[1]), let used = Int(fields[2]), let free = Int(fields[3])
         else { return nil }
         let available = fields.count >= 7 ? Int(fields[6]) : nil
-        return RemoteMemoryUsage(totalMB: total, usedMB: used, freeMB: free, availableMB: available)
+
+        var swapTotal: Int?
+        var swapUsed: Int?
+        if let swapLine = lines.first(where: { $0.hasPrefix("Swap:") }) {
+            let swapFields = swapLine.split(separator: " ", omittingEmptySubsequences: true).map(String.init)
+            if swapFields.count >= 3 {
+                swapTotal = Int(swapFields[1])
+                swapUsed = Int(swapFields[2])
+            }
+        }
+        return RemoteMemoryUsage(totalMB: total, usedMB: used, freeMB: free, availableMB: available, swapTotalMB: swapTotal, swapUsedMB: swapUsed)
+    }
+
+    /// Parses `top -bn2 -d 0.5 | grep "Cpu(s)" | tail -1`, e.g.:
+    /// ```
+    /// %Cpu(s):  2.3 us,  1.2 sy,  0.0 ni, 96.0 id,  0.3 wa,  0.0 hi,  0.1 si,  0.0 st
+    /// ```
+    /// Busy % is derived from idle (`100 - id`) rather than summing `us`/`sy`
+    /// — `id` is always present across `procps` versions, while the exact
+    /// set of other fields (`ni`/`wa`/`hi`/`si`/`st`) varies.
+    static func parseCPUUsage(_ output: String) -> RemoteCPUUsage? {
+        guard let match = output.range(of: #"([0-9]+\.[0-9]+)\s*id"#, options: .regularExpression) else { return nil }
+        let idleText = output[match].split(separator: " ").first.map(String.init) ?? ""
+        guard let idle = Double(idleText) else { return nil }
+        return RemoteCPUUsage(busyPercent: max(0, min(100, 100 - idle)))
+    }
+
+    /// Parses `uname -sr` (first line) + `/etc/os-release`'s
+    /// `PRETTY_NAME="..."` line (second line, if present — e.g. absent on a
+    /// minimal/non-Linux target where that file doesn't exist).
+    static func parseOSInfo(_ output: String) -> RemoteOSInfo {
+        let lines = output.split(separator: "\n", omittingEmptySubsequences: true).map(String.init)
+        let kernel = lines.first?.trimmingCharacters(in: .whitespaces) ?? ""
+        let prettyName = lines.dropFirst().first(where: { $0.hasPrefix("PRETTY_NAME=") })
+            .map { $0.replacingOccurrences(of: "PRETTY_NAME=", with: "").trimmingCharacters(in: CharacterSet(charactersIn: "\"")) }
+        return RemoteOSInfo(kernel: kernel, prettyName: prettyName)
     }
 
     /// Parses `uptime`'s `load average: 0.08, 0.03, 0.01` suffix (also

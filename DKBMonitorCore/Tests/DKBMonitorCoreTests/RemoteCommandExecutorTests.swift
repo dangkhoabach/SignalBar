@@ -48,7 +48,12 @@ import Testing
     }
 
     @Test func nginxTestRequiresAtLeastOneAllowlistedConfigPath() async throws {
-        let (repo, server) = try makeServer()
+        // `addWithoutCredential` (unlike `add`) doesn't seed the default
+        // nginx config/log allowlist entries — needed here for a genuinely
+        // empty allowlist to assert against.
+        let app = try AppDatabase(inMemory: DatabaseQueue())
+        let repo = RemoteServerRepository(dbQueue: app.dbQueue, keychain: InMemoryKeychainStore())
+        let server = try repo.addWithoutCredential(name: "Prod", host: "127.0.0.1", port: 1, username: "deploy", authMethod: .password)
         let executor = RemoteCommandExecutor(repo: repo)
         await #expect(throws: RemoteCommandExecutorError.notAllowlisted("nginx (no config path allowlisted)")) {
             try await executor.execute(.nginxTest, on: server)
@@ -82,10 +87,12 @@ import Testing
     }
 
     @Test func tailLogRejectsAnUnallowlistedPath() async throws {
+        // Not one of `add`'s default-seeded log paths (see its doc comment)
+        // — this needs a path that's genuinely absent from the allowlist.
         let (repo, server) = try makeServer()
         let executor = RemoteCommandExecutor(repo: repo)
-        await #expect(throws: RemoteCommandExecutorError.notAllowlisted("/var/log/nginx/error.log")) {
-            try await executor.execute(.tailLog(path: "/var/log/nginx/error.log", lines: 100), on: server)
+        await #expect(throws: RemoteCommandExecutorError.notAllowlisted("/var/log/custom-app/error.log")) {
+            try await executor.execute(.tailLog(path: "/var/log/custom-app/error.log", lines: 100), on: server)
         }
     }
 
@@ -117,7 +124,7 @@ import Testing
         Swap:             0           0           0
         """
         let parsed = RemoteCommandExecutor.parseMemoryUsage(output)
-        #expect(parsed == RemoteMemoryUsage(totalMB: 7955, usedMB: 1234, freeMB: 123, availableMB: 6500))
+        #expect(parsed == RemoteMemoryUsage(totalMB: 7955, usedMB: 1234, freeMB: 123, availableMB: 6500, swapTotalMB: 0, swapUsedMB: 0))
     }
 
     @Test func parsesUptimeLoadAverages() {
@@ -129,5 +136,27 @@ import Testing
         let parsed = RemoteCommandExecutor.parseUptime("unexpected format")
         #expect(parsed.raw == "unexpected format")
         #expect(parsed.loadAverages.isEmpty)
+    }
+
+    @Test func parsesCPUUsageFromTopOutput() {
+        let output = "%Cpu(s):  2.3 us,  1.2 sy,  0.0 ni, 96.0 id,  0.3 wa,  0.0 hi,  0.1 si,  0.0 st"
+        let parsed = RemoteCommandExecutor.parseCPUUsage(output)
+        #expect(parsed == RemoteCPUUsage(busyPercent: 4.0))
+    }
+
+    @Test func parseCPUUsageFailsOnUnrecognizedOutput() {
+        #expect(RemoteCommandExecutor.parseCPUUsage("not top output") == nil)
+    }
+
+    @Test func parsesOSInfoFromUnameAndOsRelease() {
+        let output = "Linux 5.15.0-91-generic\nPRETTY_NAME=\"Ubuntu 22.04.3 LTS\""
+        let parsed = RemoteCommandExecutor.parseOSInfo(output)
+        #expect(parsed == RemoteOSInfo(kernel: "Linux 5.15.0-91-generic", prettyName: "Ubuntu 22.04.3 LTS"))
+    }
+
+    @Test func parsesOSInfoWithoutOsRelease() {
+        let output = "Linux 5.15.0-91-generic"
+        let parsed = RemoteCommandExecutor.parseOSInfo(output)
+        #expect(parsed == RemoteOSInfo(kernel: "Linux 5.15.0-91-generic", prettyName: nil))
     }
 }

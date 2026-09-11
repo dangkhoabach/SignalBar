@@ -28,7 +28,10 @@ import Testing
         let data = try RemoteServerPortability.export(repo)
         let decoded = try JSONDecoder().decode([ExportedRemoteServer].self, from: data)
         #expect(decoded.count == 1)
-        #expect(decoded[0].allowlist == [.init(kind: .service, value: "nginx")])
+        // `repo.add` also seeds default nginx config/log paths (see its doc
+        // comment) — this test only cares that the manually-added entry
+        // round-trips through export, not that it's the *only* one.
+        #expect(decoded[0].allowlist.contains(.init(kind: .service, value: "nginx")))
     }
 
     @Test func importCreatesServersWithoutACredential() throws {
@@ -49,8 +52,13 @@ import Testing
         #expect(imported[0].groupTag == "web")
         #expect(imported[0].authMethod == .privateKey)
 
+        // Only the manually-added entry, plus the source's own seeded
+        // defaults (see `RemoteServerRepository.add`'s doc comment) —
+        // `addWithoutCredential` (used by import) doesn't seed its own, it
+        // only replays whatever the export carried.
         let allowlist = try destRepo.allowlist(serverId: imported[0].id!)
-        #expect(allowlist.map(\.value) == ["/etc/nginx/sites-available/default"])
+        #expect(allowlist.contains { $0.value == "/etc/nginx/sites-available/default" })
+        #expect(allowlist.count == 4)
 
         #expect(throws: KeychainStoreError.notFound) {
             _ = try destRepo.credential(for: imported[0], forMutatingAction: false)

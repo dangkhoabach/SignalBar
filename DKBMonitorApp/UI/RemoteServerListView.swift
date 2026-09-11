@@ -10,7 +10,7 @@ struct RemoteServerListView: View {
             Group {
                 if viewModel.servers.isEmpty {
                     ContentUnavailableView(
-                        "No Remote Servers",
+                        "No Servers",
                         systemImage: "server.rack",
                         description: Text("Add a server to manage nginx, systemd services, logs, and stats over SSH.")
                     )
@@ -37,24 +37,25 @@ struct RemoteServerListView: View {
                     .listStyle(.inset)
                 }
             }
-            .navigationTitle("Remote Servers")
+            .navigationTitle("Server Manager")
             .navigationDestination(for: Int64.self) { serverId in
                 RemoteServerDetailView(serverId: serverId)
             }
             .toolbar {
-                ToolbarItem(placement: .primaryAction) {
+                ToolbarItemGroup(placement: .primaryAction) {
+                    Menu {
+                        Button("Export…") { viewModel.exportServers() }
+                            .disabled(viewModel.servers.isEmpty)
+                        Button("Import…") { viewModel.importServers() }
+                    } label: {
+                        Label("Import/Export", systemImage: "square.and.arrow.up.on.square")
+                    }
+
                     Button {
                         viewModel.isPresentingAddSheet = true
                     } label: {
                         Label("Add Server", systemImage: "plus")
                     }
-                }
-                ToolbarItem(placement: .secondaryAction) {
-                    Button("Export…") { viewModel.exportServers() }
-                        .disabled(viewModel.servers.isEmpty)
-                }
-                ToolbarItem(placement: .secondaryAction) {
-                    Button("Import…") { viewModel.importServers() }
                 }
             }
         }

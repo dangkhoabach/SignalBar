@@ -29,13 +29,18 @@ public enum RemoteAction: Sendable, Equatable {
     case diskUsage
     case memoryUsage
     case uptime
+    /// `top -bn2 -d 0.5 | grep "Cpu(s)" | tail -1` — fixed, parameter-less,
+    /// read-only, same authorization treatment as `diskUsage`/`memoryUsage`.
+    case cpuUsage
+    /// `uname -sr` + `/etc/os-release`'s `PRETTY_NAME`.
+    case osInfo
 
     /// Whether this action changes server state — governs which Keychain
     /// read (`readForMutatingAction` vs `readForStatusCheck`) is used, and
     /// the UI requires a confirm dialog before calling it.
     public var isMutating: Bool {
         switch self {
-        case .serviceStatus, .nginxTest, .tailLog, .diskUsage, .memoryUsage, .uptime: false
+        case .serviceStatus, .nginxTest, .tailLog, .diskUsage, .memoryUsage, .uptime, .cpuUsage, .osInfo: false
         case .serviceStart, .serviceStop, .serviceRestart, .nginxReload: true
         }
     }
@@ -55,13 +60,15 @@ public enum RemoteAction: Sendable, Equatable {
         case .diskUsage: "diskUsage"
         case .memoryUsage: "memoryUsage"
         case .uptime: "uptime"
+        case .cpuUsage: "cpuUsage"
+        case .osInfo: "osInfo"
         }
     }
 
     /// Shown in the UI's confirm dialog before a mutating action runs.
     public var confirmationMessage: String? {
         switch self {
-        case .serviceStatus, .nginxTest, .tailLog, .diskUsage, .memoryUsage, .uptime: nil
+        case .serviceStatus, .nginxTest, .tailLog, .diskUsage, .memoryUsage, .uptime, .cpuUsage, .osInfo: nil
         case .serviceStart(let name): "Start the \(name) service?"
         case .serviceStop(let name): "Stop the \(name) service? This may take the server offline."
         case .serviceRestart(let name): "Restart the \(name) service? This may cause a brief interruption."

@@ -46,6 +46,15 @@ public struct RemoteServerRepository: Sendable {
         try dbQueue.read { db in try RemoteServer.fetchOne(db, key: id) }
     }
 
+    /// Nginx config path and log paths pre-seeded on every new server — the
+    /// vast majority of Ubuntu/Debian nginx installs (D3 in the plan) use
+    /// these exact paths, so most users would otherwise retype the same 3
+    /// values on every server they add. Anyone whose setup differs just
+    /// removes/edits these in the Nginx/Logs tab afterward — same allowlist
+    /// UI as adding one manually, nothing special about these rows.
+    private static let defaultNginxConfigPath = "/etc/nginx/nginx.conf"
+    private static let defaultLogPaths = ["/var/log/nginx/access.log", "/var/log/nginx/error.log"]
+
     public func add(_ input: NewRemoteServerInput) throws -> RemoteServer {
         let ref = UUID().uuidString
         try storeCredential(ref: ref, credential: input.credential)
@@ -54,7 +63,16 @@ public struct RemoteServerRepository: Sendable {
             name: input.name, host: input.host, port: input.port, username: input.username,
             authMethod: input.credential.authMethod, keychainRef: ref, groupTag: input.groupTag
         )
-        try dbQueue.write { db in try server.insert(db) }
+        try dbQueue.write { db in
+            try server.insert(db)
+            guard let serverId = server.id else { return }
+            var configEntry = RemoteAllowlistEntry(remoteServerId: serverId, kind: .nginxConfigPath, value: Self.defaultNginxConfigPath)
+            try configEntry.insert(db)
+            for path in Self.defaultLogPaths {
+                var logEntry = RemoteAllowlistEntry(remoteServerId: serverId, kind: .logPath, value: path)
+                try logEntry.insert(db)
+            }
+        }
         return server
     }
 

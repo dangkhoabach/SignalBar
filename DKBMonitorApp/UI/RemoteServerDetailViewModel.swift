@@ -48,6 +48,8 @@ final class RemoteServerDetailViewModel {
     var diskUsage: RemoteDiskUsage?
     var memoryUsage: RemoteMemoryUsage?
     var uptime: RemoteUptime?
+    var cpuUsage: RemoteCPUUsage?
+    var osInfo: RemoteOSInfo?
     var statsErrorMessage: String?
 
     /// Keys currently mid-flight — `"status:<name>"` or a mutating action's
@@ -121,7 +123,7 @@ final class RemoteServerDetailViewModel {
             switch action {
             case .serviceStart(let name), .serviceStop(let name), .serviceRestart(let name):
                 self?.refreshStatus(name)
-            case .serviceStatus, .nginxTest, .nginxReload, .tailLog, .diskUsage, .memoryUsage, .uptime:
+            case .serviceStatus, .nginxTest, .nginxReload, .tailLog, .diskUsage, .memoryUsage, .uptime, .cpuUsage, .osInfo:
                 break
             }
         }
@@ -316,10 +318,16 @@ final class RemoteServerDetailViewModel {
 
     static let statsKey = "stats"
 
-    /// Manual refresh only (no auto-poll, per the plan) — three separate SSH
+    /// Manual refresh only (no auto-poll, per the plan) — separate SSH
     /// connections (one per parsed stat) rather than one combined command,
-    /// keeping each of `RemoteCommandExecutor.diskUsage/memoryUsage/uptime`
-    /// independently reusable and independently logged.
+    /// keeping each `RemoteCommandExecutor` stat method independently
+    /// reusable and independently logged. Split into two `do` blocks (disk/
+    /// memory/uptime, then cpu/osInfo) rather than one 5-way `async let`
+    /// group: `top`/`/etc/os-release` are more likely to be missing or
+    /// behave oddly on a minimal/non-standard box than `df`/`free`/`uptime`,
+    /// and a single combined group would throw its *first* error and
+    /// discard every other already-fetched result, even the ones that
+    /// succeeded.
     func refreshStats() {
         guard let server, let executor else { return }
         runningKeys.insert(Self.statsKey)
@@ -336,6 +344,15 @@ final class RemoteServerDetailViewModel {
                 uptime = uptimeResult
             } catch {
                 statsErrorMessage = error.localizedDescription
+            }
+            do {
+                async let cpu = executor.cpuUsage(on: server)
+                async let os = executor.osInfo(on: server)
+                let (cpuResult, osResult) = try await (cpu, os)
+                cpuUsage = cpuResult
+                osInfo = osResult
+            } catch {
+                if statsErrorMessage == nil { statsErrorMessage = error.localizedDescription }
             }
             if let id = server.id { load(serverId: id) }
         }
