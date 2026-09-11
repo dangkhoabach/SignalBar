@@ -16,16 +16,22 @@ struct RemoteServerListView: View {
                     )
                 } else {
                     List {
-                        ForEach(viewModel.servers) { server in
-                            RemoteServerRowView(
-                                server: server,
-                                isTesting: server.id.map { viewModel.testingServerIds.contains($0) } ?? false,
-                                resultMessage: server.id.flatMap { viewModel.testResultMessages[$0] },
-                                onOpenDetail: { if let id = server.id { navigationPath.append(id) } },
-                                onTest: { viewModel.testConnection(server) },
-                                onEdit: { viewModel.editingServer = server },
-                                onDelete: { viewModel.pendingDeleteId = server.id }
-                            )
+                        ForEach(viewModel.groupedServers, id: \.group) { entry in
+                            Section {
+                                ForEach(entry.items) { server in
+                                    RemoteServerRowView(
+                                        server: server,
+                                        isTesting: server.id.map { viewModel.testingServerIds.contains($0) } ?? false,
+                                        resultMessage: server.id.flatMap { viewModel.testResultMessages[$0] },
+                                        onOpenDetail: { if let id = server.id { navigationPath.append(id) } },
+                                        onTest: { viewModel.testConnection(server) },
+                                        onEdit: { viewModel.editingServer = server },
+                                        onDelete: { viewModel.pendingDeleteId = server.id }
+                                    )
+                                }
+                            } header: {
+                                Text(entry.group) + Text(" (\(entry.items.count))").foregroundStyle(.tertiary)
+                            }
                         }
                     }
                     .listStyle(.inset)
@@ -42,6 +48,13 @@ struct RemoteServerListView: View {
                     } label: {
                         Label("Add Server", systemImage: "plus")
                     }
+                }
+                ToolbarItem(placement: .secondaryAction) {
+                    Button("Export…") { viewModel.exportServers() }
+                        .disabled(viewModel.servers.isEmpty)
+                }
+                ToolbarItem(placement: .secondaryAction) {
+                    Button("Import…") { viewModel.importServers() }
                 }
             }
         }
@@ -62,6 +75,14 @@ struct RemoteServerListView: View {
             Button("OK") { viewModel.errorMessage = nil }
         } message: {
             Text(viewModel.errorMessage ?? "")
+        }
+        .alert("Import", isPresented: Binding(
+            get: { viewModel.infoMessage != nil },
+            set: { if !$0 { viewModel.infoMessage = nil } }
+        )) {
+            Button("OK") { viewModel.infoMessage = nil }
+        } message: {
+            Text(viewModel.infoMessage ?? "")
         }
         .confirmationDialog(
             "Delete this server?",

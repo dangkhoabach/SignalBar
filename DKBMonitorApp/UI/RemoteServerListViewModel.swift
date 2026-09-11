@@ -1,6 +1,8 @@
+import AppKit
 import DKBMonitorCore
 import Foundation
 import Observation
+import UniformTypeIdentifiers
 
 /// Drives the Remote Servers list — Phase 0 of
 /// docs/remote-server-management-plan.md: CRUD over `RemoteServer` plus the
@@ -13,12 +15,17 @@ final class RemoteServerListViewModel {
     static let shared = RemoteServerListViewModel(
         repo: AppDatabase.shared.map { RemoteServerRepository(dbQueue: $0.dbQueue) }
     )
+    static let ungroupedLabel = "Ungrouped"
 
     private let repo: RemoteServerRepository?
     private let connectionService: RemoteConnectionService?
 
     var servers: [RemoteServer] = []
     var errorMessage: String?
+    /// Non-error status text (e.g. "Imported 3 server(s)...") — kept
+    /// separate from `errorMessage` so it isn't shown under an "Error" alert
+    /// title.
+    var infoMessage: String?
     var isPresentingAddSheet = false
     var editingServer: RemoteServer?
     var pendingDeleteId: Int64?
@@ -36,6 +43,19 @@ final class RemoteServerListViewModel {
     func load() {
         guard let repo else { return }
         servers = (try? repo.list()) ?? []
+    }
+
+    // MARK: - Grouping
+
+    /// Groups by `groupTag` the same way `OverviewViewModel.filteredGroups`
+    /// groups targets — sorted group names first, "Ungrouped" always last —
+    /// but without that view model's drag-reorder/rename-group machinery,
+    /// which nothing here has asked for yet.
+    var groupedServers: [(group: String, items: [RemoteServer])] {
+        let grouped = Dictionary(grouping: servers) { $0.groupTag ?? Self.ungroupedLabel }
+        var groupNames = grouped.keys.filter { $0 != Self.ungroupedLabel }.sorted()
+        if grouped[Self.ungroupedLabel] != nil { groupNames.append(Self.ungroupedLabel) }
+        return groupNames.map { (group: $0, items: grouped[$0] ?? []) }
     }
 
     // MARK: - CRUD
@@ -82,6 +102,43 @@ final class RemoteServerListViewModel {
                 testResultMessages[id] = error.localizedDescription
             }
             testingServerIds.remove(id)
+        }
+    }
+
+    // MARK: - Export / import
+
+    /// Never includes a credential (`RemoteServerPortability`'s doc comment)
+    /// — safe to share/back up without leaking a private key or password.
+    func exportServers() {
+        guard let repo else { return }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.json]
+        panel.nameFieldStringValue = "dkb-monitor-remote-servers.json"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            let data = try RemoteServerPortability.export(repo)
+            try data.write(to: url)
+        } catch {
+            errorMessage = "Export failed: \(error.localizedDescription)"
+        }
+    }
+
+    /// Imported servers have no credential yet — surfaced via
+    /// `errorMessage` as a reminder, not a blocker; each one still shows up
+    /// in the list ready to be edited.
+    func importServers() {
+        guard let repo else { return }
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            let data = try Data(contentsOf: url)
+            let count = try RemoteServerPortability.importInto(repo, data: data)
+            load()
+            infoMessage = "Imported \(count) server(s). Edit each one to add its credential before connecting."
+        } catch {
+            errorMessage = "Import failed: \(error.localizedDescription)"
         }
     }
 }

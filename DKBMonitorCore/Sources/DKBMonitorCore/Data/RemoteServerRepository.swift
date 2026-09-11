@@ -58,6 +58,24 @@ public struct RemoteServerRepository: Sendable {
         return server
     }
 
+    /// Inserts a server row with **no Keychain credential** — used only by
+    /// `RemoteServerPortability.importInto`, since an export file never
+    /// contains a secret (docs/remote-server-management-plan.md's security
+    /// principles). The row is unusable (any connect attempt fails with
+    /// `KeychainStoreError.notFound`) until the user edits it and enters a
+    /// real credential.
+    public func addWithoutCredential(
+        name: String, host: String, port: Int = 22, username: String,
+        authMethod: RemoteAuthMethod, groupTag: String? = nil
+    ) throws -> RemoteServer {
+        var server = RemoteServer(
+            name: name, host: host, port: port, username: username,
+            authMethod: authMethod, keychainRef: UUID().uuidString, groupTag: groupTag
+        )
+        try dbQueue.write { db in try server.insert(db) }
+        return server
+    }
+
     /// Updates the server row; pass `newCredential` only when the user
     /// actually changed auth in the edit form — otherwise the existing
     /// Keychain item (still referenced by the same `keychainRef`) is left

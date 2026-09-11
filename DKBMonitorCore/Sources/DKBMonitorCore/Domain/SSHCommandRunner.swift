@@ -17,6 +17,12 @@ public enum SSHCommandRunnerError: Error, Sendable, Equatable {
     case hostKeyMismatch
     case unsupportedPrivateKeyFormat(String)
     case commandFailed(exitCode: Int, stderr: String)
+    /// Wraps whatever the underlying SSH/network layer threw while
+    /// connecting (timeout, connection refused, auth rejected...) into one
+    /// place with a message a user can act on, instead of leaking a raw
+    /// NIO/Citadel error string — the retry itself is just re-tapping the
+    /// same button (Test connection/Refresh), no dedicated retry UI needed.
+    case connectionFailed(String)
 }
 
 extension SSHCommandRunnerError: LocalizedError {
@@ -28,6 +34,8 @@ extension SSHCommandRunnerError: LocalizedError {
             "Unsupported private key format (\(type)). Only Ed25519 and RSA OpenSSH keys are supported."
         case .commandFailed(let exitCode, let stderr):
             "Command failed (exit code \(exitCode))\(stderr.isEmpty ? "" : ": \(stderr)")"
+        case .connectionFailed(let reason):
+            "Couldn't connect to the server (\(reason)). Check the host, port, and that the server is reachable, then try again."
         }
     }
 }
@@ -163,14 +171,24 @@ public enum SSHCommandRunner {
         let authMethod = try authenticationMethod(username: username, credential: credential)
         let validator = TOFUHostKeyValidator(expectedFingerprint: pinnedHostKeyFingerprint)
 
-        let client = try await SSHClient.connect(
-            host: host,
-            port: port,
-            authenticationMethod: authMethod,
-            hostKeyValidator: .custom(validator),
-            reconnect: .never,
-            connectTimeout: .seconds(connectTimeoutSeconds)
-        )
+        let client: SSHClient
+        do {
+            client = try await SSHClient.connect(
+                host: host,
+                port: port,
+                authenticationMethod: authMethod,
+                hostKeyValidator: .custom(validator),
+                reconnect: .never,
+                connectTimeout: .seconds(connectTimeoutSeconds)
+            )
+        } catch let error as SSHCommandRunnerError {
+            // Already one of ours (e.g. `hostKeyMismatch`, thrown by
+            // `TOFUHostKeyValidator` through the failed validation promise)
+            // — has its own specific, already-clear message.
+            throw error
+        } catch {
+            throw SSHCommandRunnerError.connectionFailed(String(describing: error))
+        }
 
         // The validator always records a fingerprint before succeeding
         // (see `validateHostKey` above) — `connect` only reaches this line
