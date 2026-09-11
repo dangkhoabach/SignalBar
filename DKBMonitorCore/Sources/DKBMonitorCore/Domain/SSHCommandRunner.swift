@@ -119,6 +119,28 @@ public final class SSHConnection: @unchecked Sendable {
         )
     }
 
+    /// Reads a file's full contents over SFTP — used for nginx config
+    /// (Phase 2). Path allowlisting happens one layer up, in
+    /// `RemoteCommandExecutor`; this type has no notion of it.
+    public func readFile(_ path: String) async throws -> String {
+        let buffer = try await client.withSFTP { sftp in
+            try await sftp.withFile(filePath: path, flags: .read) { file in
+                try await file.readAll()
+            }
+        }
+        return String(buffer: buffer)
+    }
+
+    /// Overwrites (or creates) a file over SFTP — `.truncate` so shorter
+    /// replacement content doesn't leave stale bytes trailing the old file.
+    public func writeFile(_ path: String, content: String) async throws {
+        try await client.withSFTP { sftp in
+            try await sftp.withFile(filePath: path, flags: [.write, .create, .truncate]) { file in
+                try await file.write(ByteBuffer(string: content))
+            }
+        }
+    }
+
     public func close() async throws {
         try await client.close()
     }

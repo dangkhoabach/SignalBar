@@ -3,9 +3,10 @@ import SwiftUI
 
 struct RemoteServerListView: View {
     @Bindable private var viewModel = RemoteServerListViewModel.shared
+    @State private var navigationPath = NavigationPath()
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $navigationPath) {
             Group {
                 if viewModel.servers.isEmpty {
                     ContentUnavailableView(
@@ -20,6 +21,7 @@ struct RemoteServerListView: View {
                                 server: server,
                                 isTesting: server.id.map { viewModel.testingServerIds.contains($0) } ?? false,
                                 resultMessage: server.id.flatMap { viewModel.testResultMessages[$0] },
+                                onOpenDetail: { if let id = server.id { navigationPath.append(id) } },
                                 onTest: { viewModel.testConnection(server) },
                                 onEdit: { viewModel.editingServer = server },
                                 onDelete: { viewModel.pendingDeleteId = server.id }
@@ -30,6 +32,9 @@ struct RemoteServerListView: View {
                 }
             }
             .navigationTitle("Remote Servers")
+            .navigationDestination(for: Int64.self) { serverId in
+                RemoteServerDetailView(serverId: serverId)
+            }
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
@@ -80,6 +85,7 @@ private struct RemoteServerRowView: View {
     let server: RemoteServer
     let isTesting: Bool
     let resultMessage: String?
+    let onOpenDetail: () -> Void
     let onTest: () -> Void
     let onEdit: () -> Void
     let onDelete: () -> Void
@@ -93,6 +99,8 @@ private struct RemoteServerRowView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+                .contentShape(Rectangle())
+                .onTapGesture { onOpenDetail() }
                 Spacer()
                 if server.hostKeyFingerprint != nil {
                     Image(systemName: "checkmark.shield")
