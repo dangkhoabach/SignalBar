@@ -6,7 +6,7 @@ import SwiftUI
 /// `Settings {}` scene/window, per the user's request for a single unified
 /// Settings surface.
 enum SidebarSection: String, CaseIterable, Identifiable, Hashable {
-    case domains, system, settings
+    case domains, remoteServers, system, settings
 
     var id: Self { self }
 
@@ -16,6 +16,7 @@ enum SidebarSection: String, CaseIterable, Identifiable, Hashable {
     var title: LocalizedStringKey {
         switch self {
         case .domains: "Domains"
+        case .remoteServers: "Remote Servers"
         case .system: "System"
         case .settings: "Settings"
         }
@@ -24,6 +25,7 @@ enum SidebarSection: String, CaseIterable, Identifiable, Hashable {
     var systemImage: String {
         switch self {
         case .domains: "network"
+        case .remoteServers: "server.rack"
         case .system: "cpu"
         case .settings: "gearshape"
         }

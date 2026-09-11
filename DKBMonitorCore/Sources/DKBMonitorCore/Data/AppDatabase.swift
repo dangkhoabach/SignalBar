@@ -116,6 +116,56 @@ public struct AppDatabase: Sendable {
                 """)
         }
 
+        // Remote Server Management (docs/remote-server-management-plan.md,
+        // Phase 0): `remote_server_allowlist` is the whitelist of
+        // services/config paths/log paths each server permits — `value`'s
+        // meaning depends on `kind`, enforced at the Domain layer
+        // (RemoteCommandExecutor), not by a DB constraint. `keychain_ref`
+        // points at the credential stored in Keychain (KeychainStore), never
+        // the credential itself.
+        migrator.registerMigration("v3_remoteServers") { db in
+            try db.execute(sql: """
+                CREATE TABLE IF NOT EXISTS remote_servers (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    host TEXT NOT NULL,
+                    port INTEGER NOT NULL DEFAULT 22,
+                    username TEXT NOT NULL,
+                    auth_method TEXT NOT NULL,
+                    keychain_ref TEXT NOT NULL,
+                    group_tag TEXT,
+                    -- Trust-on-first-use SSH host key pinning: NULL until the
+                    -- first successful connect, which records the presented
+                    -- host key's fingerprint here; every later connect must
+                    -- match it (TOFUHostKeyValidator in SSHCommandRunner.swift)
+                    -- or the connection is refused as a possible MITM.
+                    host_key_fingerprint TEXT,
+                    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+                );
+
+                CREATE TABLE IF NOT EXISTS remote_server_allowlist (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    remote_server_id INTEGER NOT NULL REFERENCES remote_servers(id) ON DELETE CASCADE,
+                    kind TEXT NOT NULL,
+                    value TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_remote_server_allowlist_server
+                    ON remote_server_allowlist(remote_server_id);
+
+                CREATE TABLE IF NOT EXISTS remote_command_log (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    remote_server_id INTEGER NOT NULL REFERENCES remote_servers(id) ON DELETE CASCADE,
+                    action TEXT NOT NULL,
+                    params_json TEXT,
+                    executed_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    exit_code INTEGER,
+                    output_excerpt TEXT
+                );
+                CREATE INDEX IF NOT EXISTS idx_remote_command_log_server_time
+                    ON remote_command_log(remote_server_id, executed_at DESC);
+                """)
+        }
+
         return migrator
     }
 }

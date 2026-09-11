@@ -36,6 +36,8 @@ struct ContentView: View {
             switch navigationState.sidebarSelection {
             case .domains:
                 OverviewView()
+            case .remoteServers:
+                RemoteServerListView()
             case .system:
                 SystemView()
             case .settings:
