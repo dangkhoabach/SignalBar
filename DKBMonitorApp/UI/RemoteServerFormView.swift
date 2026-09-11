@@ -118,7 +118,7 @@ struct RemoteServerFormView: View {
                     }
                 }
                 Section {
-                    Text("The credential is stored in Keychain, protected by Touch ID/your device password — never in the app's database.")
+                    Text("The credential is stored in Keychain (unlocked-device-only, never synced to iCloud) — never in the app's database.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
