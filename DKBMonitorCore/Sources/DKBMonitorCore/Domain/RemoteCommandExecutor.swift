@@ -43,7 +43,21 @@ public struct RemoteCommandExecutor: Sendable {
     /// before every execution, so a row already saved before this
     /// validation existed still can't be abused.
     public static func isValidServiceName(_ name: String) -> Bool {
-        !name.isEmpty && name.range(of: #"^[A-Za-z0-9@._-]+$"#, options: .regularExpression) != nil
+        !name.isEmpty
+            && hasNoControlCharacters(name)
+            && name.range(of: #"^[A-Za-z0-9@._-]+$"#, options: .regularExpression) != nil
+    }
+
+    /// Rejects newlines, NULs and other control characters outright.
+    ///
+    /// The patterns below don't currently need this: `range(of:options:
+    /// .regularExpression)` rejects `"nginx\n"` already, verified rather than
+    /// assumed. `NSRegularExpression` on the same pattern does *not* — ICU
+    /// anchors `$` before a single trailing newline — so the safety of these
+    /// validators rests on which regex API they happen to call. Checking the
+    /// characters directly states the requirement instead of inheriting it.
+    private static func hasNoControlCharacters(_ value: String) -> Bool {
+        value.rangeOfCharacter(from: .controlCharacters) == nil
     }
 
     /// Restricts nginx config paths to `/etc/nginx/...` with no `..`
@@ -54,6 +68,7 @@ public struct RemoteCommandExecutor: Sendable {
     public static func isValidConfigPath(_ path: String) -> Bool {
         path.hasPrefix("/etc/nginx/")
             && !path.contains("..")
+            && hasNoControlCharacters(path)
             && path.range(of: #"^[A-Za-z0-9/_.\-]+$"#, options: .regularExpression) != nil
     }
 
@@ -65,6 +80,7 @@ public struct RemoteCommandExecutor: Sendable {
     public static func isValidLogPath(_ path: String) -> Bool {
         path.hasPrefix("/")
             && !path.contains("..")
+            && hasNoControlCharacters(path)
             && path.range(of: #"^[A-Za-z0-9/_.\-]+$"#, options: .regularExpression) != nil
     }
 
@@ -91,13 +107,20 @@ public struct RemoteCommandExecutor: Sendable {
         do {
             let established = try await connect(server: server, forMutatingAction: action.isMutating)
             connection = established
+            // Pinned the moment the handshake succeeds, not after the command
+            // returns: a first-ever connect whose command then failed (network
+            // blip, a wedged server) left the fingerprint unrecorded, so the
+            // next attempt was still treated as first contact and trusted
+            // whatever key it was shown. The trust-on-first-use window has to
+            // close on the first successful handshake, not the first
+            // successful command.
+            try pinHostKeyIfNeeded(server: server, serverId: serverId, connection: established)
             let result = try await established.run(Self.shellCommand(for: action))
             try? await established.close()
-            try pinHostKeyIfNeeded(server: server, serverId: serverId, connection: established)
             try? repo.logCommand(
                 serverId: serverId, action: action.logName,
                 exitCode: result.exitCode,
-                outputExcerpt: String((result.succeeded ? result.stdout : result.stderr).prefix(500))
+                outputExcerpt: Self.loggableExcerpt(of: result, for: action)
             )
             return result
         } catch {
@@ -105,6 +128,22 @@ public struct RemoteCommandExecutor: Sendable {
             try? repo.logCommand(serverId: serverId, action: action.logName, exitCode: nil, outputExcerpt: String(String(describing: error).prefix(500)))
             throw error
         }
+    }
+
+    /// What of a command's output is safe to keep in the audit trail.
+    ///
+    /// The audit log lives in the app's unencrypted SQLite file, which is
+    /// fine for the exit codes and command names it exists to record. Server
+    /// log lines are a different kind of content: they routinely carry access
+    /// tokens, session identifiers and user data, none of which this app has
+    /// any reason to copy onto the Mac and keep. `tailLog` output is shown in
+    /// the Logs tab and then forgotten, and the audit row still records that
+    /// the read happened, against which path, and whether it worked.
+    static func loggableExcerpt(of result: SSHCommandResult, for action: RemoteAction) -> String? {
+        if case .tailLog = action {
+            return result.succeeded ? nil : String(result.stderr.prefix(500))
+        }
+        return String((result.succeeded ? result.stdout : result.stderr).prefix(500))
     }
 
     private func requireAuthorized(_ action: RemoteAction, serverId: Int64) throws {
@@ -289,9 +328,10 @@ public struct RemoteCommandExecutor: Sendable {
         do {
             let established = try await connect(server: server, forMutatingAction: false)
             connection = established
+            // Before the read, for the reason spelled out in `execute`.
+            try pinHostKeyIfNeeded(server: server, serverId: serverId, connection: established)
             let content = try await established.readFile(path)
             try? await established.close()
-            try pinHostKeyIfNeeded(server: server, serverId: serverId, connection: established)
             try? repo.logCommand(serverId: serverId, action: "readFile(\(path))", exitCode: 0, outputExcerpt: nil)
             return content
         } catch {
@@ -309,9 +349,10 @@ public struct RemoteCommandExecutor: Sendable {
         do {
             let established = try await connect(server: server, forMutatingAction: true)
             connection = established
+            // Before the write, for the reason spelled out in `execute`.
+            try pinHostKeyIfNeeded(server: server, serverId: serverId, connection: established)
             try await established.writeFile(path, content: content)
             try? await established.close()
-            try pinHostKeyIfNeeded(server: server, serverId: serverId, connection: established)
             try? repo.logCommand(serverId: serverId, action: "writeFile(\(path))", exitCode: 0, outputExcerpt: nil)
         } catch {
             if let connection { try? await connection.close() }

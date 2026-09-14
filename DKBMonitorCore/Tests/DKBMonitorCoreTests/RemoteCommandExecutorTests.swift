@@ -159,4 +159,53 @@ import Testing
         let parsed = RemoteCommandExecutor.parseOSInfo(output)
         #expect(parsed == RemoteOSInfo(kernel: "Linux 5.15.0-91-generic", prettyName: nil))
     }
+
+    /// Pins a property the validators already had but only by accident of
+    /// which regex API they call: `range(of:options:.regularExpression)`
+    /// rejects a trailing newline, while `NSRegularExpression` on the very
+    /// same pattern accepts one (ICU anchors `$` before it). A value that
+    /// passes validation is interpolated straight into a command, so "cannot
+    /// span lines" should be asserted, not inherited.
+    @Test func rejectsATrailingNewlineInEveryAllowlistedValue() {
+        #expect(!RemoteCommandExecutor.isValidServiceName("nginx\n"))
+        #expect(!RemoteCommandExecutor.isValidConfigPath("/etc/nginx/nginx.conf\n"))
+        #expect(!RemoteCommandExecutor.isValidLogPath("/var/log/nginx/access.log\n"))
+    }
+
+    @Test func rejectsEmbeddedControlCharacters() {
+        #expect(!RemoteCommandExecutor.isValidServiceName("ng\u{0}inx"))
+        #expect(!RemoteCommandExecutor.isValidLogPath("/var/log/a\rb.log"))
+    }
+
+    /// Server log lines carry tokens, session ids and user data. The audit
+    /// row still records that the read happened and whether it worked — it
+    /// just stops copying the contents into the app's unencrypted database.
+    @Test func doesNotPersistLogContentsIntoTheAuditTrail() {
+        let read = SSHCommandResult(exitCode: 0, stdout: "Bearer abc123 user@example.com", stderr: "")
+        #expect(RemoteCommandExecutor.loggableExcerpt(of: read, for: .tailLog(path: "/var/log/app.log", lines: 100)) == nil)
+    }
+
+    /// A failed tail still records why, since that's a diagnostic about the
+    /// command rather than the file's contents.
+    @Test func stillRecordsWhyATailFailed() {
+        let denied = SSHCommandResult(exitCode: 1, stdout: "", stderr: "tail: cannot open '/var/log/app.log'")
+        let excerpt = RemoteCommandExecutor.loggableExcerpt(of: denied, for: .tailLog(path: "/var/log/app.log", lines: 100))
+        #expect(excerpt?.contains("cannot open") == true)
+    }
+
+    /// Every other action keeps logging its output — those are command
+    /// results (systemctl status, nginx -t), not file contents.
+    @Test func stillRecordsOutputForNonLogActions() {
+        let status = SSHCommandResult(exitCode: 0, stdout: "active", stderr: "")
+        #expect(RemoteCommandExecutor.loggableExcerpt(of: status, for: .serviceStatus(name: "nginx")) == "active")
+    }
+
+    /// The ordinary values must still pass, so the tightening didn't just
+    /// reject everything.
+    @Test func stillAcceptsOrdinaryValues() {
+        #expect(RemoteCommandExecutor.isValidServiceName("nginx"))
+        #expect(RemoteCommandExecutor.isValidServiceName("php8.1-fpm"))
+        #expect(RemoteCommandExecutor.isValidConfigPath("/etc/nginx/sites-available/default"))
+        #expect(RemoteCommandExecutor.isValidLogPath("/var/log/nginx/access.log"))
+    }
 }

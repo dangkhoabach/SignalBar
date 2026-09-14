@@ -31,6 +31,9 @@ public enum HttpChecker {
         guard let url = resolvedURL(for: target) else {
             return HttpCheckOutcome(success: false, statusCode: nil, responseTimeMs: 0, errorMessage: "Invalid URL")
         }
+        if let refusal = await internalTargetRefusal(for: url) {
+            return HttpCheckOutcome(success: false, statusCode: nil, responseTimeMs: 0, errorMessage: refusal)
+        }
 
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
@@ -65,6 +68,31 @@ public enum HttpChecker {
             let elapsedMs = Int(Date().timeIntervalSince(started) * 1000)
             return HttpCheckOutcome(success: false, statusCode: nil, responseTimeMs: elapsedMs, errorMessage: error.localizedDescription)
         }
+    }
+
+    /// Refuses a hostname that resolves somewhere off the public internet,
+    /// with the message the check will report.
+    ///
+    /// Only hostnames are judged: an address or `localhost` the user typed
+    /// themselves is an explicit choice and passes through untouched
+    /// (`InternalAddress.isNamedDirectly`). What this stops is a target that
+    /// reads as an ordinary website while pointing at the loopback interface,
+    /// the LAN, or the cloud metadata endpoint — a shape that only arrives by
+    /// accident or by a doctored import file.
+    ///
+    /// The address is resolved again by `URLSession` a moment later, so a
+    /// name that changes answers between the two lookups isn't covered. That
+    /// needs pinning the connection to the address checked here, which
+    /// `URLSession` gives no way to do; this closes the standing case, not
+    /// the racing one.
+    static func internalTargetRefusal(for url: URL) async -> String? {
+        guard let host = url.host, !InternalAddress.isNamedDirectly(host: host) else { return nil }
+
+        let addresses = await InternalAddress.resolve(host: host)
+        guard let internalAddress = addresses.first(where: InternalAddress.isInternal(ip:)) else { return nil }
+
+        return "\(host) resolves to \(internalAddress), an address on your own network rather than the public internet. "
+            + "Not checked. If this is deliberate, enter the address itself instead of the hostname."
     }
 
     static func resolvedURL(for target: Target) -> URL? {

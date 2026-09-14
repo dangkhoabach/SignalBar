@@ -23,6 +23,11 @@ public enum SSHCommandRunnerError: Error, Sendable, Equatable {
     /// NIO/Citadel error string — the retry itself is just re-tapping the
     /// same button (Test connection/Refresh), no dedicated retry UI needed.
     case connectionFailed(String)
+    /// An operation that had already connected ran past its deadline.
+    /// `connectTimeout` only covers the handshake, so without this a server
+    /// that accepts the connection and then stops responding mid-command left
+    /// the calling Task waiting with no way to get it back.
+    case timedOut(seconds: Int)
 }
 
 extension SSHCommandRunnerError: LocalizedError {
@@ -36,6 +41,8 @@ extension SSHCommandRunnerError: LocalizedError {
             "Command failed (exit code \(exitCode))\(stderr.isEmpty ? "" : ": \(stderr)")"
         case .connectionFailed(let reason):
             "Couldn't connect to the server (\(reason)). Check the host, port, and that the server is reachable, then try again."
+        case .timedOut(let seconds):
+            "The server stopped responding after \(seconds) seconds. The connection was closed — check the server's load and try again."
         }
     }
 }
@@ -86,65 +93,106 @@ public final class SSHConnection: @unchecked Sendable {
     private let client: SSHClient
     public let hostKeyFingerprint: String
 
+    /// Upper bound for any single operation on an established session.
+    /// Generous enough for the slowest allowlisted action (`nginx -t`, a
+    /// service restart) while still bounded — the point is that a wedged
+    /// server can't hold a Task forever, not to police slow commands.
+    public static let operationTimeoutSeconds = 30
+
     fileprivate init(client: SSHClient, hostKeyFingerprint: String) {
         self.client = client
         self.hostKeyFingerprint = hostKeyFingerprint
+    }
+
+    /// Races `operation` against a sleeper so a post-handshake stall ends in
+    /// an error instead of hanging.
+    ///
+    /// Cancelling the losing child only stops the operation if the underlying
+    /// NIO stream honours cancellation, which it does for the async sequences
+    /// Citadel builds on. The caller closes the connection on any thrown
+    /// error, so the session doesn't leak either way.
+    private func withDeadline<T: Sendable>(
+        _ seconds: Int,
+        operation: @escaping @Sendable () async throws -> T
+    ) async throws -> T {
+        try await withThrowingTaskGroup(of: T.self) { group in
+            group.addTask { try await operation() }
+            group.addTask {
+                try await Task.sleep(nanoseconds: UInt64(seconds) * 1_000_000_000)
+                throw SSHCommandRunnerError.timedOut(seconds: seconds)
+            }
+            defer { group.cancelAll() }
+            guard let first = try await group.next() else {
+                throw SSHCommandRunnerError.timedOut(seconds: seconds)
+            }
+            return first
+        }
     }
 
     /// Runs one command and always returns a result (never throws for a
     /// non-zero exit) — `RemoteCommandExecutor` needs the exit code itself
     /// (e.g. `nginx -t` failing is an expected, displayable outcome, not a
     /// Swift error), and needs stdout/stderr kept apart rather than merged.
-    public func run(_ command: String, maxResponseSize: Int = 1 << 20) async throws -> SSHCommandResult {
-        var stdout = ByteBuffer()
-        var stderr = ByteBuffer()
-        var exitCode = 0
+    public func run(
+        _ command: String,
+        maxResponseSize: Int = 1 << 20,
+        timeoutSeconds: Int = SSHConnection.operationTimeoutSeconds
+    ) async throws -> SSHCommandResult {
+        try await withDeadline(timeoutSeconds) { [self] in
+            var stdout = ByteBuffer()
+            var stderr = ByteBuffer()
+            var exitCode = 0
 
-        let stream = try await client.executeCommandStream(command)
-        do {
-            for try await chunk in stream {
-                switch chunk {
-                case .stdout(let buffer):
-                    if stdout.readableBytes + buffer.readableBytes <= maxResponseSize {
-                        var buffer = buffer
-                        stdout.writeBuffer(&buffer)
-                    }
-                case .stderr(let buffer):
-                    if stderr.readableBytes + buffer.readableBytes <= maxResponseSize {
-                        var buffer = buffer
-                        stderr.writeBuffer(&buffer)
+            let stream = try await client.executeCommandStream(command)
+            do {
+                for try await chunk in stream {
+                    switch chunk {
+                    case .stdout(let buffer):
+                        if stdout.readableBytes + buffer.readableBytes <= maxResponseSize {
+                            var buffer = buffer
+                            stdout.writeBuffer(&buffer)
+                        }
+                    case .stderr(let buffer):
+                        if stderr.readableBytes + buffer.readableBytes <= maxResponseSize {
+                            var buffer = buffer
+                            stderr.writeBuffer(&buffer)
+                        }
                     }
                 }
+            } catch let failure as SSHClient.CommandFailed {
+                exitCode = failure.exitCode
             }
-        } catch let failure as SSHClient.CommandFailed {
-            exitCode = failure.exitCode
-        }
 
-        return SSHCommandResult(
-            exitCode: exitCode,
-            stdout: String(buffer: stdout),
-            stderr: String(buffer: stderr)
-        )
+            return SSHCommandResult(
+                exitCode: exitCode,
+                stdout: String(buffer: stdout),
+                stderr: String(buffer: stderr)
+            )
+        }
     }
 
     /// Reads a file's full contents over SFTP — used for nginx config
     /// (Phase 2). Path allowlisting happens one layer up, in
     /// `RemoteCommandExecutor`; this type has no notion of it.
-    public func readFile(_ path: String) async throws -> String {
-        let buffer = try await client.withSFTP { sftp in
-            try await sftp.withFile(filePath: path, flags: .read) { file in
-                try await file.readAll()
+    public func readFile(_ path: String, timeoutSeconds: Int = SSHConnection.operationTimeoutSeconds) async throws -> String {
+        try await withDeadline(timeoutSeconds) { [self] in
+            let buffer = try await client.withSFTP { sftp in
+                try await sftp.withFile(filePath: path, flags: .read) { file in
+                    try await file.readAll()
+                }
             }
+            return String(buffer: buffer)
         }
-        return String(buffer: buffer)
     }
 
     /// Overwrites (or creates) a file over SFTP — `.truncate` so shorter
     /// replacement content doesn't leave stale bytes trailing the old file.
-    public func writeFile(_ path: String, content: String) async throws {
-        try await client.withSFTP { sftp in
-            try await sftp.withFile(filePath: path, flags: [.write, .create, .truncate]) { file in
-                try await file.write(ByteBuffer(string: content))
+    public func writeFile(_ path: String, content: String, timeoutSeconds: Int = SSHConnection.operationTimeoutSeconds) async throws {
+        try await withDeadline(timeoutSeconds) { [self] in
+            try await client.withSFTP { sftp in
+                try await sftp.withFile(filePath: path, flags: [.write, .create, .truncate]) { file in
+                    try await file.write(ByteBuffer(string: content))
+                }
             }
         }
     }
@@ -170,6 +218,16 @@ public enum SSHCommandRunner {
     ) async throws -> SSHConnection {
         let authMethod = try authenticationMethod(username: username, credential: credential)
         let validator = TOFUHostKeyValidator(expectedFingerprint: pinnedHostKeyFingerprint)
+
+        // No `algorithms:` argument on purpose. NIOSSH's defaults are
+        // modern-only — AES256/128-GCM for transport, ECDH over Curve25519 and
+        // P256/384/521 for key exchange, ed25519/ecdsa host keys — checked
+        // against the vendored source rather than assumed.
+        //
+        // Citadel's `SSHAlgorithms.all` reads like the safe, thorough choice
+        // and is the opposite: it *adds* DiffieHellmanGroup14Sha1 and
+        // AES128CTR to that list. Passing it here would weaken every
+        // connection, so don't.
 
         let client: SSHClient
         do {

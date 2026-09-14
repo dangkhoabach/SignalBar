@@ -73,6 +73,12 @@ actor JunkCleanerService {
         return total
     }
 
+    enum CleanError: Error {
+        /// The target path is a symlink pointing somewhere this service never
+        /// measured — cleaning it would delete files the user never saw listed.
+        case relocatedTarget
+    }
+
     struct CleanResult: Sendable {
         var freedBytes: Int64
         /// Targets that couldn't be fully cleared, by name — almost always a
@@ -97,11 +103,36 @@ actor JunkCleanerService {
         return CleanResult(freedBytes: freed, skipped: skipped)
     }
 
+    /// The only path allowed to bypass the Trash.
+    ///
+    /// `deletesPermanently` is set on exactly one target, but nothing stopped
+    /// a future one from being copy-pasted with the flag still `true` — which
+    /// would `removeItem` a real cache tree outright while the confirmation
+    /// dialog still promised the Trash. Pinning the permission to the path
+    /// rather than the flag makes that mistake impossible to make silently.
+    nonisolated static func maySkipTheTrash(_ target: JunkTarget, homeDirectory: String = NSHomeDirectory()) -> Bool {
+        target.deletesPermanently && target.path == homeDirectory + "/.Trash"
+    }
+
+    /// True when the target path is itself a symlink.
+    ///
+    /// People really do move `~/Library/Caches` or `~/.npm` onto another
+    /// volume and link it back. `contentsOfDirectory` follows the link, so
+    /// cleaning would empty whatever it points at — somewhere this service
+    /// never audited and the user never picked. Children don't need this:
+    /// `trashItem` on a symlink takes the link, not its destination.
+    nonisolated static func isRelocated(_ path: String) -> Bool {
+        let values = try? URL(fileURLWithPath: path).resourceValues(forKeys: [.isSymbolicLinkKey])
+        return values?.isSymbolicLink == true
+    }
+
     private func remove(_ target: JunkTarget) throws {
         let fileManager = FileManager.default
+        guard !Self.isRelocated(target.path) else { throw CleanError.relocatedTarget }
+        let skipsTheTrash = Self.maySkipTheTrash(target)
 
         func delete(_ url: URL) throws {
-            if target.deletesPermanently {
+            if skipsTheTrash {
                 try fileManager.removeItem(at: url)
             } else {
                 try fileManager.trashItem(at: url, resultingItemURL: nil)

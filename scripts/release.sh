@@ -86,10 +86,25 @@ create-dmg \
   "$APP_PATH"
 
 echo "==> Signing update with Sparkle"
+# The tools unpacked here are executed below with access to the Keychain item
+# holding the EdDSA signing key, so what gets extracted is verified before it
+# runs rather than trusted because it came from an https URL.
+#
+# Cached per version: the old guard was "is sign_update present", which meant
+# bumping SPARKLE_VERSION silently kept signing with the previous release's
+# tools. Checksum for 2.6.4 confirmed against a fresh download from the
+# project's GitHub release; update both together when bumping.
+SPARKLE_SHA256="50612a06038abc931f16011d7903b8326a362c1074dabccb718404ce8e585f0b"
+SPARKLE_TOOLS_DIR="$SPARKLE_TOOLS_DIR/$SPARKLE_VERSION"
 if [ ! -x "$SPARKLE_TOOLS_DIR/bin/sign_update" ]; then
   mkdir -p "$SPARKLE_TOOLS_DIR"
   curl -fsSL -o "$SPARKLE_TOOLS_DIR/sparkle.tar.xz" \
     "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz"
+  echo "$SPARKLE_SHA256  $SPARKLE_TOOLS_DIR/sparkle.tar.xz" | shasum -a 256 -c - || {
+    echo "ERROR: Sparkle ${SPARKLE_VERSION} failed checksum verification. Refusing to run its tools." >&2
+    rm -f "$SPARKLE_TOOLS_DIR/sparkle.tar.xz"
+    exit 1
+  }
   tar -xf "$SPARKLE_TOOLS_DIR/sparkle.tar.xz" -C "$SPARKLE_TOOLS_DIR"
 fi
 # -p prints only the raw EdDSA signature (no "sparkle:edSignature=... length=..."
