@@ -264,7 +264,12 @@ struct SystemView: View {
 
     private var thermalStateLabel: LocalizedStringKey {
         switch ProcessInfo.ThermalState(rawValue: stats.thermalStateRawValue) {
-        case .nominal: "Nominal"
+        // "Normal", not Apple's own "Nominal": the Memory card right below
+        // labels its healthy state "Normal", and two near-identical words for
+        // the same idea in one pane read as a typo. Apple's header defines
+        // nominal as "within normal limits", so this is the same meaning in
+        // the word the rest of the pane already uses.
+        case .nominal: "Normal"
         case .fair: "Fair"
         case .serious: "Serious"
         case .critical: "Critical"
