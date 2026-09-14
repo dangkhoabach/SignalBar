@@ -20,6 +20,7 @@ struct SystemView: View {
     @State private var processSearchText = ""
     @State private var processSortKey: ProcessSortKey = .cpu
     @State private var processSortAscending = false
+    @State private var showsAllProcesses = false
 
     private var stats: SystemStats { viewModel.current }
 
@@ -44,24 +45,7 @@ struct SystemView: View {
 
     var body: some View {
         ScrollView {
-            if viewModel.hasLoadedOnce {
-                VStack(spacing: Self.gridSpacing) {
-                    ForEach(Array(cardPairs.enumerated()), id: \.offset) { _, pair in
-                        HStack(alignment: .top, spacing: Self.gridSpacing) {
-                            pair.0
-                            if let second = pair.1 {
-                                second
-                            } else {
-                                Color.clear
-                            }
-                        }
-                    }
-                    processesCard
-                }
-                .padding(Self.outerPadding)
-            } else {
-                skeletonGrid
-            }
+            content
         }
         .onAppear { viewModel.start() }
         .onDisappear { viewModel.stop() }
@@ -77,6 +61,32 @@ struct SystemView: View {
                 NativeSearchField(text: $processSearchText, placeholder: "Filter apps")
                     .frame(minWidth: 200)
             }
+        }
+    }
+
+    /// The page itself, split out of the `ScrollView` so `LayoutSnapshot`
+    /// can render it offscreen: `ImageRenderer` draws a `ScrollView` as an
+    /// empty rectangle (it has no scroll geometry outside a real window),
+    /// which produced blank PNGs until this was lifted out.
+    @ViewBuilder
+    var content: some View {
+        if viewModel.hasLoadedOnce {
+            VStack(spacing: Self.gridSpacing) {
+                ForEach(Array(cardPairs.enumerated()), id: \.offset) { _, pair in
+                    HStack(alignment: .top, spacing: Self.gridSpacing) {
+                        pair.0
+                        if let second = pair.1 {
+                            second
+                        } else {
+                            Color.clear
+                        }
+                    }
+                }
+                processesCard
+            }
+            .padding(Self.outerPadding)
+        } else {
+            skeletonGrid
         }
     }
 
@@ -134,10 +144,24 @@ struct SystemView: View {
             StatBar(percent: stats.cpuPercent, color: barColor(stats.cpuPercent))
             if stats.cpuCores.count > 1 {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Per-core usage").font(.caption).foregroundStyle(.secondary)
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 4), spacing: 6) {
-                        ForEach(Array(stats.cpuCores.enumerated()), id: \.offset) { _, core in
-                            StatBar(percent: core, color: barColor(core), height: 5)
+                    HStack {
+                        Text("Per-core usage").font(.caption).foregroundStyle(.secondary)
+                        Spacer()
+                        Text(stats.cpuTopology.summary).font(.caption).foregroundStyle(.secondary)
+                    }
+                    // Labelled per core (E1…/P1…) rather than a row of
+                    // anonymous bars: on Apple Silicon, "which cores are
+                    // busy" is the whole point — background work pinned to
+                    // the E-cluster looks very different from a P-core spike.
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 6) {
+                        ForEach(coreSamples, id: \.index) { core in
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(core.label)
+                                    .font(.system(size: 9))
+                                    .monospacedDigit()
+                                    .foregroundStyle(core.isEfficiency ? .tertiary : .secondary)
+                                StatBar(percent: core.percent, color: barColor(core.percent), height: 5)
+                            }
                         }
                     }
                 }
@@ -146,6 +170,9 @@ struct SystemView: View {
         }
     }
 
+    /// Shows one tile per sensor category rather than a single CPU number:
+    /// on Apple Silicon `HIDThermalReader` surfaces GPU/battery/board
+    /// sensors too, and the hottest one is often not the CPU.
     private var temperatureCard: some View {
         card(
             title: "Temperature",
@@ -158,24 +185,115 @@ struct SystemView: View {
             } else {
                 Text("Not available").font(.caption).foregroundStyle(.secondary)
             }
-            if !stats.fanRPMs.isEmpty {
-                HStack(spacing: 12) {
+
+            if !stats.temperatures.isEmpty {
+                HStack(alignment: .top, spacing: 16) {
+                    ForEach(TemperatureReading.Category.allCases, id: \.self) { category in
+                        if let value = stats.temperatures.hottest(category) {
+                            temperatureTile(label: categoryLabel(category), celsius: value)
+                        }
+                    }
+                    Spacer(minLength: 0)
+                }
+            }
+
+            HStack(spacing: 12) {
+                Text("Thermal state: \(thermalStateLabel)")
+                if !stats.fanRPMs.isEmpty {
                     ForEach(Array(stats.fanRPMs.enumerated()), id: \.offset) { index, rpm in
                         Text(stats.fanRPMs.count > 1 ? "Fan \(index + 1) \(Int(rpm)) RPM" : "Fan \(Int(rpm)) RPM")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
                     }
                 }
             }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+
+            if stats.temperatures.count > 1 {
+                DisclosureGroup {
+                    // Capped at 8: Apple Silicon reports 50+ sensors, and a
+                    // card listing all of them would dwarf every other card
+                    // on the page. The hottest handful is what's diagnostic.
+                    VStack(spacing: 3) {
+                        ForEach(stats.temperatures.prefix(8)) { reading in
+                            HStack {
+                                Text(reading.name).lineLimit(1)
+                                Spacer()
+                                Text("\(Int(reading.celsius.rounded()))°C")
+                                    .monospacedDigit()
+                                    .foregroundStyle(tempColor(reading.celsius))
+                            }
+                            .font(.caption)
+                        }
+                    }
+                    .padding(.top, 4)
+                } label: {
+                    Text("\(stats.temperatures.count) sensors")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
             if stats.cpuTempCelsius != nil {
                 sparkline(viewModel.tempHistory, color: stats.cpuTempCelsius.map(tempColor) ?? .blue)
             }
         }
     }
 
+    private func temperatureTile(label: LocalizedStringKey, celsius: Double) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(label).font(.caption2).foregroundStyle(.secondary)
+            Text("\(Int(celsius.rounded()))°C")
+                .font(.callout.weight(.medium))
+                .monospacedDigit()
+                .foregroundStyle(tempColor(celsius))
+        }
+    }
+
+    private func categoryLabel(_ category: TemperatureReading.Category) -> LocalizedStringKey {
+        switch category {
+        case .cpu: "CPU"
+        case .gpu: "GPU"
+        case .battery: "Battery"
+        case .system: "System"
+        }
+    }
+
+    private var thermalStateLabel: LocalizedStringKey {
+        switch ProcessInfo.ThermalState(rawValue: stats.thermalStateRawValue) {
+        case .nominal: "Nominal"
+        case .fair: "Fair"
+        case .serious: "Serious"
+        case .critical: "Critical"
+        default: "Unknown"
+        }
+    }
+
     private var memoryCard: some View {
         card(title: "Memory", systemImage: "memorychip", trailingText: ramText) {
             StatBar(percent: ramPercent, color: barColor(ramPercent))
+
+            // Memory pressure, not "% used", is what macOS itself acts on —
+            // a healthy Mac sits near 100% used because of the file cache,
+            // so the bar above alone reads as a permanent false alarm.
+            HStack(spacing: 4) {
+                Circle()
+                    .fill(memoryPressureColor)
+                    .frame(width: 7, height: 7)
+                Text("Pressure: \(memoryPressureLabel)")
+                Spacer()
+                if stats.ramCachedMB > 0 {
+                    Text("Cached \(gigabytes(stats.ramCachedMB))")
+                }
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+
+            if stats.ramAppMB > 0 {
+                Text("App \(gigabytes(stats.ramAppMB)) · Wired \(gigabytes(stats.ramWiredMB)) · Compressed \(gigabytes(stats.ramCompressedMB))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             if stats.swapTotalMB > 0 {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
@@ -189,9 +307,33 @@ struct SystemView: View {
         }
     }
 
+    /// Lists every mounted volume when there's more than one — an external
+    /// SSD filling up is exactly the kind of thing a monitor should show,
+    /// and the boot-volume-only card was blind to it.
     private var diskCard: some View {
         card(title: "Storage", systemImage: "internaldrive", trailingText: diskText) {
-            StatBar(percent: diskPercent, color: barColor(diskPercent))
+            if stats.volumes.count > 1 {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(stats.volumes) { volume in
+                        VStack(alignment: .leading, spacing: 3) {
+                            HStack {
+                                Label {
+                                    Text(volume.name).lineLimit(1)
+                                } icon: {
+                                    Image(systemName: volume.isInternal ? "internaldrive" : "externaldrive")
+                                }
+                                Spacer()
+                                Text("\(bytesText(volume.usedBytes)) / \(bytesText(volume.totalBytes))")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .font(.caption)
+                            StatBar(percent: volume.usedPercent, color: barColor(volume.usedPercent), height: 5)
+                        }
+                    }
+                }
+            } else {
+                StatBar(percent: diskPercent, color: barColor(diskPercent))
+            }
         }
     }
 
@@ -287,28 +429,36 @@ struct SystemView: View {
     private var processesCard: some View {
         GroupBox {
             VStack(alignment: .leading, spacing: 12) {
-                Label {
-                    Text("Running Apps").font(.subheadline.weight(.medium))
-                } icon: {
-                    Image(systemName: "chart.bar.fill")
+                HStack {
+                    Label {
+                        Text(showsAllProcesses ? "All Processes" : "Running Apps")
+                            .font(.subheadline.weight(.medium))
+                    } icon: {
+                        Image(systemName: "chart.bar.fill")
+                    }
+                    .foregroundStyle(.secondary)
+
+                    Spacer()
+
+                    // The app list hides daemons, so a runaway `mds_stores`
+                    // or `kernel_task` was invisible here — this switches to
+                    // the raw `libproc` list that already backs it.
+                    Picker("", selection: $showsAllProcesses) {
+                        Text("Apps").tag(false)
+                        Text("All Processes").tag(true)
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .frame(width: 190)
                 }
-                .foregroundStyle(.secondary)
 
                 VStack(spacing: 0) {
                     processesHeaderRow
                     Divider()
-                    if filteredSortedApps.isEmpty {
-                        Text("No apps found.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .padding(.vertical, 8)
+                    if showsAllProcesses {
+                        allProcessRows
                     } else {
-                        ForEach(filteredSortedApps) { app in
-                            processRow(app)
-                            if app.id != filteredSortedApps.last?.id {
-                                Divider()
-                            }
-                        }
+                        appRows
                     }
                 }
             }
@@ -317,11 +467,78 @@ struct SystemView: View {
         }
     }
 
+    @ViewBuilder
+    private var appRows: some View {
+        if filteredSortedApps.isEmpty {
+            Text("No apps found.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.vertical, 8)
+        } else {
+            ForEach(filteredSortedApps) { app in
+                processRow(app)
+                if app.id != filteredSortedApps.last?.id { Divider() }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var allProcessRows: some View {
+        if filteredSortedProcesses.isEmpty {
+            Text("No processes found.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.vertical, 8)
+        } else {
+            ForEach(filteredSortedProcesses) { process in
+                rawProcessRow(process)
+                if process.id != filteredSortedProcesses.last?.id { Divider() }
+            }
+        }
+    }
+
+    /// No icon, no Quit action, and "pid N" in place of the Status column:
+    /// these are raw OS processes, many owned by root, so offering to
+    /// terminate them from a monitoring pane would be actively dangerous.
+    private func rawProcessRow(_ process: ProcessUsage) -> some View {
+        HStack(spacing: 8) {
+            Text(process.name)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text("pid \(process.pid)")
+                .foregroundStyle(.secondary)
+                .frame(width: Self.statusColumnWidth, alignment: .leading)
+            Text("\(process.cpuPercent, specifier: "%.1f")%")
+                .frame(width: Self.cpuColumnWidth, alignment: .trailing)
+            Text("\(process.memoryMB, specifier: "%.0f") MB")
+                .frame(width: Self.memoryColumnWidth, alignment: .trailing)
+        }
+        .font(.callout)
+        .monospacedDigit()
+        .padding(.vertical, 4)
+    }
+
+    private var filteredSortedProcesses: [ProcessUsage] {
+        let filtered = processSearchText.isEmpty
+            ? viewModel.allProcesses
+            : viewModel.allProcesses.filter { $0.name.localizedCaseInsensitiveContains(processSearchText) }
+        return filtered.sorted { a, b in
+            let ascending: Bool
+            switch processSortKey {
+            case .name: ascending = a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
+            case .status: ascending = a.pid < b.pid
+            case .cpu: ascending = a.cpuPercent < b.cpuPercent
+            case .memory: ascending = a.memoryMB < b.memoryMB
+            }
+            return processSortAscending ? ascending : !ascending
+        }
+    }
+
     private var processesHeaderRow: some View {
         HStack(spacing: 8) {
-            processSortButton("App", key: .name)
+            processSortButton(showsAllProcesses ? "Process" : "App", key: .name)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            processSortButton("Status", key: .status)
+            processSortButton(showsAllProcesses ? "PID" : "Status", key: .status)
                 .frame(width: Self.statusColumnWidth, alignment: .leading)
             processSortButton("CPU", key: .cpu)
                 .frame(width: Self.cpuColumnWidth, alignment: .trailing)
@@ -395,6 +612,51 @@ struct SystemView: View {
     }
 
     // MARK: - Formatting
+
+    /// Per-core percentages zipped with the topology's labels. Guards on
+    /// count: a core-count change mid-session (or a topology sysctl that
+    /// disagreed with `host_processor_info`) would otherwise mislabel every
+    /// bar, so it falls back to bare indices rather than lying.
+    private var coreSamples: [(index: Int, label: String, percent: Double, isEfficiency: Bool)] {
+        let labels = stats.cpuTopology.coreLabels()
+        let levels = stats.cpuTopology.coreLevels()
+        let slowestLevelIndex = stats.cpuTopology.levels.map(\.index).max()
+        return stats.cpuCores.enumerated().map { index, percent in
+            let matches = labels.count == stats.cpuCores.count
+            return (
+                index: index,
+                label: matches ? labels[index] : "\(index + 1)",
+                percent: percent,
+                isEfficiency: matches && stats.cpuTopology.hasClusters && levels[index].index == slowestLevelIndex
+            )
+        }
+    }
+
+    private var memoryPressureLabel: LocalizedStringKey {
+        switch stats.memoryPressureLevel {
+        case 4: "Critical"
+        case 2: "Warning"
+        default: "Normal"
+        }
+    }
+
+    private var memoryPressureColor: Color {
+        switch stats.memoryPressureLevel {
+        case 4: .red
+        case 2: .yellow
+        default: .green
+        }
+    }
+
+    private func gigabytes(_ megabytes: UInt64) -> String {
+        megabytes >= 1024
+            ? String(format: "%.1f GB", Double(megabytes) / 1024)
+            : "\(megabytes) MB"
+    }
+
+    private func bytesText(_ bytes: UInt64) -> String {
+        String(format: "%.0f GB", Double(bytes) / 1_073_741_824)
+    }
 
     private var ramText: String {
         String(format: "%.1f / %.1f GB", Double(stats.ramUsedMB) / 1024, Double(stats.ramTotalMB) / 1024)

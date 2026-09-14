@@ -27,6 +27,7 @@ struct SettingsView: View {
     @Bindable private var overviewViewModel = OverviewViewModel.shared
     @AppStorage("themePreference") private var themePreferenceRaw = ThemePreference.system.rawValue
     @AppStorage("languagePreference") private var languageRaw = AppLocale.systemDefault.rawValue
+    @AppStorage("showCPUPercentInMenuBar") private var showCPUPercentInMenuBar = false
     @State private var loginItemEnabled = LoginItemManager.shared.isEnabled
     @State private var loginItemError: String?
     @State private var isPresentingClearAllConfirm = false
@@ -50,6 +51,8 @@ struct SettingsView: View {
                     Text("EN").tag(AppLocale.en)
                 }
                 .pickerStyle(.segmented)
+
+                Toggle("Show CPU % in menu bar", isOn: $showCPUPercentInMenuBar)
             }
 
             Section("General") {

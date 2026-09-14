@@ -22,6 +22,12 @@ public actor SystemStatsService: SystemStatsProvider {
     private let smc = SMCReader()
     private var smcOpened = false
 
+    /// Created on first use, not in `init`: it holds one HID service client
+    /// per sensor (50+ on Apple Silicon), which isn't worth allocating for a
+    /// caller that only ever asks for `snapshotLight()`'s CPU/RAM figures.
+    private var hidThermal: HIDThermalReader?
+    private var hidThermalLoaded = false
+
     private var previousCoreTicks: [[UInt32]]?
     private var previousNetworkBytes: (received: UInt64, transmitted: UInt64)?
     private var previousNetworkPollDate: Date?
@@ -46,12 +52,17 @@ public actor SystemStatsService: SystemStatsProvider {
     public func snapshotLight() async -> SystemStats {
         ensureSMCOpen()
         let (cpuPercent, cpuCores) = cpuUsage()
-        let (ramUsed, ramTotal) = memoryUsageMB()
+        let memory = memoryUsage()
         let battery = batteryStatus()
+        // Deliberately skips `temperatures()`: walking 50+ HID sensors costs
+        // far more than the rest of this method combined, and the only
+        // consumers of the light snapshot (menu bar, scheduler alerts) read
+        // the single `cpuTempCelsius` value, which SMC supplies on its own.
         return SystemStats(
-            cpuPercent: cpuPercent, cpuCores: cpuCores,
-            ramUsedMB: ramUsed, ramTotalMB: ramTotal,
-            cpuTempCelsius: cpuTempCelsius(), batteryPercent: battery.percent, batteryCharging: battery.charging
+            cpuPercent: cpuPercent, cpuCores: cpuCores, cpuTopology: Self.cpuTopology,
+            ramUsedMB: memory.usedMB, ramTotalMB: memory.totalMB,
+            cpuTempCelsius: cpuTempCelsius(from: []),
+            batteryPercent: battery.percent, batteryCharging: battery.charging
         )
     }
 
@@ -59,22 +70,28 @@ public actor SystemStatsService: SystemStatsProvider {
         ensureSMCOpen()
 
         let (cpuPercent, cpuCores) = cpuUsage()
-        let (ramUsed, ramTotal) = memoryUsageMB()
+        let memory = memoryUsage()
         let (swapUsed, swapTotal) = swapUsageMB()
         let (diskUsed, diskTotal) = diskUsageGB()
         let network = networkStatus()
         let (downloadKbps, uploadKbps) = networkThroughputKbps()
         let battery = batteryStatus()
+        let readings = temperatures()
 
         return SystemStats(
-            cpuPercent: cpuPercent, cpuCores: cpuCores,
-            ramUsedMB: ramUsed, ramTotalMB: ramTotal,
+            cpuPercent: cpuPercent, cpuCores: cpuCores, cpuTopology: Self.cpuTopology,
+            ramUsedMB: memory.usedMB, ramTotalMB: memory.totalMB,
             swapUsedMB: swapUsed, swapTotalMB: swapTotal,
-            diskUsedGB: diskUsed, diskTotalGB: diskTotal,
+            ramAppMB: memory.appMB, ramWiredMB: memory.wiredMB,
+            ramCompressedMB: memory.compressedMB, ramCachedMB: memory.cachedMB,
+            memoryPressureLevel: memoryPressureLevel(),
+            diskUsedGB: diskUsed, diskTotalGB: diskTotal, volumes: volumes(),
             gpuName: gpuName(), gpuPercent: gpuPercent(),
             networkConnected: network.connected, networkType: network.type, networkName: network.name, networkLocalIP: network.localIP,
             networkDownloadKbps: downloadKbps, networkUploadKbps: uploadKbps,
-            cpuTempCelsius: cpuTempCelsius(), batteryPercent: battery.percent, batteryCharging: battery.charging,
+            cpuTempCelsius: cpuTempCelsius(from: readings), temperatures: readings,
+            thermalStateRawValue: ProcessInfo.processInfo.thermalState.rawValue,
+            batteryPercent: battery.percent, batteryCharging: battery.charging,
             uptimeSecs: uptimeSecs(), fanRPMs: fanRPMs()
         )
     }
@@ -98,6 +115,42 @@ public actor SystemStatsService: SystemStatsProvider {
                 return [ticks.0, ticks.1, ticks.2, ticks.3] // user, system, idle, nice
             }
         }
+    }
+
+    /// Read once per process: the CPU layout is fixed hardware, so
+    /// re-running four `sysctlbyname` calls on every 2s poll would be pure
+    /// waste. `static` rather than an instance property so both the light
+    /// and full snapshots share the one read.
+    private static let cpuTopology: CPUTopology = {
+        let logical = sysctlInt("hw.logicalcpu") ?? ProcessInfo.processInfo.processorCount
+        let levelCount = sysctlInt("hw.nperflevels") ?? 1
+        guard levelCount > 1 else { return .flat(coreCount: logical) }
+
+        let levels = (0..<levelCount).compactMap { index -> CPUTopology.Level? in
+            let count = sysctlInt("hw.perflevel\(index).logicalcpu") ?? 0
+            guard count > 0 else { return nil }
+            return CPUTopology.Level(
+                index: index,
+                name: sysctlString("hw.perflevel\(index).name") ?? "Level \(index)",
+                coreCount: count
+            )
+        }
+        return levels.isEmpty ? .flat(coreCount: logical) : CPUTopology(levels: levels)
+    }()
+
+    private static func sysctlInt(_ name: String) -> Int? {
+        var value: Int32 = 0
+        var size = MemoryLayout<Int32>.size
+        guard sysctlbyname(name, &value, &size, nil, 0) == 0 else { return nil }
+        return Int(value)
+    }
+
+    private static func sysctlString(_ name: String) -> String? {
+        var size = 0
+        guard sysctlbyname(name, nil, &size, nil, 0) == 0, size > 0 else { return nil }
+        var buffer = [CChar](repeating: 0, count: size)
+        guard sysctlbyname(name, &buffer, &size, nil, 0) == 0 else { return nil }
+        return String(cString: buffer)
     }
 
     private func cpuUsage() -> (percent: Double, cores: [Double]) {
@@ -127,7 +180,30 @@ public actor SystemStatsService: SystemStatsProvider {
 
     // MARK: - RAM / swap (Mach host_statistics64 + sysctl)
 
-    private func memoryUsageMB() -> (used: UInt64, total: UInt64) {
+    private struct MemoryUsage {
+        var usedMB: UInt64 = 0
+        var totalMB: UInt64 = 0
+        var appMB: UInt64 = 0
+        var wiredMB: UInt64 = 0
+        var compressedMB: UInt64 = 0
+        var cachedMB: UInt64 = 0
+    }
+
+    /// Activity Monitor's "Memory Used" = App Memory + Wired + Compressed.
+    ///
+    /// "App Memory" is `internal_page_count` minus `purgeable_count` — the
+    /// anonymous pages apps actually own. The earlier `active_count`-based
+    /// formula was close but not the same number: `active` includes
+    /// file-backed pages that are merely in use (which belong in Cached),
+    /// so it over-reported on a machine with a warm file cache.
+    private func memoryUsage() -> MemoryUsage {
+        var usage = MemoryUsage()
+
+        var totalMemory: UInt64 = 0
+        var totalSize = MemoryLayout<UInt64>.size
+        sysctlbyname("hw.memsize", &totalMemory, &totalSize, nil, 0)
+        usage.totalMB = totalMemory / 1_048_576
+
         var size = mach_msg_type_number_t(MemoryLayout<vm_statistics64_data_t>.stride / MemoryLayout<integer_t>.stride)
         var stats = vm_statistics64_data_t()
         let result = withUnsafeMutablePointer(to: &stats) {
@@ -135,17 +211,34 @@ public actor SystemStatsService: SystemStatsProvider {
                 host_statistics64(mach_host_self(), HOST_VM_INFO64, $0, &size)
             }
         }
-        guard result == KERN_SUCCESS else { return (0, 0) }
+        guard result == KERN_SUCCESS else { return usage }
 
         var pageSize: vm_size_t = 0
         host_page_size(mach_host_self(), &pageSize)
-        let used = (UInt64(stats.active_count) + UInt64(stats.wire_count) + UInt64(stats.compressor_page_count)) * UInt64(pageSize)
+        let page = UInt64(pageSize == 0 ? 4096 : pageSize)
 
-        var totalMemory: UInt64 = 0
-        var totalSize = MemoryLayout<UInt64>.size
-        sysctlbyname("hw.memsize", &totalMemory, &totalSize, nil, 0)
+        let purgeable = UInt64(stats.purgeable_count)
+        let internalPages = UInt64(stats.internal_page_count)
+        let app = (internalPages > purgeable ? internalPages - purgeable : internalPages) * page
+        let wired = UInt64(stats.wire_count) * page
+        let compressed = UInt64(stats.compressor_page_count) * page
+        let cached = (UInt64(stats.external_page_count) + purgeable) * page
 
-        return (used / 1_048_576, totalMemory / 1_048_576)
+        usage.appMB = app / 1_048_576
+        usage.wiredMB = wired / 1_048_576
+        usage.compressedMB = compressed / 1_048_576
+        usage.cachedMB = cached / 1_048_576
+        usage.usedMB = usage.appMB + usage.wiredMB + usage.compressedMB
+        return usage
+    }
+
+    /// 1 normal, 2 warning, 4 critical. Defaults to normal when the sysctl
+    /// is unavailable rather than inventing a scarier value.
+    private func memoryPressureLevel() -> Int32 {
+        var level: Int32 = 1
+        var size = MemoryLayout<Int32>.size
+        guard sysctlbyname("kern.memorystatus_vm_pressure_level", &level, &size, nil, 0) == 0 else { return 1 }
+        return level
     }
 
     /// Mirrors C's `struct xsw_usage` from `<sys/sysctl.h>` — field order and
@@ -175,6 +268,35 @@ public actor SystemStatsService: SystemStatsProvider {
         let total = Double(stat.f_blocks) * blockSize
         let available = Double(stat.f_bavail) * blockSize
         return ((total - available) / 1_073_741_824, total / 1_073_741_824)
+    }
+
+    /// Every mounted browsable volume, internal first. Uses
+    /// `volumeAvailableCapacityForImportantUsage` — the figure Finder shows,
+    /// which counts space reclaimable from purgeable snapshots, rather than
+    /// `statfs`'s raw free blocks that read alarmingly low on APFS.
+    private func volumes() -> [VolumeUsage] {
+        let keys: [URLResourceKey] = [
+            .volumeNameKey, .volumeTotalCapacityKey, .volumeAvailableCapacityForImportantUsageKey,
+            .volumeIsBrowsableKey, .volumeIsInternalKey,
+        ]
+        let urls = FileManager.default.mountedVolumeURLs(
+            includingResourceValuesForKeys: keys, options: [.skipHiddenVolumes]
+        ) ?? []
+
+        return urls.compactMap { url -> VolumeUsage? in
+            guard let values = try? url.resourceValues(forKeys: Set(keys)),
+                  values.volumeIsBrowsable == true,
+                  let total = values.volumeTotalCapacity, total > 0
+            else { return nil }
+            return VolumeUsage(
+                path: url.path,
+                name: values.volumeName ?? url.lastPathComponent,
+                totalBytes: UInt64(total),
+                freeBytes: UInt64(max(0, values.volumeAvailableCapacityForImportantUsage ?? 0)),
+                isInternal: values.volumeIsInternal ?? false
+            )
+        }
+        .sorted { ($0.isInternal ? 0 : 1, $0.path) < ($1.isInternal ? 0 : 1, $1.path) }
     }
 
     // MARK: - Network throughput (getifaddrs)
@@ -353,7 +475,23 @@ public actor SystemStatsService: SystemStatsProvider {
         smcOpened = (try? smc.open()) != nil
     }
 
-    private func cpuTempCelsius() -> Double? {
+    /// Every readable sensor, via the HID event system. Empty on machines
+    /// that don't publish any there (typically Intel) — `cpuTempCelsius()`
+    /// then falls back to SMC on its own.
+    private func temperatures() -> [TemperatureReading] {
+        if !hidThermalLoaded {
+            hidThermalLoaded = true
+            hidThermal = HIDThermalReader()
+        }
+        guard let hidThermal, hidThermal.hasSensors else { return [] }
+        return hidThermal.sample()
+    }
+
+    /// Prefers the hottest HID CPU/SoC sensor, which is both more accurate
+    /// and more widely available than the SMC key probing; falls back to the
+    /// original SMC path so Intel Macs keep the reading they always had.
+    private func cpuTempCelsius(from readings: [TemperatureReading]) -> Double? {
+        if let hottest = readings.hottest(.cpu) { return hottest }
         guard smcOpened else { return nil }
         for key in SMCReader.candidateTempKeys {
             if let value = try? smc.readFloatValue(key: key), value.isFinite, value > 0 {

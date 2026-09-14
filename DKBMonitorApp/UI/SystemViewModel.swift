@@ -46,7 +46,10 @@ struct AppUsage: Identifiable {
 @Observable
 final class SystemViewModel {
     private static let refreshIntervalSecs: UInt64 = 2
-    private static let historyLimit = 30
+    /// 60 samples at 2s is a two-minute window. The previous 30 (one minute)
+    /// was short enough that a spike scrolled off the sparkline before the
+    /// user finished reading the number that prompted them to look.
+    private static let historyLimit = 60
 
     static let shared = SystemViewModel(statsProvider: SystemStatsService(), processProvider: ProcessListService())
 
@@ -61,6 +64,12 @@ final class SystemViewModel {
     var uploadHistory: [Double] = []
     var tempHistory: [Double] = []
     var topApps: [AppUsage] = []
+    /// Every OS process, unmatched against `NSRunningApplication`. Kept
+    /// alongside `topApps` rather than replacing it: the app list is the
+    /// readable default, but it hides daemons — when `mds_stores` or
+    /// `kernel_task` is the one eating the CPU, the app list shows nothing
+    /// unusual and the user has no way to find the real culprit.
+    var allProcesses: [ProcessUsage] = []
 
     /// True until the first `refresh()` completes. `current` starts as all
     /// zeros (`SystemStats()`'s default init), which would otherwise flash
@@ -102,6 +111,7 @@ final class SystemViewModel {
         }
         let usages = await processProvider.processUsages()
         topApps = topApps(from: usages)
+        allProcesses = usages.sorted { $0.cpuPercent > $1.cpuPercent }
         hasLoadedOnce = true
     }
 

@@ -6,6 +6,14 @@ import AppKit
 /// policy (Dock icon) when reopening.
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Layout-snapshot mode renders the panes to PNG and exits, so it
+        // must short-circuit before the scheduler, Sparkle and the wake
+        // observer start doing real work.
+        if let directory = LayoutSnapshot.requestedDirectory {
+            Task { await LayoutSnapshot.run(directory: directory) }
+            return
+        }
+
         MenuBarStatsViewModel.shared.start()
         NotificationManager.shared.onRouteSelected = { route in
             AppNavigationState.shared.handleNotificationRoute(route)

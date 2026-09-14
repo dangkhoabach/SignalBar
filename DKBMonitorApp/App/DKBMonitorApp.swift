@@ -81,5 +81,11 @@ struct DKBMonitorApp: App {
         } label: {
             MenuBarIconView()
         }
+        // `.window`, not the default menu style: a standard menu can only
+        // host menu items, so the dropdown was limited to plain text rows.
+        // The windowed style hosts a real view, which is what lets
+        // `MenuBarContentView` draw usage bars, a per-core strip and
+        // sparklines instead of just printing the same numbers.
+        .menuBarExtraStyle(.window)
     }
 }

@@ -40,6 +40,8 @@ struct ContentView: View {
                 RemoteServerListView()
             case .system:
                 SystemView()
+            case .cleanup:
+                CleanupView()
             case .settings:
                 SettingsView()
             }

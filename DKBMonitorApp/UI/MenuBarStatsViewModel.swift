@@ -30,6 +30,11 @@ final class MenuBarStatsViewModel {
     private let targetRepo: TargetRepository?
     private var loopTask: Task<Void, Never>?
 
+    /// Rolling window for the popover's sparklines. 24 samples at the 5s
+    /// refresh is two minutes of history — long enough to show a spike the
+    /// user just felt, short enough to stay cheap.
+    private static let historyLimit = 24
+
     private var cpuPercent: Int?
     private var ramUsedGB: Double?
     private var ramTotalGB: Double?
@@ -38,6 +43,30 @@ final class MenuBarStatsViewModel {
     private var batteryCharging = false
     private var domainsUp: Int?
     private var domainsTotal: Int?
+
+    /// The full snapshot behind the labels, for the popover's bars and
+    /// per-core strip. The labels above stay as they are: they're also used
+    /// by the plain-`Text` fallback menu and are localized differently.
+    private(set) var stats = SystemStats()
+    private(set) var cpuHistory: [Double] = []
+    private(set) var ramHistory: [Double] = []
+
+    /// `nil` until the first refresh lands, so the menu bar shows its icon
+    /// alone rather than a misleading "0%" during launch.
+    var cpuPercentValue: Int? { cpuPercent }
+
+    /// Bare values for the popover, where the metric name is already its own
+    /// localized `Label` — the `…Label` properties below prefix it ("CPU: 42%")
+    /// and would read as a duplicate there.
+    var cpuLabelValue: String {
+        guard let cpuPercent else { return "—" }
+        return "\(cpuPercent)%"
+    }
+
+    var ramLabelValue: String {
+        guard let ramUsedGB, let ramTotalGB else { return "—" }
+        return String(format: "%.1f / %.1f GB", ramUsedGB, ramTotalGB)
+    }
 
     init(statsProvider: SystemStatsProvider, targetRepo: TargetRepository?) {
         self.statsProvider = statsProvider
@@ -61,6 +90,10 @@ final class MenuBarStatsViewModel {
 
     func refresh() async {
         let stats = await statsProvider.snapshotLight()
+        self.stats = stats
+
+        appendClamped(&cpuHistory, stats.cpuPercent)
+        appendClamped(&ramHistory, stats.ramTotalMB > 0 ? Double(stats.ramUsedMB) / Double(stats.ramTotalMB) * 100 : 0)
 
         cpuPercent = Int(stats.cpuPercent.rounded())
         ramUsedGB = Double(stats.ramUsedMB) / 1024
@@ -107,5 +140,24 @@ final class MenuBarStatsViewModel {
     var hasDownTargets: Bool {
         guard let domainsUp, let domainsTotal else { return false }
         return domainsUp < domainsTotal
+    }
+
+    /// Injects a fabricated snapshot for `LayoutSnapshot` only, so the
+    /// popover's per-core strip can be rendered against machine shapes this
+    /// Mac isn't (a 16-core M2 Ultra, an Intel box with no clusters). The
+    /// polling loop is stopped by the caller for the duration; `stats` stays
+    /// `private(set)` for every other caller.
+    func overrideStatsForSnapshot(_ stats: SystemStats) {
+        self.stats = stats
+        cpuPercent = Int(stats.cpuPercent.rounded())
+        ramUsedGB = Double(stats.ramUsedMB) / 1024
+        ramTotalGB = Double(stats.ramTotalMB) / 1024
+    }
+
+    private func appendClamped(_ array: inout [Double], _ value: Double) {
+        array.append(value)
+        if array.count > Self.historyLimit {
+            array.removeFirst(array.count - Self.historyLimit)
+        }
     }
 }
