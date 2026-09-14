@@ -126,20 +126,44 @@ public actor Scheduler {
         else { return }
 
         let route = "/targets/\(targetId)"
-        let threshold = settings.failureAlertThreshold
-        if !outcome.success && transition.newFailures == threshold {
+        switch Self.alert(success: outcome.success, transition: transition, threshold: settings.failureAlertThreshold) {
+        case .down:
             await notifyIfEnabled(title: "\(target.name) đang down", body: outcome.errorMessage ?? "Health check thất bại", route: route)
-        } else if outcome.success && transition.previousFailures >= threshold {
+        case .backUp:
             await notifyIfEnabled(title: "\(target.name) đã hoạt động lại", body: "Health check đã thành công", route: route)
-        } else if transition.newSlow == threshold {
+        case .slow:
             await notifyIfEnabled(
                 title: "\(target.name) phản hồi chậm",
                 body: "\(outcome.responseTimeMs)ms (ngưỡng \(settings.responseTimeAlertThresholdMs)ms)",
                 route: route
             )
-        } else if !transition.isSlow && transition.previousSlow >= threshold {
+        case .responseTimeNormal:
             await notifyIfEnabled(title: "\(target.name) đã phản hồi bình thường trở lại", body: "Response time đã ổn định", route: route)
+        case nil:
+            break
         }
+    }
+
+    enum Alert: Equatable {
+        case down, backUp, slow, responseTimeNormal
+    }
+
+    /// Which alert a check transition warrants, if any.
+    ///
+    /// Pure and separate from `storeAndNotify` so the branch order can be
+    /// tested directly: reproducing "slow but successful" through `tick()`
+    /// would need a server that answers slowly on demand.
+    static func alert(success: Bool, transition: TargetRepository.AlertTransition, threshold: Int) -> Alert? {
+        if !success && transition.newFailures == threshold { return .down }
+        if success && transition.previousFailures >= threshold { return .backUp }
+        if transition.newSlow == threshold { return .slow }
+        // `success` matters here even though `isSlow` is already false on any
+        // failed check: without it, a target that was slow for `threshold`
+        // checks and then failed outright reported "response time back to
+        // normal" at the exact moment it started going down. The real down
+        // alert only follows once the failure streak reaches `threshold`.
+        if success && !transition.isSlow && transition.previousSlow >= threshold { return .responseTimeNormal }
+        return nil
     }
 
     // MARK: - SSL / domain expiry checks

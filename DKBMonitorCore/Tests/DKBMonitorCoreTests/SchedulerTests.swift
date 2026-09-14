@@ -117,3 +117,56 @@ private struct StaticStatsProvider: SystemStatsProvider {
         await scheduler.stop()
     }
 }
+
+@Suite struct SchedulerAlertDecisionTests {
+    private func transition(
+        previousFailures: Int = 0, newFailures: Int = 0,
+        previousSlow: Int = 0, newSlow: Int = 0, isSlow: Bool = false
+    ) -> TargetRepository.AlertTransition {
+        TargetRepository.AlertTransition(
+            previousFailures: previousFailures, newFailures: newFailures,
+            previousSlow: previousSlow, newSlow: newSlow, isSlow: isSlow
+        )
+    }
+
+    /// The regression this suite exists for: a target that answered slowly for
+    /// `threshold` checks and then failed outright used to report "response
+    /// time back to normal" — the reassuring message, at the exact moment it
+    /// started going down. A failed check never means the response time
+    /// recovered, so it must produce no alert until the failure streak
+    /// reaches the threshold.
+    @Test func aFailureAfterASlowStreakDoesNotClaimTheResponseTimeRecovered() {
+        let firstFailure = transition(previousFailures: 0, newFailures: 1, previousSlow: 2, newSlow: 0, isSlow: false)
+        #expect(Scheduler.alert(success: false, transition: firstFailure, threshold: 2) == nil)
+    }
+
+    /// The down alert still arrives on the check that reaches the threshold,
+    /// so the slow streak only delays it, never replaces it.
+    @Test func theDownAlertStillFiresOnceTheFailureStreakReachesTheThreshold() {
+        let secondFailure = transition(previousFailures: 1, newFailures: 2, previousSlow: 0, newSlow: 0, isSlow: false)
+        #expect(Scheduler.alert(success: false, transition: secondFailure, threshold: 2) == .down)
+    }
+
+    /// A genuine response-time recovery — a successful, no-longer-slow check
+    /// after a slow streak — must still alert.
+    @Test func aSuccessfulFastCheckAfterASlowStreakReportsTheRecovery() {
+        let recovered = transition(previousFailures: 0, newFailures: 0, previousSlow: 2, newSlow: 0, isSlow: false)
+        #expect(Scheduler.alert(success: true, transition: recovered, threshold: 2) == .responseTimeNormal)
+    }
+
+    @Test func aSlowStreakReachingTheThresholdReportsSlow() {
+        let slow = transition(previousSlow: 1, newSlow: 2, isSlow: true)
+        #expect(Scheduler.alert(success: true, transition: slow, threshold: 2) == .slow)
+    }
+
+    @Test func aSuccessAfterAFailureStreakReportsBackUp() {
+        let backUp = transition(previousFailures: 2, newFailures: 0)
+        #expect(Scheduler.alert(success: true, transition: backUp, threshold: 2) == .backUp)
+    }
+
+    /// Steady state on both sides: nothing to say.
+    @Test func anUneventfulCheckProducesNoAlert() {
+        #expect(Scheduler.alert(success: true, transition: transition(), threshold: 2) == nil)
+        #expect(Scheduler.alert(success: false, transition: transition(newFailures: 1), threshold: 2) == nil)
+    }
+}

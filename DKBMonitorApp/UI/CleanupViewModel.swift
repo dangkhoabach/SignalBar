@@ -80,6 +80,10 @@ final class CleanupViewModel {
     var hasScanned = false
 
     private var scanTask: Task<Void, Never>?
+    /// Bumped per scan so a progress callback still in flight from a cancelled
+    /// walk can't write its (much larger) file count over the new scan's
+    /// freshly reset counter.
+    private var scanGeneration = 0
 
     func loadScanRoots() {
         guard scanRoots.isEmpty else { return }
@@ -104,6 +108,8 @@ final class CleanupViewModel {
         let root = selectedRootPath
         let minimumBytes = Int64(minimumMB) * 1_048_576
         let includeHidden = includeHidden
+        scanGeneration += 1
+        let generation = scanGeneration
 
         scanTask = Task { [weak self] in
             // Bound strongly up front so the `@Sendable` progress closure
@@ -114,8 +120,9 @@ final class CleanupViewModel {
                 root: root, minimumBytes: minimumBytes, includeHidden: includeHidden
             ) { [weak self] progress in
                 Task { @MainActor in
-                    self?.scannedFiles = progress.scannedFiles
-                    self?.currentFolder = progress.currentFolder
+                    guard let self, self.scanGeneration == generation else { return }
+                    self.scannedFiles = progress.scannedFiles
+                    self.currentFolder = progress.currentFolder
                 }
             }
             guard !Task.isCancelled else { return }

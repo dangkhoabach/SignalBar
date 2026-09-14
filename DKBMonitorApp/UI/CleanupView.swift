@@ -63,6 +63,13 @@ struct CleanupView: View {
             viewModel.loadScanRoots()
             if viewModel.junkSizes.isEmpty { await viewModel.measureJunk() }
         }
+        .onDisappear {
+            // The view model is a singleton, so leaving the pane doesn't tear
+            // the scan down on its own — without this, walking a whole home
+            // directory carries on in the background for a result list nobody
+            // is looking at any more.
+            viewModel.cancelScan()
+        }
     }
 
     // MARK: - Junk
