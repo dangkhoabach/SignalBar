@@ -19,15 +19,21 @@ actor JunkCleanerService {
         var bytes: Int64
     }
 
-    let targets: [JunkTarget]
-
-    init() {
+    /// Resolved on first access rather than in `init`.
+    ///
+    /// The filter below stats sixteen paths, and `init` runs wherever the
+    /// owner is created — for the shared view model, that was the main actor
+    /// during view setup. `lazy` inside an actor moves the work to the first
+    /// `await` on this property, which every caller already does.
+    lazy var targets: [JunkTarget] = {
         // Filtered to what exists: listing "Gradle cache — 0 bytes" on a Mac
         // with no Gradle is noise, and the list is long enough already.
         let fileManager = FileManager.default
-        targets = JunkTarget.defaults(homeDirectory: NSHomeDirectory())
+        return JunkTarget.defaults(homeDirectory: NSHomeDirectory())
             .filter { fileManager.fileExists(atPath: $0.path) }
-    }
+    }()
+
+    init() {}
 
     /// Measures every target concurrently. Yields each result as it lands so
     /// the UI can fill in progressively — a cold `~/Library/Caches` walk can

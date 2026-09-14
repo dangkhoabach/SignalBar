@@ -201,22 +201,83 @@ public struct TargetRepository: Sendable {
             .values(in: dbQueue)
     }
 
-    private static func overview(_ db: Database) throws -> [TargetOverview] {
+    /// Assembles the Overview rows in a fixed number of queries.
+    ///
+    /// This used to run four queries per target. `observeOverview` re-runs it
+    /// on every write to any of the four tables involved, and the scheduler
+    /// writes after every single check — so with the Overview open, the cost
+    /// was 4×N queries firing continuously and growing with the target list.
+    /// Fetching each table once and joining in memory makes it five queries
+    /// no matter how many targets there are.
+    ///
+    /// `internal` rather than `private` only so the query-count test can call
+    /// it directly; the app still reaches it through `observeOverview`.
+    static func overview(_ db: Database) throws -> [TargetOverview] {
         let targets = try Target.order(sql: "sort_order ASC, created_at ASC").fetchAll(db)
-        return try targets.map { target in
-            let latest = try CheckResult
-                .filter(sql: "target_id = ?", arguments: [target.id])
-                .order(sql: "checked_at DESC")
-                .fetchOne(db)
-            let ssl = try SslStatus.fetchOne(db, key: target.id)
-            let domain = try DomainStatus.fetchOne(db, key: target.id)
-            let uptime = try Double.fetchOne(
-                db,
-                sql: "SELECT AVG(success) * 100.0 FROM check_results WHERE target_id = ? AND checked_at >= datetime('now', '-1 day')",
-                arguments: [target.id]
+        guard !targets.isEmpty else { return [] }
+
+        let latestChecks = try latestCheckByTarget(db)
+        // One row per target in both tables (`target_id` is the primary key),
+        // but keyed defensively rather than with `uniqueKeysWithValues`, which
+        // traps instead of resolving if that ever stops holding.
+        let sslStatuses = Dictionary(
+            try SslStatus.fetchAll(db).map { ($0.targetId, $0) }, uniquingKeysWith: { first, _ in first }
+        )
+        let domainStatuses = Dictionary(
+            try DomainStatus.fetchAll(db).map { ($0.targetId, $0) }, uniquingKeysWith: { first, _ in first }
+        )
+        let uptimes = try uptime24hByTarget(db)
+
+        return targets.map { target in
+            let id = target.id
+            return TargetOverview(
+                target: target,
+                latestCheck: id.flatMap { latestChecks[$0] },
+                sslStatus: id.flatMap { sslStatuses[$0] },
+                domainStatus: id.flatMap { domainStatuses[$0] },
+                uptime24hPct: id.flatMap { uptimes[$0] }
             )
-            return TargetOverview(target: target, latestCheck: latest, sslStatus: ssl, domainStatus: domain, uptime24hPct: uptime)
         }
+    }
+
+    /// Most recent check per target, served by `idx_check_results_target_time`.
+    private static func latestCheckByTarget(_ db: Database) throws -> [Int64: CheckResult] {
+        let rows = try CheckResult.fetchAll(db, sql: """
+            SELECT cr.* FROM check_results cr
+            JOIN (
+                SELECT target_id, MAX(checked_at) AS max_checked
+                FROM check_results GROUP BY target_id
+            ) m ON cr.target_id = m.target_id AND cr.checked_at = m.max_checked
+            """)
+
+        var latest: [Int64: CheckResult] = [:]
+        for row in rows {
+            // Two checks can share a timestamp — the column stores whole
+            // seconds — and the tie goes to the row inserted last, as the
+            // newer of two equally-timestamped results is the current one.
+            //
+            // This is a deliberate change, not preserved behaviour: the old
+            // `ORDER BY checked_at DESC ... fetchOne` left the tie to SQLite,
+            // which walked the index and returned the *older* row. Only
+            // reachable when two checks for one target land in the same
+            // second, which `checkNow` next to a scheduled tick can do.
+            if let existing = latest[row.targetId], (existing.id ?? 0) >= (row.id ?? 0) { continue }
+            latest[row.targetId] = row
+        }
+        return latest
+    }
+
+    private static func uptime24hByTarget(_ db: Database) throws -> [Int64: Double] {
+        let rows = try Row.fetchAll(db, sql: """
+            SELECT target_id, AVG(success) * 100.0 AS pct
+            FROM check_results
+            WHERE checked_at >= datetime('now', '-1 day')
+            GROUP BY target_id
+            """)
+        return Dictionary(
+            rows.map { ($0["target_id"] as Int64, $0["pct"] as Double) },
+            uniquingKeysWith: { first, _ in first }
+        )
     }
 
     public func detail(targetId: Int64, historyLimit: Int = 100) throws -> TargetDetail? {

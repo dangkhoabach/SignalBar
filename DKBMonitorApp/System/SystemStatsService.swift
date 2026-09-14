@@ -44,6 +44,17 @@ public actor SystemStatsService: SystemStatsProvider {
     private var cachedNetworkStatus: (connected: Bool, type: String?, name: String?, localIP: String?)?
     private var networkStatusFetchedAt: Date?
 
+    /// `gpuPercent()` forks `ioreg` too, and was the one process spawn the
+    /// network-status fix above missed: `SystemView` polls `snapshot()` every
+    /// 2s, so it ran ~30 times a minute for as long as the pane stayed open.
+    ///
+    /// A much shorter TTL than the network one, because unlike the active
+    /// interface this genuinely does change between polls — it just doesn't
+    /// need re-measuring several times within one refresh of the same view.
+    private static let gpuPercentTTL: TimeInterval = 1.5
+    private var cachedGPUPercent: Double?
+    private var gpuPercentFetchedAt: Date?
+
     public init() {}
 
     /// CPU/RAM/temperature/battery only — no `Process` spawns. Used by
@@ -435,7 +446,20 @@ public actor SystemStatsService: SystemStatsProvider {
     }
 
     private func gpuPercent() -> Double? {
-        guard let output = runProcess("/usr/sbin/ioreg", ["-r", "-d", "1", "-w", "0", "-c", "IOAccelerator"]) else { return nil }
+        if let fetchedAt = gpuPercentFetchedAt, Date().timeIntervalSince(fetchedAt) < Self.gpuPercentTTL {
+            return cachedGPUPercent
+        }
+        gpuPercentFetchedAt = Date()
+        cachedGPUPercent = Self.parseGPUPercent(
+            runProcess("/usr/sbin/ioreg", ["-r", "-d", "1", "-w", "0", "-c", "IOAccelerator"])
+        )
+        return cachedGPUPercent
+    }
+
+    /// Split out of `gpuPercent()` so the parsing can be tested without a
+    /// machine that has an `IOAccelerator` to report.
+    static func parseGPUPercent(_ output: String?) -> Double? {
+        guard let output else { return nil }
         let key = "\"Device Utilization %\"="
         guard let range = output.range(of: key) else { return nil }
         let digits = output[range.upperBound...].prefix(while: \.isNumber)
