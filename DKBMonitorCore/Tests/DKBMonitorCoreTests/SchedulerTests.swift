@@ -18,6 +18,75 @@ private actor RecordingReportSender: ReportSending {
     }
 }
 
+/// Suspends inside `sendReport` until released, so a second `tick()` can be
+/// driven into the window where the first is mid-send — the shape that
+/// produced two report emails on wake-from-sleep.
+private actor SuspendingReportSender: ReportSending {
+    private(set) var callCount = 0
+    private var resume: CheckedContinuation<Void, Never>?
+    private var started: CheckedContinuation<Void, Never>?
+
+    func sendReport(label: String, days: Int) async -> Bool {
+        callCount += 1
+        started?.resume()
+        started = nil
+        await withCheckedContinuation { resume = $0 }
+        return true
+    }
+
+    /// Waits until a send is actually in progress.
+    func waitUntilSending() async {
+        guard callCount == 0 else { return }
+        await withCheckedContinuation { started = $0 }
+    }
+
+    func release() {
+        resume?.resume()
+        resume = nil
+    }
+}
+
+/// Always fails, standing in for a relay that's down.
+private actor FailingReportSender: ReportSending {
+    private(set) var callCount = 0
+    func sendReport(label: String, days: Int) async -> Bool {
+        callCount += 1
+        return false
+    }
+}
+
+/// Holds the *first* `notify` open so a second `tick()` can be driven into
+/// the window between reading an alert flag and setting it.
+///
+/// Only the first call parks. A second one returns straight away and is
+/// counted — if the guard under test regresses, this fails on the count
+/// instead of deadlocking two parked callers against a single release.
+private actor SuspendingNotifier: NotificationSending {
+    private(set) var notifications: [String] = []
+    private var resume: CheckedContinuation<Void, Never>?
+    private var started: CheckedContinuation<Void, Never>?
+    private var hasParked = false
+
+    func notify(title: String, body: String, route: String?) async {
+        notifications.append(title)
+        started?.resume()
+        started = nil
+        guard !hasParked else { return }
+        hasParked = true
+        await withCheckedContinuation { resume = $0 }
+    }
+
+    func waitUntilNotifying() async {
+        guard notifications.isEmpty else { return }
+        await withCheckedContinuation { started = $0 }
+    }
+
+    func release() {
+        resume?.resume()
+        resume = nil
+    }
+}
+
 private struct StaticStatsProvider: SystemStatsProvider {
     let value: SystemStats
     func snapshot() async -> SystemStats { value }
@@ -108,6 +177,111 @@ private struct StaticStatsProvider: SystemStatsProvider {
 
         let afterCycle = await notifier.notifications
         #expect(afterCycle.count == 2)
+    }
+
+    private func makeReportSettings(_ settingsRepo: SettingsRepository) throws {
+        try settingsRepo.update({
+            var s = AppSettings.defaults
+            s.smtpEnabled = true
+            s.smtpRecipientEmail = "ops@example.com"
+            s.smtpFrequency = "daily"
+            return s
+        }())
+    }
+
+    /// End-to-end cover for the wake-from-sleep path: a second `tick()`
+    /// arriving while the first is parked mid-send must not produce a second
+    /// email.
+    ///
+    /// Note this passes with or without `tickInFlight`, because recording the
+    /// attempt *before* awaiting the send already closes this particular
+    /// window. It's kept as the regression test for the reported symptom; the
+    /// guard itself is exercised by the system-alert test below, where there
+    /// is no backoff to fall back on.
+    @Test func aSecondTickDuringASendDoesNotSendTheReportTwice() async throws {
+        let app = try makeDatabase()
+        try makeReportSettings(SettingsRepository(dbQueue: app.dbQueue))
+
+        let sender = SuspendingReportSender()
+        let scheduler = Scheduler(dbQueue: app.dbQueue, notifier: RecordingNotifier(), reportSender: sender)
+
+        let first = Task { await scheduler.tick() }
+        await sender.waitUntilSending()
+
+        // The wake-from-sleep path, arriving while the first tick is parked
+        // mid-send.
+        await scheduler.tick()
+
+        await sender.release()
+        await first.value
+
+        #expect(await sender.callCount == 1)
+    }
+
+    /// What `tickInFlight` is actually for: the system-alert flags are a
+    /// read-then-write around an `await`, with nothing else guarding them.
+    /// Two reentrant ticks both read "not yet alerted" and both notified, so
+    /// a wake-from-sleep during a hot spell produced a duplicate alert.
+    @Test func aSecondTickDuringAnAlertDoesNotRaiseItTwice() async throws {
+        let app = try makeDatabase()
+        let settingsRepo = SettingsRepository(dbQueue: app.dbQueue)
+        try settingsRepo.update({
+            var s = AppSettings.defaults
+            s.notificationsEnabled = true
+            s.systemTempAlertThresholdCelsius = 80
+            return s
+        }())
+
+        let notifier = SuspendingNotifier()
+        let scheduler = Scheduler(
+            dbQueue: app.dbQueue, notifier: notifier, reportSender: RecordingReportSender(),
+            statsProvider: StaticStatsProvider(value: SystemStats(cpuTempCelsius: 95))
+        )
+
+        let first = Task { await scheduler.tick() }
+        await notifier.waitUntilNotifying()
+        await scheduler.tick()
+
+        await notifier.release()
+        await first.value
+
+        #expect(await notifier.notifications.count == 1)
+    }
+
+    /// A failing relay must not turn the 15-second tick into an all-day retry
+    /// loop: the due-today window stays open until a send succeeds, so the
+    /// backoff is the only thing bounding the attempts.
+    @Test func aFailedReportIsNotRetriedOnTheVeryNextTick() async throws {
+        let app = try makeDatabase()
+        try makeReportSettings(SettingsRepository(dbQueue: app.dbQueue))
+
+        let sender = FailingReportSender()
+        let scheduler = Scheduler(dbQueue: app.dbQueue, notifier: RecordingNotifier(), reportSender: sender)
+
+        await scheduler.tick()
+        await scheduler.tick()
+        await scheduler.tick()
+
+        #expect(await sender.callCount == 1)
+    }
+
+    /// Once the backoff has elapsed it does try again — the report still has
+    /// to go out on a day the relay recovers.
+    @Test func aFailedReportIsRetriedOnceTheBackoffElapses() async throws {
+        let app = try makeDatabase()
+        try makeReportSettings(SettingsRepository(dbQueue: app.dbQueue))
+        let stateStore = SchedulerStateStore(dbQueue: app.dbQueue)
+
+        let sender = FailingReportSender()
+        let scheduler = Scheduler(dbQueue: app.dbQueue, notifier: RecordingNotifier(), reportSender: sender)
+
+        await scheduler.tick()
+        try stateStore.markReportAttempted(
+            at: Date().addingTimeInterval(-Scheduler.reportRetryIntervalSecs - 60)
+        )
+        await scheduler.tick()
+
+        #expect(await sender.callCount == 2)
     }
 
     @Test func startAndStopDoNotCrash() async throws {

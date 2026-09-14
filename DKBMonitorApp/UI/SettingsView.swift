@@ -28,6 +28,9 @@ struct SettingsView: View {
     @AppStorage("themePreference") private var themePreferenceRaw = ThemePreference.system.rawValue
     @AppStorage("languagePreference") private var languageRaw = AppLocale.systemDefault.rawValue
     @AppStorage("showCPUPercentInMenuBar") private var showCPUPercentInMenuBar = false
+    /// Set when macOS refuses notifications while the in-app toggle is on —
+    /// the state in which alerts are configured but can never be delivered.
+    @State private var notificationsBlocked = false
     @State private var loginItemEnabled = LoginItemManager.shared.isEnabled
     @State private var loginItemError: String?
     @State private var isPresentingClearAllConfirm = false
@@ -65,23 +68,47 @@ struct SettingsView: View {
                     get: { viewModel.settings.notificationsEnabled },
                     set: { newValue in
                         viewModel.settings.notificationsEnabled = newValue
-                        if newValue {
-                            Task {
-                                await NotificationManager.shared.requestAuthorization()
-                                // Fires a real notification on enable, same
-                                // as the old Tauri app's
-                                // handleNotificationsToggle — this is also
-                                // what actually triggers the first-use
-                                // macOS permission prompt.
-                                await NotificationManager.shared.notify(
-                                    title: "DKB Monitor",
-                                    body: "Notifications are enabled.",
-                                    route: nil
-                                )
+                        guard newValue else {
+                            notificationsBlocked = false
+                            return
+                        }
+                        Task {
+                            // The answer was being discarded, so a denial left
+                            // the toggle on and every later alert silently
+                            // going nowhere — the one failure this app can't
+                            // afford, since an alert that never arrives looks
+                            // exactly like nothing being wrong.
+                            //
+                            // `false` covers a fresh denial and an earlier one
+                            // alike: once denied, macOS stops showing the
+                            // prompt and just answers no.
+                            guard await NotificationManager.shared.requestAuthorization() else {
+                                notificationsBlocked = true
+                                viewModel.settings.notificationsEnabled = false
+                                return
                             }
+                            notificationsBlocked = false
+                            // Fires a real notification on enable, same
+                            // as the old Tauri app's
+                            // handleNotificationsToggle — this is also
+                            // what actually triggers the first-use
+                            // macOS permission prompt.
+                            await NotificationManager.shared.notify(
+                                title: "DKB Monitor",
+                                body: "Notifications are enabled.",
+                                route: nil
+                            )
                         }
                     }
                 ))
+                if notificationsBlocked {
+                    Label(
+                        "macOS is blocking notifications for DKB Monitor, so alerts would never arrive. Allow them in System Settings, then turn this back on.",
+                        systemImage: "exclamationmark.triangle.fill"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                }
                 Text("Get notified when a domain goes down or an SSL/domain expiry is approaching.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -186,6 +213,14 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .onAppear { viewModel.loadIfNeeded() }
+        .task {
+            // Permission can also be taken away from System Settings long
+            // after it was granted, which leaves the toggle on and every
+            // alert going nowhere. Re-check whenever this page opens rather
+            // than trusting what the toggle was last set to.
+            guard viewModel.settings.notificationsEnabled else { return }
+            notificationsBlocked = await NotificationManager.shared.authorizationStatus() == .denied
+        }
         .alert("Login Item Error", isPresented: Binding(
             get: { loginItemError != nil },
             set: { if !$0 { loginItemError = nil } }

@@ -86,6 +86,32 @@ public struct SchedulerStateStore: Sendable {
         try dbQueue.write { db in try AppSettingsStore.set(db, key: "last_report_sent_period", value: period) }
     }
 
+    /// When a send was last attempted, successful or not.
+    ///
+    /// `isDueToday` stays true for the whole day and `markReportSent` only
+    /// runs on success, so a relay that's down turned the 15-second tick into
+    /// a retry loop — on the order of 5,700 POSTs in a day, every one of them
+    /// swallowed silently. Recording the attempt, not just the success, is
+    /// what lets the scheduler back off.
+    ///
+    /// Stored as a Unix timestamp rather than a formatted date: this value is
+    /// only ever compared against `Date()`, never shown, and a plain number
+    /// needs no formatter (`ISO8601DateFormatter` isn't `Sendable`, so a
+    /// shared static one wouldn't compile under strict concurrency anyway).
+    public func lastReportAttempt() throws -> Date? {
+        let raw = try dbQueue.read { db in
+            try AppSettingsStore.get(db, key: "last_report_attempt_at", default: "")
+        }
+        guard let seconds = Double(raw) else { return nil }
+        return Date(timeIntervalSince1970: seconds)
+    }
+
+    public func markReportAttempted(at date: Date = Date()) throws {
+        try dbQueue.write { db in
+            try AppSettingsStore.set(db, key: "last_report_attempt_at", value: String(date.timeIntervalSince1970))
+        }
+    }
+
     private static let dayFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"

@@ -15,6 +15,10 @@ import GRDB
 public actor Scheduler {
     public static let tickIntervalSecs: UInt64 = 15
     private static let expiryCheckIntervalSecs = 86_400
+    /// Gap between report send attempts while one keeps failing. Half an hour
+    /// still lands the report well within its due day, while turning an
+    /// all-day outage into dozens of attempts rather than thousands.
+    static let reportRetryIntervalSecs: TimeInterval = 1_800
 
     private let targetRepo: TargetRepository
     private let settingsRepo: SettingsRepository
@@ -24,6 +28,9 @@ public actor Scheduler {
     private let statsProvider: SystemStatsProvider?
 
     private var loopTask: Task<Void, Never>?
+    /// Guards `tick()` against re-entering while a previous run is suspended
+    /// — see the comment on `tick()` itself.
+    private var tickInFlight = false
     /// Target IDs with an HTTP check currently in flight - guards against
     /// `checkNow`/`checkAllNow` racing the periodic `tick`'s own
     /// `runHTTPChecks` for the same target. Both call into
@@ -67,6 +74,24 @@ public actor Scheduler {
     /// app's `NSWorkspace.didWakeNotification` handler (Core has no AppKit
     /// dependency, so it can't observe that notification itself; see D6).
     public func tick() async {
+        // Actors are reentrant, and this method suspends repeatedly — on HTTP
+        // checks, on sending the report, on taking a stats snapshot. The app
+        // also calls it a second time from `NSWorkspace.didWakeNotification`,
+        // which is exactly when the periodic loop is likely to be mid-tick.
+        //
+        // Both runs would then clear the same check-then-set gates before
+        // either closed them: `lastReportSentPeriod()` before `markReportSent`,
+        // `alertFlag()` before `setAlertFlag`. The user got two report emails
+        // and a duplicate temperature alert. One guard here covers every such
+        // gate inside the cycle, rather than one flag per gate.
+        //
+        // Skipping is the right answer for a wake-up tick: its job is to stop
+        // the loop waiting out the rest of an interval, and a tick already
+        // running has that covered.
+        guard !tickInFlight else { return }
+        tickInFlight = true
+        defer { tickInFlight = false }
+
         do {
             try await runHTTPChecks()
             try await runExpiryChecks()
@@ -232,6 +257,17 @@ public actor Scheduler {
 
         let period = SchedulerStateStore.reportPeriod(frequency: settings.smtpFrequency, dayOfWeek: settings.smtpDayOfWeek, dayOfMonth: settings.smtpDayOfMonth)
         guard period.isDueToday, try stateStore.lastReportSentPeriod() != period.periodIdentifier else { return }
+
+        // Back off between attempts. Only a *successful* send closes the
+        // due-today window, so without this a relay outage meant retrying on
+        // every 15-second tick for the rest of the day.
+        if let lastAttempt = try stateStore.lastReportAttempt(),
+           Date().timeIntervalSince(lastAttempt) < Self.reportRetryIntervalSecs {
+            return
+        }
+        // Recorded before the await, so the next tick sees it even if this
+        // send hangs for a while.
+        try stateStore.markReportAttempted()
 
         guard await reportSender.sendReport(label: period.label, days: period.days) else { return }
         try stateStore.markReportSent(period: period.periodIdentifier)
