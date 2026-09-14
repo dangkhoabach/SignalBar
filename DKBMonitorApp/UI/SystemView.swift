@@ -198,7 +198,11 @@ struct SystemView: View {
             }
 
             HStack(spacing: 12) {
-                Text("Thermal state: \(thermalStateLabel)")
+                // `Text(_:)` around the label, not the bare `LocalizedStringKey`:
+                // interpolating one key into another yields its debug
+                // description ("LocalizedStringKey(key: …)") rather than the
+                // looked-up string. `Text` interpolation stays localizable.
+                Text("Thermal state: \(Text(thermalStateLabel))")
                 if !stats.fanRPMs.isEmpty {
                     ForEach(Array(stats.fanRPMs.enumerated()), id: \.offset) { index, rpm in
                         Text(stats.fanRPMs.count > 1 ? "Fan \(index + 1) \(Int(rpm)) RPM" : "Fan \(Int(rpm)) RPM")
@@ -279,7 +283,7 @@ struct SystemView: View {
                 Circle()
                     .fill(memoryPressureColor)
                     .frame(width: 7, height: 7)
-                Text("Pressure: \(memoryPressureLabel)")
+                Text("Pressure: \(Text(memoryPressureLabel))")
                 Spacer()
                 if stats.ramCachedMB > 0 {
                     Text("Cached \(gigabytes(stats.ramCachedMB))")

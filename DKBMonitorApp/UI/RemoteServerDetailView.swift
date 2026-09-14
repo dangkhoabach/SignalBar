@@ -47,13 +47,17 @@ struct RemoteServerDetailView: View {
                 // in-body segmented bar.
                 .toolbar {
                     ToolbarItem(placement: .principal) {
+                        // See CleanupView's copy of this: the empty label still
+                        // claims layout space without `.labelsHidden()`, and the
+                        // fixed 480pt width squeezed the five segments unevenly.
                         Picker("", selection: $selectedTab) {
                             ForEach(DetailTab.allCases) { tab in
                                 Text(tab.rawValue).tag(tab)
                             }
                         }
                         .pickerStyle(.segmented)
-                        .frame(width: 480)
+                        .labelsHidden()
+                        .fixedSize()
                     }
                 }
             } else {

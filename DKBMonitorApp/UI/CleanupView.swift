@@ -44,11 +44,18 @@ struct CleanupView: View {
         }
         .toolbar {
             ToolbarItem(placement: .principal) {
+                // `.labelsHidden()` is required even with an empty title: the
+                // label still claims layout space, which shows up as a gap on
+                // the leading edge and squeezes the segments inside a fixed
+                // frame. `.fixedSize()` then lets the control take its natural
+                // width instead of a hardcoded one that has to be re-guessed
+                // whenever a tab is renamed.
                 Picker("", selection: $tab) {
                     ForEach(Tab.allCases) { Text($0.rawValue).tag($0) }
                 }
                 .pickerStyle(.segmented)
-                .frame(width: 240)
+                .labelsHidden()
+                .fixedSize()
             }
         }
         .task {

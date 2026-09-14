@@ -90,7 +90,11 @@ final class HIDThermalReader {
             let celsius = eventFloatValue(event, Self.temperatureField)
             guard celsius > 1, celsius < 150 else { continue }
             let sensor = sensors[index]
-            readings.append(TemperatureReading(name: sensor.name, celsius: celsius, category: sensor.category))
+            readings.append(TemperatureReading(
+                name: sensor.name, celsius: celsius, category: sensor.category,
+                // Service index, because product names repeat across sensors.
+                id: "\(index)"
+            ))
         }
         return readings.sorted { $0.celsius > $1.celsius }
     }

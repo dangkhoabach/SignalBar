@@ -8,6 +8,38 @@ import Testing
         #expect(TemperatureReading.category(forSensorNamed: "SOC MTR Temp Sensor0") == .cpu)
     }
 
+    /// Newer M-series name their die sensors `PMU tdie{N}` and expose no
+    /// pACC/eACC/CPU string at all, so the earlier heuristic bucketed every
+    /// one of them as `.system` and the UI showed no CPU reading.
+    @Test func categorisesPMUDieSensorsAsCPU() {
+        #expect(TemperatureReading.category(forSensorNamed: "PMU tdie1") == .cpu)
+        #expect(TemperatureReading.category(forSensorNamed: "PMU tdie10") == .cpu)
+    }
+
+    /// Only the *die* sensors are the SoC. `tdev` are peripheral devices and
+    /// `tcal` is a calibration reference — counting either as CPU would drag
+    /// an unrelated reading into the headline temperature.
+    @Test func doesNotTreatPeripheralOrCalibrationSensorsAsCPU() {
+        #expect(TemperatureReading.category(forSensorNamed: "PMU tdev7") == .system)
+        #expect(TemperatureReading.category(forSensorNamed: "PMU tcal") == .system)
+        #expect(TemperatureReading.category(forSensorNamed: "NAND CH0 temp") == .system)
+        #expect(TemperatureReading.category(forSensorNamed: "als-temp") == .system)
+    }
+
+    /// A Mac reports several sensors sharing one product string, which
+    /// collided when the name doubled as the `ForEach` identity.
+    @Test func identityIsDistinctForSensorsSharingAName() {
+        let readings = [
+            TemperatureReading(name: "PMU tdie7", celsius: 54.0, category: .cpu, id: "12"),
+            TemperatureReading(name: "PMU tdie7", celsius: 53.3, category: .cpu, id: "13"),
+        ]
+        #expect(Set(readings.map(\.id)).count == 2)
+    }
+
+    @Test func identityFallsBackToTheNameWhenUnspecified() {
+        #expect(TemperatureReading(name: "PMU tcal", celsius: 51.9, category: .system).id == "PMU tcal")
+    }
+
     @Test func categorisesIntelAndPeripheralSensors() {
         #expect(TemperatureReading.category(forSensorNamed: "CPU Core 1") == .cpu)
         #expect(TemperatureReading.category(forSensorNamed: "GPU MTR Temp Sensor2") == .gpu)
