@@ -30,10 +30,29 @@ extension RemoteCommandExecutorError: LocalizedError {
 /// outside this type ever builds a shell command string or touches
 /// `SSHCommandRunner` directly.
 public struct RemoteCommandExecutor: Sendable {
+    /// How a session is opened, for the same reason `RemoteConnectionService`
+    /// has one: it lets tests assert that a batch really does share a single
+    /// session, and how it behaves when individual commands fail, without a
+    /// live SSH daemon. Internal, so the public API is still `init(repo:)`.
+    typealias Connector = @Sendable (RemoteServer, SSHAuthCredential) async throws -> any SSHSession
+
     private let repo: RemoteServerRepository
+    private let openSession: Connector
 
     public init(repo: RemoteServerRepository) {
+        self.init(repo: repo, openSession: Self.liveConnector)
+    }
+
+    init(repo: RemoteServerRepository, openSession: @escaping Connector) {
         self.repo = repo
+        self.openSession = openSession
+    }
+
+    private static let liveConnector: Connector = { server, credential in
+        try await SSHCommandRunner.connect(
+            host: server.host, port: server.port, username: server.username,
+            credential: credential, pinnedHostKeyFingerprint: server.hostKeyFingerprint
+        )
     }
 
     /// Restricts service unit names to what systemd itself accepts, and
@@ -103,7 +122,7 @@ public struct RemoteCommandExecutor: Sendable {
         // failure (bad host, timeout, rejected auth) shows up in the audit
         // trail exactly like a failed command does, instead of vanishing
         // silently before anything was ever "executed".
-        var connection: SSHConnection?
+        var connection: (any SSHSession)?
         do {
             let established = try await connect(server: server, forMutatingAction: action.isMutating)
             connection = established
@@ -201,6 +220,108 @@ public struct RemoteCommandExecutor: Sendable {
     }
 
     // MARK: - Resource stats (parsed)
+
+    /// Runs several actions over a single SSH session instead of one session
+    /// each.
+    ///
+    /// A handshake is TCP plus key exchange plus auth — 200ms to well over a
+    /// second on a slow link or an RSA key, and `execute` pays it per call.
+    /// The five stats behind one "Refresh" button therefore cost five of
+    /// them, which is the whole delay the user feels.
+    ///
+    /// Returns one result per action, in order, rather than throwing on the
+    /// first failure: these are independent readings, and a box where `top`
+    /// is missing should still report its disk and memory. It throws only
+    /// when the session itself can't be established, since then nothing ran.
+    /// Authorization is still checked per action, before anything connects.
+    public func execute(
+        _ actions: [RemoteAction], on server: RemoteServer
+    ) async throws -> [Result<SSHCommandResult, any Error>] {
+        guard !actions.isEmpty else { return [] }
+        let serverId = try requireSavedId(server)
+        for action in actions {
+            try requireAuthorized(action, serverId: serverId)
+        }
+
+        // One session serving a mutating action has to be opened with the
+        // credential read that action requires, so the batch takes the
+        // stricter of the two whenever any member mutates.
+        let connection = try await connect(
+            server: server, forMutatingAction: actions.contains { $0.isMutating }
+        )
+        do {
+            try pinHostKeyIfNeeded(server: server, serverId: serverId, connection: connection)
+        } catch {
+            try? await connection.close()
+            try? repo.logCommand(serverId: serverId, action: "batch", exitCode: nil, outputExcerpt: String(String(describing: error).prefix(500)))
+            throw error
+        }
+
+        var results: [Result<SSHCommandResult, any Error>] = []
+        for action in actions {
+            do {
+                let result = try await connection.run(Self.shellCommand(for: action))
+                try? repo.logCommand(
+                    serverId: serverId, action: action.logName,
+                    exitCode: result.exitCode,
+                    outputExcerpt: Self.loggableExcerpt(of: result, for: action)
+                )
+                results.append(.success(result))
+            } catch {
+                try? repo.logCommand(serverId: serverId, action: action.logName, exitCode: nil, outputExcerpt: String(String(describing: error).prefix(500)))
+                results.append(.failure(error))
+            }
+        }
+        try? await connection.close()
+        return results
+    }
+
+    /// Everything the server detail pane's "Refresh" shows, over one session.
+    ///
+    /// Each reading is optional and failures are collected rather than
+    /// thrown, so one unavailable command can't blank out the four that
+    /// worked — which is what the caller previously had to approximate by
+    /// splitting the calls into two groups and hoping the failure landed in
+    /// the second one.
+    public func stats(on server: RemoteServer) async throws -> RemoteServerStats {
+        let actions: [RemoteAction] = [.diskUsage, .memoryUsage, .uptime, .cpuUsage, .osInfo]
+        let results = try await execute(actions, on: server)
+
+        var stats = RemoteServerStats()
+        for (action, result) in zip(actions, results) {
+            switch result {
+            case .failure(let error):
+                stats.failures.append("\(action.logName): \(error.localizedDescription)")
+            case .success(let output):
+                switch action {
+                case .diskUsage: stats.disk = Self.parseDiskUsage(output.stdout)
+                case .memoryUsage: stats.memory = Self.parseMemoryUsage(output.stdout)
+                case .uptime: stats.uptime = Self.parseUptime(output.stdout)
+                case .cpuUsage: stats.cpu = Self.parseCPUUsage(output.stdout)
+                case .osInfo: stats.os = Self.parseOSInfo(output.stdout)
+                default: break
+                }
+                // A command that ran but produced something unparseable is a
+                // distinct failure from one that never ran, and the pane has
+                // nothing to show either way.
+                if Self.readingIsMissing(action, in: stats) {
+                    stats.failures.append("\(action.logName): couldn't read the output")
+                }
+            }
+        }
+        return stats
+    }
+
+    private static func readingIsMissing(_ action: RemoteAction, in stats: RemoteServerStats) -> Bool {
+        switch action {
+        case .diskUsage: stats.disk == nil
+        case .memoryUsage: stats.memory == nil
+        case .cpuUsage: stats.cpu == nil
+        // `parseUptime`/`parseOSInfo` always return a value, so there is no
+        // missing case to report for them.
+        default: false
+        }
+    }
 
     public func diskUsage(on server: RemoteServer) async throws -> RemoteDiskUsage {
         let result = try await execute(.diskUsage, on: server)
@@ -324,7 +445,7 @@ public struct RemoteCommandExecutor: Sendable {
         let serverId = try requireSavedId(server)
         try requireConfigPathAuthorized(path, serverId: serverId)
 
-        var connection: SSHConnection?
+        var connection: (any SSHSession)?
         do {
             let established = try await connect(server: server, forMutatingAction: false)
             connection = established
@@ -345,7 +466,7 @@ public struct RemoteCommandExecutor: Sendable {
         let serverId = try requireSavedId(server)
         try requireConfigPathAuthorized(path, serverId: serverId)
 
-        var connection: SSHConnection?
+        var connection: (any SSHSession)?
         do {
             let established = try await connect(server: server, forMutatingAction: true)
             connection = established
@@ -376,15 +497,12 @@ public struct RemoteCommandExecutor: Sendable {
         return id
     }
 
-    private func connect(server: RemoteServer, forMutatingAction: Bool) async throws -> SSHConnection {
+    private func connect(server: RemoteServer, forMutatingAction: Bool) async throws -> any SSHSession {
         let credential = try repo.credential(for: server, forMutatingAction: forMutatingAction)
-        return try await SSHCommandRunner.connect(
-            host: server.host, port: server.port, username: server.username,
-            credential: credential, pinnedHostKeyFingerprint: server.hostKeyFingerprint
-        )
+        return try await openSession(server, credential)
     }
 
-    private func pinHostKeyIfNeeded(server: RemoteServer, serverId: Int64, connection: SSHConnection) throws {
+    private func pinHostKeyIfNeeded(server: RemoteServer, serverId: Int64, connection: any SSHSession) throws {
         guard server.hostKeyFingerprint == nil else { return }
         try repo.recordHostKeyFingerprint(id: serverId, fingerprint: connection.hostKeyFingerprint)
     }

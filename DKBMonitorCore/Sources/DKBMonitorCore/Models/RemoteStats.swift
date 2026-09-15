@@ -51,3 +51,22 @@ public struct RemoteOSInfo: Sendable, Equatable {
     public let kernel: String
     public let prettyName: String?
 }
+
+/// Every reading the server detail pane shows, gathered in one pass.
+///
+/// All optional and failures kept alongside rather than thrown, because
+/// these are five independent commands: a box without `top` installed still
+/// has a disk and a memory figure worth showing, and losing those to an
+/// unrelated failure is worse than showing four values and one message.
+public struct RemoteServerStats: Sendable, Equatable {
+    public var disk: RemoteDiskUsage?
+    public var memory: RemoteMemoryUsage?
+    public var uptime: RemoteUptime?
+    public var cpu: RemoteCPUUsage?
+    public var os: RemoteOSInfo?
+    /// One entry per reading that couldn't be taken, already phrased for
+    /// display and prefixed with which reading it was.
+    public var failures: [String] = []
+
+    public init() {}
+}

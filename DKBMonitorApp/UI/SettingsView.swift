@@ -37,6 +37,10 @@ struct SettingsView: View {
     @State private var loginItemNeedsApproval = false
     @State private var loginItemError: String?
     @State private var isPresentingClearAllConfirm = false
+    /// Mirrors Sparkle's own preference for display only — the write goes
+    /// straight back to Sparkle, and `.task` re-reads it, so this never
+    /// becomes a second source of truth.
+    @State private var automaticUpdateChecks = AppUpdater.automaticallyChecksForUpdates
 
     var body: some View {
         Form {
@@ -176,6 +180,14 @@ struct SettingsView: View {
             Section("Email Report") {
                 Toggle("Enable Email Reports", isOn: $viewModel.settings.smtpEnabled)
                 if viewModel.settings.smtpEnabled {
+                    // The app holds no mail credential of its own, so reports
+                    // are posted to a relay — which means the recipient
+                    // address and the name of every monitored domain leave
+                    // this Mac. That is worth saying on the page where it is
+                    // switched on, not only in the source.
+                    Text("Reports are sent through admin.dangkhoabach.vn. The recipient address and your domain names are sent to that server so it can deliver the mail.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     TextField("Recipient Email", text: $viewModel.settings.smtpRecipientEmail, prompt: Text("you@example.com"))
                     Picker("Frequency", selection: $viewModel.settings.smtpFrequency) {
                         Text("Daily").tag("daily")
@@ -205,6 +217,23 @@ struct SettingsView: View {
                 }
             }
 
+            Section("Updates") {
+                Toggle("Check for updates automatically", isOn: Binding(
+                    get: { automaticUpdateChecks },
+                    set: {
+                        automaticUpdateChecks = $0
+                        AppUpdater.automaticallyChecksForUpdates = $0
+                    }
+                ))
+                Text("Checks updates.dangkhoabach.vn once a day. Turning this off means updates only happen when you ask for them.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                HStack {
+                    Spacer()
+                    Button("Check Now") { AppUpdater.checkForUpdates() }
+                }
+            }
+
             // Ported from the old Tauri app's `AlertsDataSettingsPage`
             // "Domains" card — Export/Import already existed in the
             // Overview toolbar's menu, but "Clear All Domains" had no
@@ -231,6 +260,10 @@ struct SettingsView: View {
             // whenever this page opens rather than trusting the last value.
             loginItemEnabled = LoginItemManager.shared.isEnabled
             loginItemNeedsApproval = LoginItemManager.shared.requiresApproval
+            // Sparkle's own first-launch prompt can answer this before
+            // Settings is ever opened, and its Check for Updates sheet can
+            // change it too.
+            automaticUpdateChecks = AppUpdater.automaticallyChecksForUpdates
 
             guard viewModel.settings.notificationsEnabled else { return }
             notificationsBlocked = await NotificationManager.shared.authorizationStatus() == .denied

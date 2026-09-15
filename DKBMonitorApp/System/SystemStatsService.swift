@@ -21,6 +21,7 @@ import DKBMonitorCore
 public actor SystemStatsService: SystemStatsProvider {
     private let smc = SMCReader()
     private var smcOpened = false
+    private var smcOpenAttempted = false
 
     /// Created on first use, not in `init`: it holds one HID service client
     /// per sensor (50+ on Apple Silicon), which isn't worth allocating for a
@@ -494,8 +495,17 @@ public actor SystemStatsService: SystemStatsProvider {
 
     // MARK: - SMC (temperature + fans)
 
+    /// Opened at most once, success or failure — same shape as
+    /// `hidThermalLoaded` below.
+    ///
+    /// Only the success was remembered before, so a Mac where the open fails
+    /// re-probed `IOServiceGetMatchingService` on every snapshot: about
+    /// thirty pointless lookups a minute for as long as the System pane
+    /// stayed open. `AppleSMC` is a hardware service that is either there at
+    /// boot or never, so there is nothing a later attempt could find.
     private func ensureSMCOpen() {
-        guard !smcOpened else { return }
+        guard !smcOpenAttempted else { return }
+        smcOpenAttempted = true
         smcOpened = (try? smc.open()) != nil
     }
 

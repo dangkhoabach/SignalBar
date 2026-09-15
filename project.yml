@@ -53,9 +53,11 @@ targets:
         # has actually been done for the dkb-monitor slug.
         SUFeedURL: https://updates.dangkhoabach.vn/dkb-monitor/appcast.xml
         SUPublicEDKey: yAEEvjvy+kV1gxLltskQ9iBfixVqZguKZrjXTv/lj9g=
-        # First release (2.0.2) is live at SUFeedURL, so automatic checks
-        # are safe to enable now — Sparkle has a real appcast to reach.
-        SUEnableAutomaticChecks: true
+        # Deliberately NOT setting SUEnableAutomaticChecks. Hardcoding it to
+        # true suppressed Sparkle's own first-launch permission prompt, so
+        # the app contacted the update server every day without ever asking
+        # — a daily phone-home nobody agreed to. Leaving the key out lets
+        # that prompt run, and Settings › Updates can flip the answer later.
         SUScheduledCheckInterval: 86400
     entitlements:
       path: DKBMonitorApp/DKBMonitorApp.entitlements

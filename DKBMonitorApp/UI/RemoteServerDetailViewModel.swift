@@ -318,16 +318,17 @@ final class RemoteServerDetailViewModel {
 
     static let statsKey = "stats"
 
-    /// Manual refresh only (no auto-poll, per the plan) — separate SSH
-    /// connections (one per parsed stat) rather than one combined command,
-    /// keeping each `RemoteCommandExecutor` stat method independently
-    /// reusable and independently logged. Split into two `do` blocks (disk/
-    /// memory/uptime, then cpu/osInfo) rather than one 5-way `async let`
-    /// group: `top`/`/etc/os-release` are more likely to be missing or
-    /// behave oddly on a minimal/non-standard box than `df`/`free`/`uptime`,
-    /// and a single combined group would throw its *first* error and
-    /// discard every other already-fetched result, even the ones that
-    /// succeeded.
+    /// Manual refresh only (no auto-poll, per the plan), and all five
+    /// readings over a single SSH session.
+    ///
+    /// This used to open one connection per stat. Each one costs a full
+    /// TCP + key exchange + auth handshake, so a single click on Refresh
+    /// paid that five times — the bulk of the wait on a slow link or an RSA
+    /// key, before any command had run. It also meant an earlier grouping
+    /// dance: two `do` blocks, arranged so a failure in the commands most
+    /// likely to be missing (`top`, `/etc/os-release`) wouldn't discard the
+    /// three that had already succeeded. `stats(on:)` reports each reading
+    /// independently, so no arrangement is needed to keep partial results.
     func refreshStats() {
         guard let server, let executor else { return }
         runningKeys.insert(Self.statsKey)
@@ -335,24 +336,18 @@ final class RemoteServerDetailViewModel {
         Task {
             defer { runningKeys.remove(Self.statsKey) }
             do {
-                async let disk = executor.diskUsage(on: server)
-                async let memory = executor.memoryUsage(on: server)
-                async let up = executor.uptime(on: server)
-                let (diskResult, memoryResult, uptimeResult) = try await (disk, memory, up)
-                diskUsage = diskResult
-                memoryUsage = memoryResult
-                uptime = uptimeResult
+                let stats = try await executor.stats(on: server)
+                if let disk = stats.disk { diskUsage = disk }
+                if let memory = stats.memory { memoryUsage = memory }
+                if let up = stats.uptime { uptime = up }
+                if let cpu = stats.cpu { cpuUsage = cpu }
+                if let os = stats.os { osInfo = os }
+                statsErrorMessage = stats.failures.isEmpty
+                    ? nil : stats.failures.joined(separator: "\n")
             } catch {
+                // Only the session itself failing lands here, and then
+                // nothing ran at all.
                 statsErrorMessage = error.localizedDescription
-            }
-            do {
-                async let cpu = executor.cpuUsage(on: server)
-                async let os = executor.osInfo(on: server)
-                let (cpuResult, osResult) = try await (cpu, os)
-                cpuUsage = cpuResult
-                osInfo = osResult
-            } catch {
-                if statsErrorMessage == nil { statsErrorMessage = error.localizedDescription }
             }
             if let id = server.id { load(serverId: id) }
         }

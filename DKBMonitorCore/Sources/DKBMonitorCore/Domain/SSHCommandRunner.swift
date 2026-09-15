@@ -64,14 +64,24 @@ public struct SSHCommandResult: Sendable, Equatable {
 protocol SSHSession: Sendable {
     var hostKeyFingerprint: String { get }
     func run(_ command: String) async throws -> SSHCommandResult
+    func readFile(_ path: String) async throws -> String
+    func writeFile(_ path: String, content: String) async throws
     func close() async throws
 }
 
 extension SSHConnection: SSHSession {
-    /// Bridges the protocol's one-argument `run` onto the real method's
-    /// defaults.
+    // Bridge the protocol's argument-free forms onto the real methods'
+    // defaults, which can't witness a requirement on their own.
     func run(_ command: String) async throws -> SSHCommandResult {
         try await run(command, maxResponseSize: 1 << 20, timeoutSeconds: Self.operationTimeoutSeconds)
+    }
+
+    func readFile(_ path: String) async throws -> String {
+        try await readFile(path, timeoutSeconds: Self.operationTimeoutSeconds)
+    }
+
+    func writeFile(_ path: String, content: String) async throws {
+        try await writeFile(path, content: content, timeoutSeconds: Self.operationTimeoutSeconds)
     }
 }
 
