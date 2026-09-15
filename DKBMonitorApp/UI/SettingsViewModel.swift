@@ -130,7 +130,7 @@ final class SettingsViewModel {
             verificationCode = ""
             verificationMessage = "If \(email) can receive mail, a code is on its way. It expires in 10 minutes."
         } else {
-            verificationMessage = "Could not reach admin.dangkhoabach.vn. Check your connection and try again."
+            verificationMessage = "Could not reach api.dangkhoabach.vn. Check your connection and try again."
         }
     }
 

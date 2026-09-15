@@ -210,7 +210,7 @@ struct SettingsView: View {
                     // address and the name of every monitored domain leave
                     // this Mac. That is worth saying on the page where it is
                     // switched on, not only in the source.
-                    Text("Reports are sent through admin.dangkhoabach.vn. The recipient address and your domain names are sent to that server so it can deliver the mail.")
+                    Text("Reports are sent through api.dangkhoabach.vn. The recipient address and your domain names are sent to that server so it can deliver the mail.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     TextField("Recipient Email", text: $viewModel.settings.smtpRecipientEmail, prompt: Text("you@example.com"))

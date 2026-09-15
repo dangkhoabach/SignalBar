@@ -19,7 +19,7 @@ extension EmailRelayError: LocalizedError {
         case .rateLimited:
             "Too many attempts. Wait a while before trying again."
         case .network:
-            "Could not reach admin.dangkhoabach.vn."
+            "Could not reach api.dangkhoabach.vn."
         }
     }
 }
@@ -35,7 +35,13 @@ extension EmailRelayError: LocalizedError {
 /// that, `recipientEmail` was a free field on an unauthenticated endpoint,
 /// which made it an open relay for the owner's domain.
 public struct EmailReportSender: ReportSending {
-    private static let baseURL = URL(string: "https://admin.dangkhoabach.vn/api/dkb-monitor")!
+    /// `api.dangkhoabach.vn`, not `admin.` — the admin host is a Next.js panel
+    /// with no API on it. Pointing here at `admin.` was inherited from the
+    /// Tauri build and carried through the port unchanged; that host answers
+    /// this path with a 307 to its login page, which `URLSession` follows to
+    /// a 200 and an HTML body, so every send failed its JSON decode and
+    /// returned false. Confirmed against production on 2026-09-15.
+    private static let baseURL = URL(string: "https://api.dangkhoabach.vn/api/dkb-monitor")!
 
     private let dbQueue: DatabaseQueue
     private let tokenStore: any EmailRelayTokenStoring
