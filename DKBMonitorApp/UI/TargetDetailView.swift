@@ -108,7 +108,21 @@ struct TargetDetailView: View {
 
     private var latencyChart: some View {
         VStack(alignment: .leading) {
-            Text("Latency").font(.headline)
+            HStack(alignment: .firstTextBaseline) {
+                Text("Latency").font(.headline)
+                Spacer()
+                // Beside the chart rather than up with the uptime tiles:
+                // these describe exactly the checks plotted below, and
+                // putting them anywhere else invites reading them as
+                // covering some other window.
+                if let percentiles = viewModel.latencyPercentiles {
+                    Text("p50 \(percentiles.p50)ms · p95 \(percentiles.p95)ms")
+                        .font(.subheadline.monospacedDigit())
+                    Text("(\(percentiles.sampleCount) ok)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
             Chart(viewModel.chronologicalHistory) { result in
                 if let responseTime = result.responseTimeMs {
                     LineMark(x: .value("Time", result.checkedAt), y: .value("ms", responseTime))

@@ -70,6 +70,45 @@ import Testing
         #expect(viewModel.historyForSelectedDay.count == 1)
     }
 
+    /// The summary beside the chart has to describe the same checks the
+    /// chart draws, or the two disagree on screen.
+    @Test func latencyPercentilesCoverExactlyTheChartedChecks() throws {
+        let (viewModel, repo, app) = try makeViewModel()
+        let target = try repo.add(NewTargetInput(name: "A", url: "https://a.com"))
+        let now = Date()
+        try app.dbQueue.write { db in
+            for (index, ms) in [100, 200, 300, 400].enumerated() {
+                var result = CheckResult(
+                    targetId: target.id!, checkedAt: now.addingTimeInterval(Double(index) * -60),
+                    success: true, statusCode: 200, responseTimeMs: ms
+                )
+                try result.insert(db)
+            }
+        }
+
+        viewModel.start(targetId: target.id!)
+        defer { viewModel.stop() }
+
+        let percentiles = try #require(viewModel.latencyPercentiles)
+        #expect(percentiles.sampleCount == viewModel.chronologicalHistory.count)
+        #expect(percentiles.p50 == 200)
+        #expect(percentiles.p95 == 400)
+    }
+
+    @Test func thereAreNoPercentilesUntilSomethingHasSucceeded() throws {
+        let (viewModel, repo, app) = try makeViewModel()
+        let target = try repo.add(NewTargetInput(name: "A", url: "https://a.com"))
+        try app.dbQueue.write { db in
+            var result = CheckResult(targetId: target.id!, success: false, responseTimeMs: 30_000)
+            try result.insert(db)
+        }
+
+        viewModel.start(targetId: target.id!)
+        defer { viewModel.stop() }
+
+        #expect(viewModel.latencyPercentiles == nil)
+    }
+
     @Test func startPrefetchesSynchronouslySoTheFirstFrameHasData() throws {
         let (viewModel, repo, _) = try makeViewModel()
         let target = try repo.add(NewTargetInput(name: "A", url: "https://a.com"))

@@ -54,6 +54,12 @@ final class TargetDetailViewModel {
         detail?.history.reversed() ?? []
     }
 
+    /// Computed over exactly the checks the latency chart plots, so the
+    /// summary and the picture can't disagree about what window they cover.
+    var latencyPercentiles: LatencyPercentiles? {
+        LatencyStatistics.percentiles(of: detail?.history ?? [])
+    }
+
     var historyForSelectedDay: [CheckResult] {
         guard let detail else { return [] }
         let calendar = Calendar.current
