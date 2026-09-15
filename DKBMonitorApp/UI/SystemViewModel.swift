@@ -129,7 +129,11 @@ final class SystemViewModel {
     /// order and search text, so the default order here only matters before
     /// the user has touched either.
     private func topApps(from usages: [ProcessUsage]) -> [AppUsage] {
-        let usageByPID = Dictionary(uniqueKeysWithValues: usages.map { ($0.pid, $0) })
+        // `uniquingKeysWith`, not `uniqueKeysWithValues`: the latter traps on
+        // a repeated key, and `proc_listpids` racing a fork can hand back the
+        // same slot twice. A crash every few months on a duplicate pid is a
+        // steep price for a lookup table where either entry will do.
+        let usageByPID = Dictionary(usages.map { ($0.pid, $0) }, uniquingKeysWith: { first, _ in first })
         let totalRAMMB = Double(current.ramTotalMB)
         let apps = NSWorkspace.shared.runningApplications.compactMap { app -> AppUsage? in
             guard app.activationPolicy != .prohibited,

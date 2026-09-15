@@ -31,6 +31,29 @@ public struct JunkTarget: Sendable, Equatable, Identifiable {
         self.deletesPermanently = deletesPermanently
     }
 
+    /// Drops every target that lives inside another one in the same list.
+    ///
+    /// Several targets are nested by design — the SwiftPM, Yarn, pip and
+    /// CocoaPods caches all sit under `~/Library/Caches`, which is itself a
+    /// target. That costs twice:
+    ///
+    /// - Summing sizes counts the nested bytes once for the child and again
+    ///   for the parent, so the headline figure overstates what's there.
+    /// - Cleaning both empties the parent first, which takes the child with
+    ///   it; the child's own pass then fails on a directory that no longer
+    ///   exists, and the UI reported that as a permission problem.
+    ///
+    /// Applied to whatever list is in hand — the full set for the total, the
+    /// user's selection for a clean — since nesting only matters between
+    /// targets actually being counted or removed together.
+    public static func withoutNested(_ targets: [JunkTarget]) -> [JunkTarget] {
+        targets.filter { candidate in
+            !targets.contains { other in
+                other.path != candidate.path && candidate.path.hasPrefix(other.path + "/")
+            }
+        }
+    }
+
     /// Path with `$HOME` collapsed back to `~` for display.
     public var displayPath: String {
         let home = NSHomeDirectory()

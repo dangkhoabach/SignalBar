@@ -98,15 +98,28 @@ actor JunkCleanerService {
         var freed: Int64 = 0
         var skipped: [String] = []
 
-        for target in targets where paths.contains(target.path) {
+        // Emptying `~/Library/Caches` already removes the Homebrew and pip
+        // caches nested inside it, so cleaning those again would only fail on
+        // directories that are already gone.
+        let selected = JunkTarget.withoutNested(targets.filter { paths.contains($0.path) })
+
+        for target in selected {
             do {
-                try remove(target)
-                freed += knownSizes[target.path] ?? 0
+                let outcome = try remove(target, knownSize: knownSizes[target.path] ?? 0)
+                freed += outcome.freedBytes
+                if outcome.incomplete { skipped.append(target.name) }
             } catch {
                 skipped.append(target.name)
             }
         }
         return CleanResult(freedBytes: freed, skipped: skipped)
+    }
+
+    private struct RemovalOutcome {
+        var freedBytes: Int64
+        /// Something in the target survived — a locked file, or one owned by
+        /// another app. The rest still went.
+        var incomplete: Bool
     }
 
     /// The only path allowed to bypass the Trash.
@@ -132,7 +145,7 @@ actor JunkCleanerService {
         return values?.isSymbolicLink == true
     }
 
-    private func remove(_ target: JunkTarget) throws {
+    private func remove(_ target: JunkTarget, knownSize: Int64) throws -> RemovalOutcome {
         let fileManager = FileManager.default
         guard !Self.isRelocated(target.path) else { throw CleanError.relocatedTarget }
         let skipsTheTrash = Self.maySkipTheTrash(target)
@@ -148,18 +161,27 @@ actor JunkCleanerService {
         switch target.mode {
         case .item:
             try delete(URL(fileURLWithPath: target.path))
+            return RemovalOutcome(freedBytes: knownSize, incomplete: false)
         case .contents:
             let children = try fileManager.contentsOfDirectory(
                 at: URL(fileURLWithPath: target.path), includingPropertiesForKeys: nil
             )
             // Keeps going after a failure instead of stopping at the first
             // locked file: one undeletable cache entry shouldn't leave the
-            // other 4 GB in place. The last error still surfaces as "skipped".
-            var lastError: Error?
+            // other 4 GB in place.
+            var failures = 0
             for child in children {
-                do { try delete(child) } catch { lastError = error }
+                do { try delete(child) } catch { failures += 1 }
             }
-            if let lastError { throw lastError }
+            guard failures > 0 else {
+                return RemovalOutcome(freedBytes: knownSize, incomplete: false)
+            }
+            // A single locked file used to throw away the whole figure:
+            // clearing 8 GB with one undeletable entry reported "Freed 0
+            // bytes". Re-measuring says what actually went, and only costs a
+            // second walk in the case that already went wrong.
+            let remaining = Self.directorySize(at: target.path)
+            return RemovalOutcome(freedBytes: max(0, knownSize - remaining), incomplete: true)
         }
     }
 }

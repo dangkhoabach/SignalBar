@@ -25,10 +25,16 @@ final class CleanupViewModel {
     var isMeasuring = false
     var statusMessage: String?
 
-    var totalJunkBytes: Int64 { junkSizes.values.reduce(0, +) }
+    /// Nested targets are excluded from both totals: the Homebrew, pip and
+    /// Yarn caches live inside `~/Library/Caches`, so adding every measured
+    /// target together counted those bytes twice.
+    var totalJunkBytes: Int64 {
+        JunkTarget.withoutNested(junkTargets).reduce(0) { $0 + (junkSizes[$1.path] ?? 0) }
+    }
 
     var selectedJunkBytes: Int64 {
-        junkSelection.reduce(0) { $0 + (junkSizes[$1] ?? 0) }
+        JunkTarget.withoutNested(junkTargets.filter { junkSelection.contains($0.path) })
+            .reduce(0) { $0 + (junkSizes[$1.path] ?? 0) }
     }
 
     func loadTargets() async {
@@ -52,10 +58,22 @@ final class CleanupViewModel {
         guard !paths.isEmpty else { return }
         let result = await cleaner.clean(paths: paths, knownSizes: junkSizes)
 
+        // "Freed" only fits the Trash, which is emptied outright. Everything
+        // else moves to the Trash, where it still occupies the disk until the
+        // user empties it — claiming the space was freed would be a lie the
+        // Finder immediately contradicts.
+        let emptiedTheTrash = junkTargets.contains { paths.contains($0.path) && $0.deletesPermanently }
+        let moved = Self.formatBytes(result.freedBytes)
+        let headline = emptiedTheTrash ? "Freed \(moved)." : "Moved \(moved) to the Trash."
+
         junkSelection.removeAll()
+        // Deliberately not "no permission": a target can also be skipped for
+        // being a relocated symlink, or partly cleaned with a few locked
+        // files left behind. Naming a cause the app didn't establish sent
+        // people to check permissions that were never the problem.
         statusMessage = result.skipped.isEmpty
-            ? "Freed \(Self.formatBytes(result.freedBytes))."
-            : "Freed \(Self.formatBytes(result.freedBytes)). Skipped (no permission): \(result.skipped.joined(separator: ", "))"
+            ? headline
+            : "\(headline) Not fully cleared: \(result.skipped.joined(separator: ", "))"
 
         await measureJunk()
     }

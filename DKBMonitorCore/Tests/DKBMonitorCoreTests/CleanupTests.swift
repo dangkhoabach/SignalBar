@@ -43,6 +43,58 @@ import Testing
     }
 }
 
+/// Nesting is by design in the default list — several tool caches live
+/// inside `~/Library/Caches`, which is itself a target.
+@Suite struct JunkTargetNestingTests {
+    private func target(_ path: String) -> JunkTarget {
+        JunkTarget(name: path, detail: "", path: path, mode: .contents, deletesPermanently: false)
+    }
+
+    /// The regression on the counting side: summing every measured target
+    /// counted the nested caches once for themselves and again inside the
+    /// parent, overstating what was actually reclaimable.
+    @Test func dropsTargetsNestedInsideAnotherTarget() {
+        let targets = [
+            target("/Users/example/Library/Caches"),
+            target("/Users/example/Library/Caches/Homebrew"),
+            target("/Users/example/Library/Caches/pip"),
+            target("/Users/example/Library/Logs"),
+        ]
+        let kept = JunkTarget.withoutNested(targets).map(\.path)
+        #expect(kept == ["/Users/example/Library/Caches", "/Users/example/Library/Logs"])
+    }
+
+    /// And on the cleaning side: without the parent selected there is nothing
+    /// to be nested inside, so the child must survive on its own.
+    @Test func keepsANestedTargetWhenItsParentIsNotInTheList() {
+        let targets = [
+            target("/Users/example/Library/Caches/Homebrew"),
+            target("/Users/example/Library/Logs"),
+        ]
+        #expect(JunkTarget.withoutNested(targets).count == 2)
+    }
+
+    /// A shared prefix that isn't a real parent directory must not count:
+    /// `Caches2` is not inside `Caches`.
+    @Test func doesNotTreatASharedNamePrefixAsNesting() {
+        let targets = [
+            target("/Users/example/Library/Caches"),
+            target("/Users/example/Library/Caches2"),
+        ]
+        #expect(JunkTarget.withoutNested(targets).count == 2)
+    }
+
+    /// The real default list has known nesting, and the de-nested version of
+    /// it must still contain the parent rather than dropping everything.
+    @Test func handlesTheRealDefaultList() {
+        let defaults = JunkTarget.defaults(homeDirectory: "/Users/example")
+        let kept = JunkTarget.withoutNested(defaults)
+        #expect(kept.count < defaults.count)
+        #expect(kept.contains { $0.path == "/Users/example/Library/Caches" })
+        #expect(!kept.contains { $0.path == "/Users/example/Library/Caches/Homebrew" })
+    }
+}
+
 @Suite struct ScanRootTests {
     /// A scan of `~` must not wander onto the sealed system volume or a
     /// mounted NAS — that turns a 30-second scan into a multi-minute one

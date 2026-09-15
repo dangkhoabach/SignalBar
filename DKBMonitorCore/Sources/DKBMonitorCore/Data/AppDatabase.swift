@@ -99,7 +99,11 @@ public struct AppDatabase: Sendable {
                     ON targets (lower(trim(url)))
                     """)
             } catch {
-                // Logged, not fatal — matches db.rs's own comment on this exact case.
+                // Not fatal, but no longer silent: the comment here used to
+                // claim this was logged while the block was empty, so an
+                // install that quietly went without the unique index left no
+                // trace of why duplicate URLs were suddenly possible.
+                print("Migration: could not create idx_targets_url_unique (duplicate URLs already present?): \(error)")
             }
         }
 

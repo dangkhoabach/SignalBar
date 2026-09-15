@@ -33,4 +33,38 @@ import Testing
 
         #expect(try repo.load().smtpRecipientEmail == "abc@example.com")
     }
+
+    /// The regression: quitting cancels the task waiting out the debounce, so
+    /// a change made within half a second of Cmd+Q was dropped with nothing
+    /// to show it had been. `applicationWillTerminate` flushes instead.
+    @Test func flushingWritesAnEditStillInsideTheDebounceWindow() throws {
+        let (viewModel, repo) = try makeViewModel()
+        viewModel.loadIfNeeded()
+
+        var settings = viewModel.settings
+        settings.smtpRecipientEmail = "quit@example.com"
+        viewModel.settings = settings
+
+        #expect(try repo.load().smtpRecipientEmail.isEmpty)
+
+        viewModel.flushPendingSave()
+
+        #expect(try repo.load().smtpRecipientEmail == "quit@example.com")
+    }
+
+    /// Flushing with nothing pending must not write, so quitting can't
+    /// overwrite whatever the debounced task already committed.
+    @Test func flushingWithNothingPendingIsANoOp() async throws {
+        let (viewModel, repo) = try makeViewModel()
+        viewModel.loadIfNeeded()
+
+        var settings = viewModel.settings
+        settings.smtpRecipientEmail = "settled@example.com"
+        viewModel.settings = settings
+        try await Task.sleep(nanoseconds: 700_000_000)
+
+        viewModel.flushPendingSave()
+
+        #expect(try repo.load().smtpRecipientEmail == "settled@example.com")
+    }
 }

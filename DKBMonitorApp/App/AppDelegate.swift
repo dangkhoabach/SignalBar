@@ -35,6 +35,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    func applicationWillTerminate(_ notification: Notification) {
+        // Settings writes are debounced by half a second, and quitting
+        // cancels the task that was waiting. Without this, changing a setting
+        // and immediately pressing Cmd+Q discarded the change silently.
+        SettingsViewModel.shared.flushPendingSave()
+    }
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false
     }

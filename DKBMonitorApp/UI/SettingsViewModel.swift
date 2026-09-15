@@ -12,6 +12,8 @@ final class SettingsViewModel {
     private let repo: SettingsRepository?
     private var isLoaded = false
     private var saveTask: Task<Void, Never>?
+    /// The edit waiting out the debounce in `scheduleSave`, if any.
+    private var pendingSave: AppSettings?
 
     var settings: AppSettings = .defaults {
         didSet {
@@ -40,11 +42,28 @@ final class SettingsViewModel {
     private func scheduleSave() {
         saveTask?.cancel()
         let toSave = settings
+        pendingSave = toSave
         saveTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 500_000_000)
             guard !Task.isCancelled else { return }
             try? self?.repo?.update(toSave)
+            self?.pendingSave = nil
         }
+    }
+
+    /// Writes a debounced edit immediately.
+    ///
+    /// Quitting cancels the pending `saveTask` along with everything else, so
+    /// changing a setting and pressing Cmd+Q inside the same half-second lost
+    /// the change with no hint that anything had gone unsaved. Called from
+    /// `applicationWillTerminate`, which is the last point that still runs on
+    /// the main thread with the database open.
+    func flushPendingSave() {
+        guard let pending = pendingSave else { return }
+        saveTask?.cancel()
+        saveTask = nil
+        pendingSave = nil
+        try? repo?.update(pending)
     }
 
     /// Ports the Tauri Settings page's "Send Test Email" action — lets the
