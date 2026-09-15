@@ -19,7 +19,12 @@ packages:
     path: DKBMonitorCore
   Sparkle:
     url: https://github.com/sparkle-project/Sparkle
-    from: "2.6.4"
+    # Pinned, like the SSH stack in DKBMonitorCore/Package.swift: this is the
+    # update framework, and an open range let a routine build move it from
+    # 2.9.6 to 2.10.0 with no review step. 2.10.0 is the version every test
+    # and the Release build were run against before 2.1.0. Bumping is a
+    # deliberate edit that comes with re-reading Sparkle's release notes.
+    exactVersion: "2.10.0"
 targets:
   DKBMonitorApp:
     type: application
