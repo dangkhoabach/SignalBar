@@ -25,6 +25,7 @@ public actor Scheduler {
     private let stateStore: SchedulerStateStore
     private let notifier: NotificationSending
     private let reportSender: ReportSending
+    private let webhookSender: AlertWebhookSending
     private let statsProvider: SystemStatsProvider?
 
     private var loopTask: Task<Void, Never>?
@@ -45,13 +46,15 @@ public actor Scheduler {
         dbQueue: DatabaseQueue,
         notifier: NotificationSending,
         reportSender: ReportSending,
-        statsProvider: SystemStatsProvider? = nil
+        statsProvider: SystemStatsProvider? = nil,
+        webhookSender: AlertWebhookSending? = nil
     ) {
         self.targetRepo = TargetRepository(dbQueue: dbQueue)
         self.settingsRepo = SettingsRepository(dbQueue: dbQueue)
         self.stateStore = SchedulerStateStore(dbQueue: dbQueue)
         self.notifier = notifier
         self.reportSender = reportSender
+        self.webhookSender = webhookSender ?? WebhookAlertSender(dbQueue: dbQueue)
         self.statsProvider = statsProvider
     }
 
@@ -303,8 +306,21 @@ public actor Scheduler {
         }
     }
 
+    /// The single funnel every alert in this type goes through.
+    ///
+    /// The two destinations are gated separately on purpose: a macOS
+    /// notification reaches whoever is at this Mac, a webhook reaches a
+    /// channel being watched when nobody is. Turning off the first should
+    /// not silence the second, which is the whole reason someone configures
+    /// a webhook.
+    ///
+    /// The webhook is awaited rather than fired and forgotten so a tick
+    /// cannot outlive itself in detached work; `WebhookAlertSender` keeps a
+    /// short timeout precisely so that wait stays bounded.
     private func notifyIfEnabled(title: String, body: String, route: String?) async {
-        guard (try? settingsRepo.load().notificationsEnabled) == true else { return }
-        await notifier.notify(title: title, body: body, route: route)
+        if (try? settingsRepo.load().notificationsEnabled) == true {
+            await notifier.notify(title: title, body: body, route: route)
+        }
+        await webhookSender.send(title: title, body: body, route: route)
     }
 }

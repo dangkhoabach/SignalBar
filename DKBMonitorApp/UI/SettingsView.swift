@@ -217,6 +217,44 @@ struct SettingsView: View {
                 }
             }
 
+            Section("Webhook Alerts") {
+                Toggle("Send alerts to a webhook", isOn: $viewModel.settings.webhookEnabled)
+                if viewModel.settings.webhookEnabled {
+                    // Separate from "Enable Notifications" on purpose: the
+                    // point of a webhook is reaching a channel when nobody
+                    // is at this Mac, so switching off local notifications
+                    // must not switch this off too.
+                    Text("Every alert also goes to this URL. Slack and Discord webhook URLs are recognised automatically; anything else receives plain JSON. Sent straight from this Mac — no relay.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    TextField(
+                        "Webhook URL",
+                        text: $viewModel.settings.webhookURL,
+                        prompt: Text("https://hooks.slack.com/services/…")
+                    )
+                    .task(id: viewModel.settings.webhookURL) {
+                        await viewModel.validateWebhookURL()
+                    }
+                    if let problem = viewModel.webhookURLProblem {
+                        Label(problem, systemImage: "exclamationmark.triangle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
+                    HStack {
+                        if let result = viewModel.webhookTestResultMessage {
+                            Text(result).font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        if viewModel.isSendingTestWebhook {
+                            ProgressView().controlSize(.small)
+                        } else {
+                            Button("Send Test Alert") { Task { await viewModel.sendTestWebhook() } }
+                                .disabled(viewModel.settings.webhookURL.isEmpty || viewModel.webhookURLProblem != nil)
+                        }
+                    }
+                }
+            }
+
             Section("Updates") {
                 Toggle("Check for updates automatically", isOn: Binding(
                     get: { automaticUpdateChecks },

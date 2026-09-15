@@ -12,7 +12,7 @@ import Testing
     /// Every field must survive a write followed by a read.
     ///
     /// This is the test that earns its keep: `load` and `update` each spell
-    /// out the same fourteen `app_settings` keys by hand, in two separate
+    /// out the same `app_settings` keys by hand, in two separate
     /// lists. One typo on either side is invisible — the write lands under a
     /// key nothing reads, and the setting silently reverts to its default the
     /// next time the app starts. Round-tripping values that are all distinct
@@ -33,7 +33,9 @@ import Testing
             historyRetentionDays: 120,
             systemTempAlertThresholdCelsius: 85,
             batteryLowAlertThresholdPercent: 15,
-            httpCheckIntervalSecs: 60
+            httpCheckIntervalSecs: 60,
+            webhookEnabled: true,
+            webhookURL: "https://hooks.slack.com/services/T0/B0/xxx"
         )
         try repo.update(settings)
         #expect(try repo.load() == settings)

@@ -92,6 +92,13 @@ private struct StaticStatsProvider: SystemStatsProvider {
     func snapshot() async -> SystemStats { value }
 }
 
+private actor RecordingWebhookSender: AlertWebhookSending {
+    private(set) var alerts: [(title: String, body: String, route: String?)] = []
+    func send(title: String, body: String, route: String?) async {
+        alerts.append((title, body, route))
+    }
+}
+
 @Suite struct SchedulerTests {
     private func makeDatabase() throws -> AppDatabase {
         try AppDatabase(inMemory: DatabaseQueue())
@@ -177,6 +184,67 @@ private struct StaticStatsProvider: SystemStatsProvider {
 
         let afterCycle = await notifier.notifications
         #expect(afterCycle.count == 2)
+    }
+
+    /// The whole reason a webhook exists: it reaches a channel that is being
+    /// watched when nobody is at this Mac. Turning off local notifications
+    /// must therefore not silence it.
+    @Test func anAlertReachesTheWebhookEvenWithNotificationsTurnedOff() async throws {
+        let app = try makeDatabase()
+        let targetRepo = TargetRepository(dbQueue: app.dbQueue)
+        let settingsRepo = SettingsRepository(dbQueue: app.dbQueue)
+        try settingsRepo.update({
+            var s = AppSettings.defaults
+            s.notificationsEnabled = false
+            s.failureAlertThreshold = 1
+            return s
+        }())
+        _ = try targetRepo.add(NewTargetInput(name: "Unreachable", url: "https://this-host-does-not-exist.invalid"))
+
+        let notifier = RecordingNotifier()
+        let webhook = RecordingWebhookSender()
+        let scheduler = Scheduler(
+            dbQueue: app.dbQueue, notifier: notifier, reportSender: RecordingReportSender(),
+            webhookSender: webhook
+        )
+
+        await scheduler.tick()
+
+        #expect(await notifier.notifications.isEmpty)
+        let alerts = await webhook.alerts
+        #expect(alerts.count == 1)
+        #expect(alerts[0].title.contains("đang down"))
+    }
+
+    /// And the reverse: a webhook nobody configured must not suppress or
+    /// alter the local notification.
+    @Test func bothDestinationsReceiveTheSameAlert() async throws {
+        let app = try makeDatabase()
+        let targetRepo = TargetRepository(dbQueue: app.dbQueue)
+        let settingsRepo = SettingsRepository(dbQueue: app.dbQueue)
+        try settingsRepo.update({
+            var s = AppSettings.defaults
+            s.notificationsEnabled = true
+            s.failureAlertThreshold = 1
+            return s
+        }())
+        _ = try targetRepo.add(NewTargetInput(name: "Unreachable", url: "https://this-host-does-not-exist.invalid"))
+
+        let notifier = RecordingNotifier()
+        let webhook = RecordingWebhookSender()
+        let scheduler = Scheduler(
+            dbQueue: app.dbQueue, notifier: notifier, reportSender: RecordingReportSender(),
+            webhookSender: webhook
+        )
+
+        await scheduler.tick()
+
+        let notifications = await notifier.notifications
+        let alerts = await webhook.alerts
+        #expect(notifications.count == 1)
+        #expect(alerts.count == 1)
+        #expect(notifications[0].title == alerts[0].title)
+        #expect(notifications[0].route == alerts[0].route)
     }
 
     private func makeReportSettings(_ settingsRepo: SettingsRepository) throws {

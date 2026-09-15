@@ -25,6 +25,11 @@ final class SettingsViewModel {
     var isSendingTestEmail = false
     var testEmailResultMessage: String?
 
+    var isSendingTestWebhook = false
+    var webhookTestResultMessage: String?
+    /// Why the entered URL was rejected, shown under the field.
+    var webhookURLProblem: String?
+
     init(repo: SettingsRepository?) {
         self.repo = repo
     }
@@ -76,5 +81,55 @@ final class SettingsViewModel {
         let sent = await EmailReportSender.sendTestEmail(recipientEmail: recipient)
         isSendingTestEmail = false
         testEmailResultMessage = sent ? "Test email sent to \(recipient)." : "Failed to send test email."
+    }
+
+    // MARK: - Webhook
+
+    /// Checked as the user types rather than only when an alert eventually
+    /// fires: a webhook is write-and-forget, so a URL that was never going
+    /// to work would otherwise be discovered by an alert silently not
+    /// arriving.
+    func validateWebhookURL() async {
+        let raw = settings.webhookURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !raw.isEmpty else {
+            webhookURLProblem = nil
+            return
+        }
+        // The field may have moved on while the DNS lookup was in flight.
+        let problem = await AlertWebhook.validate(raw)
+        guard raw == settings.webhookURL.trimmingCharacters(in: .whitespacesAndNewlines) else { return }
+        webhookURLProblem = problem?.message
+    }
+
+    func sendTestWebhook() async {
+        let raw = settings.webhookURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let url = URL(string: raw) else { return }
+        if let problem = await AlertWebhook.validate(raw) {
+            webhookURLProblem = problem.message
+            webhookTestResultMessage = nil
+            return
+        }
+
+        isSendingTestWebhook = true
+        let delivered = await WebhookAlertSender.post(
+            to: url,
+            title: "DKB Monitor test alert",
+            body: "If you can read this, alerts will reach here.",
+            route: nil
+        )
+        isSendingTestWebhook = false
+        webhookTestResultMessage = delivered
+            ? "Delivered to \(WebhookDestination.forURL(url).displayName)."
+            : "The endpoint didn't accept it. Check the URL is still valid and hasn't been revoked."
+    }
+}
+
+extension WebhookDestination {
+    var displayName: String {
+        switch self {
+        case .slack: "Slack"
+        case .discord: "Discord"
+        case .generic: "your webhook"
+        }
     }
 }

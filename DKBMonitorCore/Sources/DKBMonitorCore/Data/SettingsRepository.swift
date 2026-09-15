@@ -26,6 +26,12 @@ public struct AppSettings: Equatable, Sendable {
     /// Default HTTP re-check interval (seconds) used to pre-fill new targets'
     /// own `checkIntervalSecs` — each target can still override it individually.
     public var httpCheckIntervalSecs: Int
+    /// Sends every alert to a Slack/Discord/plain webhook as well as (or
+    /// instead of) this Mac's notification centre — independent of
+    /// `notificationsEnabled`, since the point is to reach someone who
+    /// isn't sitting at this machine.
+    public var webhookEnabled: Bool
+    public var webhookURL: String
 
     public static let defaults = AppSettings(
         notificationsEnabled: false,
@@ -41,7 +47,9 @@ public struct AppSettings: Equatable, Sendable {
         historyRetentionDays: 90,
         systemTempAlertThresholdCelsius: 0,
         batteryLowAlertThresholdPercent: 0,
-        httpCheckIntervalSecs: 300
+        httpCheckIntervalSecs: 300,
+        webhookEnabled: false,
+        webhookURL: ""
     )
 }
 
@@ -75,7 +83,9 @@ public struct SettingsRepository: Sendable {
             historyRetentionDays: try int("history_retention_days", d.historyRetentionDays),
             systemTempAlertThresholdCelsius: try int("system_temp_alert_threshold_celsius", d.systemTempAlertThresholdCelsius),
             batteryLowAlertThresholdPercent: try int("battery_low_alert_threshold_percent", d.batteryLowAlertThresholdPercent),
-            httpCheckIntervalSecs: try int("http_check_interval_secs", d.httpCheckIntervalSecs)
+            httpCheckIntervalSecs: try int("http_check_interval_secs", d.httpCheckIntervalSecs),
+            webhookEnabled: try AppSettingsStore.get(db, key: "webhook_enabled", default: "0") == "1",
+            webhookURL: try AppSettingsStore.get(db, key: "webhook_url", default: d.webhookURL)
         )
     }
 
@@ -95,6 +105,8 @@ public struct SettingsRepository: Sendable {
             try AppSettingsStore.set(db, key: "system_temp_alert_threshold_celsius", value: String(settings.systemTempAlertThresholdCelsius))
             try AppSettingsStore.set(db, key: "battery_low_alert_threshold_percent", value: String(settings.batteryLowAlertThresholdPercent))
             try AppSettingsStore.set(db, key: "http_check_interval_secs", value: String(settings.httpCheckIntervalSecs))
+            try AppSettingsStore.set(db, key: "webhook_enabled", value: settings.webhookEnabled ? "1" : "0")
+            try AppSettingsStore.set(db, key: "webhook_url", value: settings.webhookURL)
         }
     }
 }
