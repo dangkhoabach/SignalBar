@@ -169,6 +169,31 @@ struct SettingsView: View {
                 )
             }
 
+            Section("Remote Servers") {
+                // Thresholds are global; which servers are watched is set
+                // per server, in that server's own form. Neither alone does
+                // anything — a threshold with no watched server is silent,
+                // and a watched server with no threshold is never polled.
+                Text("Applies to servers you've switched Monitoring on for. Each is checked every few minutes over SSH.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                labeledStepper(
+                    "CPU alert",
+                    value: $viewModel.settings.remoteCPUAlertThresholdPercent, in: 0...100, step: 5,
+                    suffix: "%", zeroMeans: "off"
+                )
+                labeledStepper(
+                    "RAM alert",
+                    value: $viewModel.settings.remoteMemoryAlertThresholdPercent, in: 0...100, step: 5,
+                    suffix: "%", zeroMeans: "off"
+                )
+                labeledStepper(
+                    "Disk alert",
+                    value: $viewModel.settings.remoteDiskAlertThresholdPercent, in: 0...100, step: 5,
+                    suffix: "%", zeroMeans: "off"
+                )
+            }
+
             Section("History") {
                 labeledStepper(
                     "Retention",

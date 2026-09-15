@@ -99,6 +99,31 @@ private actor RecordingWebhookSender: AlertWebhookSending {
     }
 }
 
+/// Serves canned stats for a fixed set of servers, and counts the polls, so
+/// the cadence and the alert transitions can be driven without SSH.
+private actor StaticRemoteStatsProvider: RemoteStatsProviding {
+    private let servers: [RemoteServer]
+    private var readings: [RemoteServerStats]
+    private let failure: Error?
+    private(set) var pollCount = 0
+
+    init(servers: [RemoteServer], readings: [RemoteServerStats], failure: Error? = nil) {
+        self.servers = servers
+        self.readings = readings
+        self.failure = failure
+    }
+
+    nonisolated func monitoredServers() throws -> [RemoteServer] { servers }
+
+    func stats(for server: RemoteServer) async throws -> RemoteServerStats {
+        pollCount += 1
+        if let failure { throw failure }
+        return readings.count > 1 ? readings.removeFirst() : (readings.first ?? RemoteServerStats())
+    }
+}
+
+private struct PollFailure: Error {}
+
 @Suite struct SchedulerTests {
     private func makeDatabase() throws -> AppDatabase {
         try AppDatabase(inMemory: DatabaseQueue())
@@ -245,6 +270,193 @@ private actor RecordingWebhookSender: AlertWebhookSending {
         #expect(alerts.count == 1)
         #expect(notifications[0].title == alerts[0].title)
         #expect(notifications[0].route == alerts[0].route)
+    }
+
+    // MARK: - Remote server resource alerts
+
+    private func monitoredServer(_ name: String = "Prod", id: Int64 = 1) -> RemoteServer {
+        RemoteServer(
+            id: id, name: name, host: "10.0.0.1", username: "deploy",
+            authMethod: .password, keychainRef: "ref", monitoringEnabled: true
+        )
+    }
+
+    private func loaded(cpu: Double) -> RemoteServerStats {
+        var stats = RemoteServerStats()
+        stats.cpu = RemoteCPUUsage(busyPercent: cpu)
+        return stats
+    }
+
+    private func remoteThresholdSettings(_ repo: SettingsRepository, cpu: Int) throws {
+        try repo.update({
+            var s = AppSettings.defaults
+            s.notificationsEnabled = true
+            s.remoteCPUAlertThresholdPercent = cpu
+            return s
+        }())
+    }
+
+    /// The default install must not start opening SSH connections it didn't
+    /// open before: with no threshold set, nothing is polled at all.
+    @Test func noRemotePollHappensWhileEveryThresholdIsOff() async throws {
+        let app = try makeDatabase()
+        let provider = StaticRemoteStatsProvider(servers: [monitoredServer()], readings: [loaded(cpu: 99)])
+        let notifier = RecordingNotifier()
+        let scheduler = Scheduler(
+            dbQueue: app.dbQueue, notifier: notifier, reportSender: RecordingReportSender(),
+            remoteStatsProvider: provider
+        )
+
+        await scheduler.tick()
+
+        #expect(await provider.pollCount == 0)
+        #expect(await notifier.notifications.isEmpty)
+    }
+
+    @Test func crossingAThresholdAlertsOnceAndNotAgainWhileItStaysHigh() async throws {
+        let app = try makeDatabase()
+        try remoteThresholdSettings(SettingsRepository(dbQueue: app.dbQueue), cpu: 80)
+        let stateStore = SchedulerStateStore(dbQueue: app.dbQueue)
+        let provider = StaticRemoteStatsProvider(servers: [monitoredServer()], readings: [loaded(cpu: 95)])
+        let notifier = RecordingNotifier()
+        let scheduler = Scheduler(
+            dbQueue: app.dbQueue, notifier: notifier, reportSender: RecordingReportSender(),
+            remoteStatsProvider: provider
+        )
+
+        await scheduler.tick()
+        // Reset the cadence gate so the second tick polls rather than being
+        // skipped for being too soon — the dedupe under test is the alert
+        // flag, not the interval.
+        try stateStore.markRemoteStatsPolled(at: .distantPast)
+        await scheduler.tick()
+
+        let notifications = await notifier.notifications
+        #expect(await provider.pollCount == 2)
+        #expect(notifications.count == 1)
+        #expect(notifications[0].title == "Prod: CPU đang cao")
+        #expect(notifications[0].body == "95% (ngưỡng 80%)")
+    }
+
+    @Test func droppingBackUnderTheThresholdArmsTheNextAlert() async throws {
+        let app = try makeDatabase()
+        try remoteThresholdSettings(SettingsRepository(dbQueue: app.dbQueue), cpu: 80)
+        let stateStore = SchedulerStateStore(dbQueue: app.dbQueue)
+        let provider = StaticRemoteStatsProvider(
+            servers: [monitoredServer()],
+            readings: [loaded(cpu: 95), loaded(cpu: 10), loaded(cpu: 91)]
+        )
+        let notifier = RecordingNotifier()
+        let scheduler = Scheduler(
+            dbQueue: app.dbQueue, notifier: notifier, reportSender: RecordingReportSender(),
+            remoteStatsProvider: provider
+        )
+
+        for _ in 0..<3 {
+            try stateStore.markRemoteStatsPolled(at: .distantPast)
+            await scheduler.tick()
+        }
+
+        #expect(await notifier.notifications.count == 2)
+    }
+
+    /// A reading that never arrived is not a recovery. Clearing the flag on a
+    /// failed poll would make the next high reading alert all over again, and
+    /// worse, would read as "it is fine now" when nothing was measured.
+    @Test func aFailedPollLeavesAStandingAlertAlone() async throws {
+        let app = try makeDatabase()
+        try remoteThresholdSettings(SettingsRepository(dbQueue: app.dbQueue), cpu: 80)
+        let stateStore = SchedulerStateStore(dbQueue: app.dbQueue)
+        let notifier = RecordingNotifier()
+
+        let highScheduler = Scheduler(
+            dbQueue: app.dbQueue, notifier: notifier, reportSender: RecordingReportSender(),
+            remoteStatsProvider: StaticRemoteStatsProvider(servers: [monitoredServer()], readings: [loaded(cpu: 95)])
+        )
+        await highScheduler.tick()
+        #expect(await notifier.notifications.count == 1)
+
+        let failingScheduler = Scheduler(
+            dbQueue: app.dbQueue, notifier: notifier, reportSender: RecordingReportSender(),
+            remoteStatsProvider: StaticRemoteStatsProvider(servers: [monitoredServer()], readings: [], failure: PollFailure())
+        )
+        try stateStore.markRemoteStatsPolled(at: .distantPast)
+        await failingScheduler.tick()
+
+        // Still armed: a high reading right after the failure is the same
+        // ongoing incident, not a new one.
+        try stateStore.markRemoteStatsPolled(at: .distantPast)
+        await highScheduler.tick()
+        #expect(await notifier.notifications.count == 1)
+    }
+
+    /// A poll that succeeds but comes back without this particular reading
+    /// (`top` missing, output unparseable) is not a recovery either — and
+    /// unlike a failed poll, this one reaches the clearing branch, so the
+    /// distinction has to be made there rather than by never getting here.
+    @Test func aSuccessfulPollMissingTheReadingLeavesAStandingAlertAlone() async throws {
+        let app = try makeDatabase()
+        try remoteThresholdSettings(SettingsRepository(dbQueue: app.dbQueue), cpu: 80)
+        let stateStore = SchedulerStateStore(dbQueue: app.dbQueue)
+        let notifier = RecordingNotifier()
+
+        let highScheduler = Scheduler(
+            dbQueue: app.dbQueue, notifier: notifier, reportSender: RecordingReportSender(),
+            remoteStatsProvider: StaticRemoteStatsProvider(servers: [monitoredServer()], readings: [loaded(cpu: 95)])
+        )
+        await highScheduler.tick()
+        #expect(await notifier.notifications.count == 1)
+
+        // Reading absent, every other field present: the poll worked, the
+        // CPU figure just isn't in it.
+        let blindScheduler = Scheduler(
+            dbQueue: app.dbQueue, notifier: notifier, reportSender: RecordingReportSender(),
+            remoteStatsProvider: StaticRemoteStatsProvider(servers: [monitoredServer()], readings: [RemoteServerStats()])
+        )
+        try stateStore.markRemoteStatsPolled(at: .distantPast)
+        await blindScheduler.tick()
+
+        try stateStore.markRemoteStatsPolled(at: .distantPast)
+        await highScheduler.tick()
+        #expect(await notifier.notifications.count == 1)
+    }
+
+    /// Each server keeps its own flag, or one noisy box would mask every
+    /// other one.
+    @Test func eachServerAlertsIndependently() async throws {
+        let app = try makeDatabase()
+        try remoteThresholdSettings(SettingsRepository(dbQueue: app.dbQueue), cpu: 80)
+        let provider = StaticRemoteStatsProvider(
+            servers: [monitoredServer("Prod", id: 1), monitoredServer("Staging", id: 2)],
+            readings: [loaded(cpu: 95)]
+        )
+        let notifier = RecordingNotifier()
+        let scheduler = Scheduler(
+            dbQueue: app.dbQueue, notifier: notifier, reportSender: RecordingReportSender(),
+            remoteStatsProvider: provider
+        )
+
+        await scheduler.tick()
+
+        let titles = await notifier.notifications.map(\.title)
+        #expect(Set(titles) == ["Prod: CPU đang cao", "Staging: CPU đang cao"])
+    }
+
+    /// Ticks run every fifteen seconds; SSH-ing someone's server that often
+    /// would make the monitoring a load on what it watches.
+    @Test func aSecondTickWithinTheIntervalDoesNotPollAgain() async throws {
+        let app = try makeDatabase()
+        try remoteThresholdSettings(SettingsRepository(dbQueue: app.dbQueue), cpu: 80)
+        let provider = StaticRemoteStatsProvider(servers: [monitoredServer()], readings: [loaded(cpu: 10)])
+        let scheduler = Scheduler(
+            dbQueue: app.dbQueue, notifier: RecordingNotifier(), reportSender: RecordingReportSender(),
+            remoteStatsProvider: provider
+        )
+
+        await scheduler.tick()
+        await scheduler.tick()
+
+        #expect(await provider.pollCount == 1)
     }
 
     private func makeReportSettings(_ settingsRepo: SettingsRepository) throws {

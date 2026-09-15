@@ -122,6 +122,27 @@ public struct SchedulerStateStore: Sendable {
         }
     }
 
+    // MARK: - Remote server polling
+
+    /// When the remote servers were last polled for resource stats.
+    ///
+    /// Stored the same way as `lastReportAttempt` — a Unix timestamp, never
+    /// displayed — for the same reason: it is only ever compared to `Date()`,
+    /// and no formatter is `Sendable`.
+    public func lastRemoteStatsPoll() throws -> Date? {
+        let raw = try dbQueue.read { db in
+            try AppSettingsStore.get(db, key: "last_remote_stats_poll_at", default: "")
+        }
+        guard let seconds = Double(raw) else { return nil }
+        return Date(timeIntervalSince1970: seconds)
+    }
+
+    public func markRemoteStatsPolled(at date: Date = Date()) throws {
+        try dbQueue.write { db in
+            try AppSettingsStore.set(db, key: "last_remote_stats_poll_at", value: String(date.timeIntervalSince1970))
+        }
+    }
+
     private static let dayFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"

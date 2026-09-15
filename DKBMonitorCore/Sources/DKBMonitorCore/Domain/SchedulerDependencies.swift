@@ -12,3 +12,14 @@ public protocol NotificationSending: Sendable {
 public protocol ReportSending: Sendable {
     func sendReport(label: String, days: Int) async -> Bool
 }
+
+/// Supplies one monitored server's CPU/RAM/disk reading.
+///
+/// Injected rather than built inside the scheduler so the alert logic can be
+/// tested without an SSH daemon or the real Keychain — the same reason
+/// `SystemStatsProvider` exists for the local machine.
+public protocol RemoteStatsProviding: Sendable {
+    /// The servers the user has opted into monitoring.
+    func monitoredServers() throws -> [RemoteServer]
+    func stats(for server: RemoteServer) async throws -> RemoteServerStats
+}

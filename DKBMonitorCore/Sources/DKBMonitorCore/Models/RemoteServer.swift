@@ -21,6 +21,9 @@ public struct RemoteServer: Codable, Identifiable, Equatable, Sendable {
     public var keychainRef: String
     public var groupTag: String?
     public var hostKeyFingerprint: String?
+    /// Whether the scheduler polls this server for CPU/RAM/disk alerts.
+    /// Off until the user asks for it — see the v4 migration for why.
+    public var monitoringEnabled: Bool
     public var createdAt: Date
 
     public init(
@@ -33,6 +36,7 @@ public struct RemoteServer: Codable, Identifiable, Equatable, Sendable {
         keychainRef: String,
         groupTag: String? = nil,
         hostKeyFingerprint: String? = nil,
+        monitoringEnabled: Bool = false,
         createdAt: Date = Date()
     ) {
         self.id = id
@@ -44,6 +48,7 @@ public struct RemoteServer: Codable, Identifiable, Equatable, Sendable {
         self.keychainRef = keychainRef
         self.groupTag = groupTag
         self.hostKeyFingerprint = hostKeyFingerprint
+        self.monitoringEnabled = monitoringEnabled
         self.createdAt = createdAt
     }
 }
@@ -57,6 +62,7 @@ extension RemoteServer: FetchableRecord, MutablePersistableRecord {
         case keychainRef = "keychain_ref"
         case groupTag = "group_tag"
         case hostKeyFingerprint = "host_key_fingerprint"
+        case monitoringEnabled = "monitoring_enabled"
         case createdAt = "created_at"
     }
 

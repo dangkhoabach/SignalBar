@@ -35,7 +35,10 @@ import Testing
             batteryLowAlertThresholdPercent: 15,
             httpCheckIntervalSecs: 60,
             webhookEnabled: true,
-            webhookURL: "https://hooks.slack.com/services/T0/B0/xxx"
+            webhookURL: "https://hooks.slack.com/services/T0/B0/xxx",
+            remoteCPUAlertThresholdPercent: 85,
+            remoteMemoryAlertThresholdPercent: 90,
+            remoteDiskAlertThresholdPercent: 95
         )
         try repo.update(settings)
         #expect(try repo.load() == settings)

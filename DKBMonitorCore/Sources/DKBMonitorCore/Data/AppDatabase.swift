@@ -170,6 +170,19 @@ public struct AppDatabase: Sendable {
                 """)
         }
 
+        // Resource alerting is opt-in per server, and off by default.
+        //
+        // Turning on a global CPU/RAM/disk threshold must not silently start
+        // opening SSH connections to every server the user ever registered:
+        // they were added for manual management, and putting them on a timer
+        // is a different thing to agree to. The threshold says what counts as
+        // too high; this column says which servers are watched at all.
+        migrator.registerMigration("v4_remoteServerMonitoring") { db in
+            try db.addColumnIfMissing(
+                table: "remote_servers", column: "monitoring_enabled", type: "INTEGER NOT NULL DEFAULT 0"
+            )
+        }
+
         return migrator
     }
 }

@@ -32,6 +32,12 @@ public struct AppSettings: Equatable, Sendable {
     /// isn't sitting at this machine.
     public var webhookEnabled: Bool
     public var webhookURL: String
+    /// CPU/RAM/disk percentages a monitored remote server must reach before
+    /// it alerts; 0 disables that one. Only servers with `monitoringEnabled`
+    /// are polled at all.
+    public var remoteCPUAlertThresholdPercent: Int
+    public var remoteMemoryAlertThresholdPercent: Int
+    public var remoteDiskAlertThresholdPercent: Int
 
     public static let defaults = AppSettings(
         notificationsEnabled: false,
@@ -49,7 +55,10 @@ public struct AppSettings: Equatable, Sendable {
         batteryLowAlertThresholdPercent: 0,
         httpCheckIntervalSecs: 300,
         webhookEnabled: false,
-        webhookURL: ""
+        webhookURL: "",
+        remoteCPUAlertThresholdPercent: 0,
+        remoteMemoryAlertThresholdPercent: 0,
+        remoteDiskAlertThresholdPercent: 0
     )
 }
 
@@ -85,7 +94,10 @@ public struct SettingsRepository: Sendable {
             batteryLowAlertThresholdPercent: try int("battery_low_alert_threshold_percent", d.batteryLowAlertThresholdPercent),
             httpCheckIntervalSecs: try int("http_check_interval_secs", d.httpCheckIntervalSecs),
             webhookEnabled: try AppSettingsStore.get(db, key: "webhook_enabled", default: "0") == "1",
-            webhookURL: try AppSettingsStore.get(db, key: "webhook_url", default: d.webhookURL)
+            webhookURL: try AppSettingsStore.get(db, key: "webhook_url", default: d.webhookURL),
+            remoteCPUAlertThresholdPercent: try int("remote_cpu_alert_threshold_percent", d.remoteCPUAlertThresholdPercent),
+            remoteMemoryAlertThresholdPercent: try int("remote_memory_alert_threshold_percent", d.remoteMemoryAlertThresholdPercent),
+            remoteDiskAlertThresholdPercent: try int("remote_disk_alert_threshold_percent", d.remoteDiskAlertThresholdPercent)
         )
     }
 
@@ -107,6 +119,9 @@ public struct SettingsRepository: Sendable {
             try AppSettingsStore.set(db, key: "http_check_interval_secs", value: String(settings.httpCheckIntervalSecs))
             try AppSettingsStore.set(db, key: "webhook_enabled", value: settings.webhookEnabled ? "1" : "0")
             try AppSettingsStore.set(db, key: "webhook_url", value: settings.webhookURL)
+            try AppSettingsStore.set(db, key: "remote_cpu_alert_threshold_percent", value: String(settings.remoteCPUAlertThresholdPercent))
+            try AppSettingsStore.set(db, key: "remote_memory_alert_threshold_percent", value: String(settings.remoteMemoryAlertThresholdPercent))
+            try AppSettingsStore.set(db, key: "remote_disk_alert_threshold_percent", value: String(settings.remoteDiskAlertThresholdPercent))
         }
     }
 }

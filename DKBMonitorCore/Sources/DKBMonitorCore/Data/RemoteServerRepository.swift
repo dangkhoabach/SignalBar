@@ -8,10 +8,12 @@ public struct NewRemoteServerInput: Sendable {
     public var username: String
     public var credential: SSHAuthCredential
     public var groupTag: String?
+    public var monitoringEnabled: Bool
 
     public init(
         name: String, host: String, port: Int = 22, username: String,
-        credential: SSHAuthCredential, groupTag: String? = nil
+        credential: SSHAuthCredential, groupTag: String? = nil,
+        monitoringEnabled: Bool = false
     ) {
         self.name = name
         self.host = host
@@ -19,6 +21,7 @@ public struct NewRemoteServerInput: Sendable {
         self.username = username
         self.credential = credential
         self.groupTag = groupTag
+        self.monitoringEnabled = monitoringEnabled
     }
 }
 
@@ -81,7 +84,8 @@ public struct RemoteServerRepository: Sendable {
 
         var server = RemoteServer(
             name: input.name, host: input.host, port: input.port, username: input.username,
-            authMethod: input.credential.authMethod, keychainRef: ref, groupTag: input.groupTag
+            authMethod: input.credential.authMethod, keychainRef: ref, groupTag: input.groupTag,
+            monitoringEnabled: input.monitoringEnabled
         )
         try dbQueue.write { db in
             try server.insert(db)

@@ -19,6 +19,13 @@ public actor Scheduler {
     /// still lands the report well within its due day, while turning an
     /// all-day outage into dozens of attempts rather than thousands.
     static let reportRetryIntervalSecs: TimeInterval = 1_800
+    /// Gap between remote-server resource polls.
+    ///
+    /// Far longer than the 15-second tick because each poll is a real SSH
+    /// session against someone else's machine: five minutes is soon enough to
+    /// catch a server filling up, and rare enough that the monitoring is not
+    /// itself a load on what it watches.
+    static let remoteStatsIntervalSecs: TimeInterval = 300
 
     private let targetRepo: TargetRepository
     private let settingsRepo: SettingsRepository
@@ -27,6 +34,7 @@ public actor Scheduler {
     private let reportSender: ReportSending
     private let webhookSender: AlertWebhookSending
     private let statsProvider: SystemStatsProvider?
+    private let remoteStatsProvider: RemoteStatsProviding?
 
     private var loopTask: Task<Void, Never>?
     /// Guards `tick()` against re-entering while a previous run is suspended
@@ -47,7 +55,8 @@ public actor Scheduler {
         notifier: NotificationSending,
         reportSender: ReportSending,
         statsProvider: SystemStatsProvider? = nil,
-        webhookSender: AlertWebhookSending? = nil
+        webhookSender: AlertWebhookSending? = nil,
+        remoteStatsProvider: RemoteStatsProviding? = nil
     ) {
         self.targetRepo = TargetRepository(dbQueue: dbQueue)
         self.settingsRepo = SettingsRepository(dbQueue: dbQueue)
@@ -56,6 +65,7 @@ public actor Scheduler {
         self.reportSender = reportSender
         self.webhookSender = webhookSender ?? WebhookAlertSender(dbQueue: dbQueue)
         self.statsProvider = statsProvider
+        self.remoteStatsProvider = remoteStatsProvider ?? SSHRemoteStatsProvider(dbQueue: dbQueue)
     }
 
     public func start() {
@@ -101,6 +111,7 @@ public actor Scheduler {
             try await maybeSendReport()
             try stateStore.cleanupHistoryIfDue(retentionDays: try settingsRepo.load().historyRetentionDays)
             await checkSystemAlerts()
+            await checkRemoteServerAlertsIfDue()
         } catch {
             // Best-effort background loop: log and keep ticking next cycle
             // rather than letting one bad read/write kill the scheduler.
@@ -317,6 +328,81 @@ public actor Scheduler {
     /// The webhook is awaited rather than fired and forgotten so a tick
     /// cannot outlive itself in detached work; `WebhookAlertSender` keeps a
     /// short timeout precisely so that wait stays bounded.
+    // MARK: - Remote server resource alerts
+
+    /// Polls the servers the user opted into, on its own slower cadence.
+    ///
+    /// Everything here is skipped unless a threshold is actually set, so the
+    /// default install opens no SSH connections it didn't already open: the
+    /// feature costs nothing until someone asks for it.
+    private func checkRemoteServerAlertsIfDue() async {
+        guard let remoteStatsProvider else { return }
+        let thresholds = (try? settingsRepo.load()).map {
+            RemoteResourceThresholds(
+                cpuPercent: $0.remoteCPUAlertThresholdPercent,
+                memoryPercent: $0.remoteMemoryAlertThresholdPercent,
+                diskPercent: $0.remoteDiskAlertThresholdPercent
+            )
+        }
+        guard let thresholds, !thresholds.allDisabled else { return }
+
+        if let last = try? stateStore.lastRemoteStatsPoll(),
+           Date().timeIntervalSince(last) < Self.remoteStatsIntervalSecs {
+            return
+        }
+        guard let servers = try? remoteStatsProvider.monitoredServers(), !servers.isEmpty else { return }
+        // Recorded before the polling, not after, so a run that hangs or
+        // throws can't turn every tick into another round of SSH attempts —
+        // the same reasoning as the report send's attempt marker.
+        try? stateStore.markRemoteStatsPolled()
+
+        for server in servers {
+            guard let id = server.id else { continue }
+            // One unreachable server must not stop the rest from being
+            // checked. Deliberately *not* alerting on the failure itself:
+            // this Mac's own network dropping would fire one per server, and
+            // "is it up" is what domain monitoring is for.
+            guard let stats = try? await remoteStatsProvider.stats(for: server) else { continue }
+            await raiseRemoteAlerts(for: server, id: id, stats: stats, thresholds: thresholds)
+        }
+    }
+
+    private func raiseRemoteAlerts(
+        for server: RemoteServer, id: Int64, stats: RemoteServerStats, thresholds: RemoteResourceThresholds
+    ) async {
+        let breaching = RemoteResourceAlerts.breaches(in: stats, thresholds: thresholds)
+
+        for resource in RemoteResource.allCases {
+            let key = "remote_\(resource.alertFlagName)_alert_active_\(id)"
+            let wasActive = (try? stateStore.alertFlag(key)) ?? false
+            guard let breach = breaching.first(where: { $0.resource == resource }) else {
+                // Clears only on a reading that came back and was under the
+                // threshold, so a command that failed to run leaves the alert
+                // standing rather than looking like a recovery.
+                if wasActive, hasReading(resource, in: stats) {
+                    try? stateStore.setAlertFlag(key, false)
+                }
+                continue
+            }
+            guard !wasActive else { continue }
+
+            await notifyIfEnabled(
+                title: "\(server.name): \(resource.label) đang cao",
+                body: RemoteResourceAlerts.alertBody(breach),
+                route: "/servers/\(id)"
+            )
+            try? stateStore.setAlertFlag(key, true)
+        }
+    }
+
+    private func hasReading(_ resource: RemoteResource, in stats: RemoteServerStats) -> Bool {
+        switch resource {
+        case .cpu: stats.cpu != nil
+        case .memory: stats.memory != nil
+        case .disk: stats.disk != nil
+        }
+    }
+
     private func notifyIfEnabled(title: String, body: String, route: String?) async {
         if (try? settingsRepo.load().notificationsEnabled) == true {
             await notifier.notify(title: title, body: body, route: route)

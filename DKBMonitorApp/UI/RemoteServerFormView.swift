@@ -22,6 +22,7 @@ struct RemoteServerFormView: View {
     @State private var portText: String
     @State private var username: String
     @State private var groupTag: String
+    @State private var monitoringEnabled: Bool
     @State private var authMethod: RemoteAuthMethod
     @State private var privateKeyPEM: String = ""
     @State private var passphrase: String = ""
@@ -41,6 +42,7 @@ struct RemoteServerFormView: View {
         _portText = State(initialValue: String(server?.port ?? 22))
         _username = State(initialValue: server?.username ?? "")
         _groupTag = State(initialValue: server?.groupTag ?? "")
+        _monitoringEnabled = State(initialValue: server?.monitoringEnabled ?? false)
         _authMethod = State(initialValue: server?.authMethod ?? .privateKey)
     }
 
@@ -93,6 +95,17 @@ struct RemoteServerFormView: View {
                     TextField("Port", text: $portText)
                     TextField("Username", text: $username, prompt: Text("root"))
                     TextField("Group (optional)", text: $groupTag)
+                }
+                Section("Monitoring") {
+                    Toggle("Watch CPU, RAM and disk", isOn: $monitoringEnabled)
+                    // Off by default and per server on purpose: a server was
+                    // added here to be managed by hand, and putting it on a
+                    // timer means a scheduled SSH connection every few
+                    // minutes. That is worth opting into rather than
+                    // inheriting from a global setting.
+                    Text("Connects every few minutes to read this server's usage, and alerts when it crosses the thresholds in Settings. Leave off to only reach this server when you ask.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
                 Section("Authentication") {
                     Picker("Method", selection: $authMethod) {
@@ -151,7 +164,8 @@ struct RemoteServerFormView: View {
                 port: port,
                 username: username.trimmingCharacters(in: .whitespaces),
                 credential: credential,
-                groupTag: trimmedGroup.isEmpty ? nil : trimmedGroup
+                groupTag: trimmedGroup.isEmpty ? nil : trimmedGroup,
+                monitoringEnabled: monitoringEnabled
             ))
         case .edit(var server):
             server.name = name.trimmingCharacters(in: .whitespaces)
@@ -159,6 +173,7 @@ struct RemoteServerFormView: View {
             server.port = port
             server.username = username.trimmingCharacters(in: .whitespaces)
             server.groupTag = trimmedGroup.isEmpty ? nil : trimmedGroup
+            server.monitoringEnabled = monitoringEnabled
             onUpdate(server, newCredentialIfProvided)
         }
         dismiss()
