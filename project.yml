@@ -41,8 +41,8 @@ targets:
         # regenerated from this file on every `xcodegen generate` (not
         # merged), so editing Info.plist directly gets silently discarded.
         # scripts/release.sh edits these two lines, not the plist.
-        CFBundleShortVersionString: "2.0.5"
-        CFBundleVersion: "2.0.5"
+        CFBundleShortVersionString: "2.1.0"
+        CFBundleVersion: "2.1.0"
         LSUIElement: false
         # Sparkle (Phase 10). Real EdDSA keypair generated 2026-08-30 via
         # Sparkle 2.6.4's `generate_keys` tool. SUPublicEDKey below is the
