@@ -1,8 +1,6 @@
-import AppKit
 import DKBMonitorCore
 import Foundation
 import Observation
-import UniformTypeIdentifiers
 
 /// Drives the Overview list: search/filter/grouping over `TargetOverview`,
 /// selection for bulk actions, and every CRUD/pause/check-now/export-import
@@ -17,7 +15,7 @@ import UniformTypeIdentifiers
 @MainActor
 @Observable
 final class OverviewViewModel {
-    static let ungroupedLabel = "Ungrouped"
+    static let ungroupedLabel = TagGrouping.ungroupedLabel
 
     static let shared = OverviewViewModel(
         repo: AppDatabase.shared.map { TargetRepository(dbQueue: $0.dbQueue) }
@@ -98,12 +96,7 @@ final class OverviewViewModel {
             let matchesStatus = statusFilters.isEmpty || statusFilters.contains(TargetStatus(overview: overview))
             return matchesSearch && matchesStatus
         }
-        let grouped = Dictionary(grouping: filtered) { $0.target.groupTag ?? Self.ungroupedLabel }
-        var orderedNames = currentGroupOrder().filter { grouped[$0] != nil }
-        let remaining = grouped.keys.filter { !orderedNames.contains($0) && $0 != Self.ungroupedLabel }.sorted()
-        orderedNames.append(contentsOf: remaining)
-        if grouped[Self.ungroupedLabel] != nil { orderedNames.append(Self.ungroupedLabel) }
-        return orderedNames.map { (group: $0, items: grouped[$0] ?? []) }
+        return TagGrouping.groups(filtered, preferredOrder: currentGroupOrder()) { $0.target.groupTag }
     }
 
     private func currentGroupOrder() -> [String] {
@@ -226,29 +219,19 @@ final class OverviewViewModel {
 
     func exportTargets() {
         guard let repo else { return }
-        let panel = NSSavePanel()
-        panel.allowedContentTypes = [.json]
-        panel.nameFieldStringValue = "dkb-monitor-targets.json"
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        do {
-            let data = try TargetPortability.export(targets: try repo.list())
-            try data.write(to: url)
-        } catch {
-            errorMessage = "Export failed: \(error.localizedDescription)"
+        if let failure = JSONDocumentPanel.export(suggestedName: "dkb-monitor-targets.json", makeData: {
+            try TargetPortability.export(targets: try repo.list())
+        }) {
+            errorMessage = failure
         }
     }
 
     func importTargets() {
         guard let repo else { return }
-        let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.json]
-        panel.allowsMultipleSelection = false
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        do {
-            let data = try Data(contentsOf: url)
+        if let failure = JSONDocumentPanel.import(apply: { data in
             try TargetPortability.importInto(repo, data: data)
-        } catch {
-            errorMessage = "Import failed: \(error.localizedDescription)"
+        }) {
+            errorMessage = failure
         }
     }
 

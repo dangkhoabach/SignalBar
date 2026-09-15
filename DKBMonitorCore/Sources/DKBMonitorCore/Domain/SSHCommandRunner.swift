@@ -136,7 +136,10 @@ public final class SSHConnection: @unchecked Sendable {
     /// NIO stream honours cancellation, which it does for the async sequences
     /// Citadel builds on. The caller closes the connection on any thrown
     /// error, so the session doesn't leak either way.
-    private func withDeadline<T: Sendable>(
+    ///
+    /// `static` because it touches nothing on the connection, which also
+    /// makes the race itself testable without an SSH daemon to connect to.
+    static func withDeadline<T: Sendable>(
         _ seconds: Int,
         operation: @escaping @Sendable () async throws -> T
     ) async throws -> T {
@@ -163,7 +166,7 @@ public final class SSHConnection: @unchecked Sendable {
         maxResponseSize: Int = 1 << 20,
         timeoutSeconds: Int = SSHConnection.operationTimeoutSeconds
     ) async throws -> SSHCommandResult {
-        try await withDeadline(timeoutSeconds) { [self] in
+        try await Self.withDeadline(timeoutSeconds) { [self] in
             var stdout = ByteBuffer()
             var stderr = ByteBuffer()
             var exitCode = 0
@@ -200,7 +203,7 @@ public final class SSHConnection: @unchecked Sendable {
     /// (Phase 2). Path allowlisting happens one layer up, in
     /// `RemoteCommandExecutor`; this type has no notion of it.
     public func readFile(_ path: String, timeoutSeconds: Int = SSHConnection.operationTimeoutSeconds) async throws -> String {
-        try await withDeadline(timeoutSeconds) { [self] in
+        try await Self.withDeadline(timeoutSeconds) { [self] in
             let buffer = try await client.withSFTP { sftp in
                 try await sftp.withFile(filePath: path, flags: .read) { file in
                     try await file.readAll()
@@ -213,7 +216,7 @@ public final class SSHConnection: @unchecked Sendable {
     /// Overwrites (or creates) a file over SFTP — `.truncate` so shorter
     /// replacement content doesn't leave stale bytes trailing the old file.
     public func writeFile(_ path: String, content: String, timeoutSeconds: Int = SSHConnection.operationTimeoutSeconds) async throws {
-        try await withDeadline(timeoutSeconds) { [self] in
+        try await Self.withDeadline(timeoutSeconds) { [self] in
             try await client.withSFTP { sftp in
                 try await sftp.withFile(filePath: path, flags: [.write, .create, .truncate]) { file in
                     try await file.write(ByteBuffer(string: content))
@@ -280,7 +283,7 @@ public enum SSHCommandRunner {
         return SSHConnection(client: client, hostKeyFingerprint: fingerprint)
     }
 
-    private static func authenticationMethod(username: String, credential: SSHAuthCredential) throws -> SSHAuthenticationMethod {
+    static func authenticationMethod(username: String, credential: SSHAuthCredential) throws -> SSHAuthenticationMethod {
         switch credential {
         case .password(let password):
             return .passwordBased(username: username, password: password)

@@ -46,6 +46,47 @@ CURRENT_VERSION=$(grep -m1 'CFBundleShortVersionString:' "$PROJECT_YML" | sed -E
 SUGGESTED_VERSION=$(awk -F. '{print $1"."$2"."$3+1}' <<< "$CURRENT_VERSION")
 read -rp "Current version is $CURRENT_VERSION. New version (e.g. $SUGGESTED_VERSION) [Enter to keep]: " INPUT
 VERSION="${INPUT:-$CURRENT_VERSION}"
+
+# The version goes through `sed` as part of a replacement string and ends up
+# in a filename, so anything but three plain numbers is rejected before it
+# can do damage: `&` expands to the whole match, `/` breaks the delimiter,
+# and a path separator would write the DMG somewhere unintended.
+[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+  echo "Error: version must be MAJOR.MINOR.PATCH (digits only), got \"$VERSION\"." >&2
+  exit 1
+}
+
+# Sparkle decides "is there an update" by comparing versions, so shipping a
+# lower number than what is already published leaves every existing install
+# quietly stuck — no error anywhere, just an update nobody is ever offered.
+if [ "$VERSION" != "$CURRENT_VERSION" ] &&
+   [ "$(printf '%s\n%s\n' "$CURRENT_VERSION" "$VERSION" | sort -V | tail -1)" != "$VERSION" ]; then
+  echo "Error: $VERSION is lower than the current $CURRENT_VERSION." >&2
+  exit 1
+fi
+
+# project.yml is edited in place before the build, so any failure from here
+# on would otherwise leave it bumped — and the next run would read that
+# abandoned number as the current version and refuse to reuse it.
+PROJECT_YML_BACKUP=$(mktemp)
+cp "$PROJECT_YML" "$PROJECT_YML_BACKUP"
+
+# One handler, installed once: `$?` inside a trap is whatever ran last, so
+# chaining two traps would have the second read the first's exit code
+# instead of the script's and never restore anything.
+on_exit() {
+  local status=$?
+  if [ -n "${BUILD_DIR:-}" ]; then
+    rm -rf "$BUILD_DIR"
+  fi
+  if [ "$status" -ne 0 ]; then
+    echo "==> Failed (exit $status) — restoring $PROJECT_YML" >&2
+    cp "$PROJECT_YML_BACKUP" "$PROJECT_YML"
+  fi
+  rm -f "$PROJECT_YML_BACKUP"
+}
+trap on_exit EXIT
+
 sed -i '' -E "s/(CFBundleShortVersionString: )\"?[^\"[:space:]]*\"?/\1\"$VERSION\"/" "$PROJECT_YML"
 sed -i '' -E "s/(CFBundleVersion: )\"?[^\"[:space:]]*\"?/\1\"$VERSION\"/" "$PROJECT_YML"
 echo "==> Releasing version $VERSION"
@@ -54,8 +95,14 @@ echo "==> Regenerating Xcode project"
 xcodegen generate
 
 OUT_DIR="release-output/$VERSION"
-BUILD_DIR="$OUT_DIR/DerivedData"
 mkdir -p "$OUT_DIR"
+
+# Outside release-output, and removed on the way out. Keeping DerivedData
+# next to the DMG meant every release left roughly a gigabyte behind — five
+# releases had accumulated 5GB of build intermediates alongside 5 DMGs that
+# together are a rounding error. The DMG and its signature are the only two
+# files worth keeping.
+BUILD_DIR=$(mktemp -d)
 
 echo "==> Building (Release, ad-hoc signed, universal arm64+x86_64)"
 # Without an explicit -destination, xcodebuild resolves the implicit "My
@@ -70,6 +117,27 @@ xcodebuild build \
   CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="-" DEVELOPMENT_TEAM=""
 
 APP_PATH="$BUILD_DIR/Build/Products/Release/$APP_NAME.app"
+
+# Everything below packages and signs whatever sits at APP_PATH without ever
+# looking at it. A build that silently produced nothing, or produced an
+# arm64-only binary, still yielded a DMG with a valid EdDSA signature — one
+# that simply doesn't launch on the Macs it was meant for.
+echo "==> Verifying the built app"
+[ -d "$APP_PATH" ] || { echo "Error: no app at $APP_PATH — the build produced nothing." >&2; exit 1; }
+
+codesign --verify --deep --strict "$APP_PATH" || {
+  echo "Error: $APP_PATH failed signature verification." >&2
+  exit 1
+}
+
+ARCHS_BUILT=$(lipo -archs "$APP_PATH/Contents/MacOS/$APP_NAME")
+for arch in arm64 x86_64; do
+  grep -qw "$arch" <<< "$ARCHS_BUILT" || {
+    echo "Error: binary is missing $arch (built: $ARCHS_BUILT). Intel or Apple Silicon Macs would be left out." >&2
+    exit 1
+  }
+done
+echo "    architectures: $ARCHS_BUILT"
 
 echo "==> Creating DMG"
 DMG_PATH="$OUT_DIR/DKB-Monitor-$VERSION.dmg"
@@ -112,11 +180,20 @@ fi
 # signature" upload field expects. No --account flag: this app's key was
 # generated under the Keychain's default "ed25519" account (see docs/release.md).
 "$SPARKLE_TOOLS_DIR/bin/sign_update" -p "$DMG_PATH" | tee "$DMG_PATH.sig"
+[ -s "$DMG_PATH.sig" ] || { echo "Error: sign_update produced an empty signature." >&2; exit 1; }
+
+# The upload is two separate form fields, so the DMG and the signature can be
+# mismatched by hand — pairing a new installer with the previous release's
+# signature makes every client reject the update with an error that points
+# nowhere near the real cause. Printing the installer's own checksum gives
+# something to compare against after uploading.
+DMG_SHA256=$(shasum -a 256 "$DMG_PATH" | cut -d" " -f1)
 
 echo ""
 echo "==> Done. Upload these two files at https://admin.dangkhoabach.vn (app: dkb-monitor):"
 echo "    Installer:         $DMG_PATH"
 echo "    Sparkle signature:  $DMG_PATH.sig"
+echo "    Installer SHA-256: $DMG_SHA256"
 echo ""
 echo "Reminder: this build is ad-hoc signed, not notarized (no paid Apple"
 echo "Developer Program membership) - first launch needs right-click > Open"

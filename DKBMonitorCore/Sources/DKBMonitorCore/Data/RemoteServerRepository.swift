@@ -39,7 +39,27 @@ public struct RemoteServerRepository: Sendable {
     // MARK: - CRUD
 
     public func list() throws -> [RemoteServer] {
-        try dbQueue.read { db in try RemoteServer.order(sql: "created_at ASC").fetchAll(db) }
+        try dbQueue.read { db in try Self.list(db) }
+    }
+
+    /// Reactive counterpart of `list()`, mirroring
+    /// `TargetRepository.observeOverview()`.
+    ///
+    /// Nothing outside the list view writes to `remote_servers` today, so
+    /// reloading by hand after each edit happened to work. It stops working
+    /// the moment a second writer exists — a second window, or any
+    /// background sync — and the failure is a list that quietly shows stale
+    /// rows rather than anything that looks broken. Observing removes that
+    /// whole class of bug before it can be introduced, and also drops the
+    /// manual `load()` calls that every mutation had to remember.
+    public func observeList() -> AsyncValueObservation<[RemoteServer]> {
+        ValueObservation
+            .tracking { db in try Self.list(db) }
+            .values(in: dbQueue)
+    }
+
+    private static func list(_ db: Database) throws -> [RemoteServer] {
+        try RemoteServer.order(sql: "created_at ASC").fetchAll(db)
     }
 
     public func get(id: Int64) throws -> RemoteServer? {

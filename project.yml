@@ -40,10 +40,10 @@ targets:
         # releases are signed manually here via `sign_update`/
         # `generate_appcast` (same manual-release model as the old Tauri
         # app's release/README.md), not exported to a GitHub Actions secret.
-        # `native-release.yml`'s CI-based Sparkle-signing step still expects
-        # a `SPARKLE_ED_PRIVATE_KEY` secret and isn't wired up for this
-        # manual flow yet — see docs/swift-native-port-plan.md's Phase 10
-        # notes before relying on that workflow.
+        # There is no CI release path any more: `.github/workflows/` no
+        # longer exists, so the `SPARKLE_ED_PRIVATE_KEY` secret this comment
+        # used to warn about has nothing left to read it. scripts/release.sh
+        # is the whole release process.
         # Same domain the old Tauri app's updater used (updates.dangkhoabach.vn),
         # just a different file — not GitHub Releases, this project doesn't
         # publish there. MyWebsiteAPI's AppReleaseService now supports

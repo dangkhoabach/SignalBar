@@ -59,7 +59,8 @@ struct RemoteServerListView: View {
                 }
             }
         }
-        .onAppear { viewModel.load() }
+        .onAppear { viewModel.start() }
+        .onDisappear { viewModel.stop() }
         .sheet(isPresented: $viewModel.isPresentingAddSheet) {
             RemoteServerFormView(mode: .add, onSave: { viewModel.addServer($0) })
         }

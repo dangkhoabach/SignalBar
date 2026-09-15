@@ -1,8 +1,6 @@
-import AppKit
 import DKBMonitorCore
 import Foundation
 import Observation
-import UniformTypeIdentifiers
 
 /// Drives the Remote Servers list — Phase 0 of
 /// docs/remote-server-management-plan.md: CRUD over `RemoteServer` plus the
@@ -15,10 +13,11 @@ final class RemoteServerListViewModel {
     static let shared = RemoteServerListViewModel(
         repo: AppDatabase.shared.map { RemoteServerRepository(dbQueue: $0.dbQueue) }
     )
-    static let ungroupedLabel = "Ungrouped"
+    static let ungroupedLabel = TagGrouping.ungroupedLabel
 
     private let repo: RemoteServerRepository?
     private let connectionService: RemoteConnectionService?
+    private var observationTask: Task<Void, Never>?
 
     var servers: [RemoteServer] = []
     var errorMessage: String?
@@ -40,22 +39,40 @@ final class RemoteServerListViewModel {
         self.connectionService = repo.map { RemoteConnectionService(repo: $0) }
     }
 
-    func load() {
-        guard let repo else { return }
-        servers = (try? repo.list()) ?? []
+    /// Same shape as `OverviewViewModel.start()`, including the synchronous
+    /// prefetch: `ValueObservation`'s first emission is always async, so
+    /// without it the list renders empty for a beat and then jumps to N rows.
+    func start() {
+        guard observationTask == nil, let repo else { return }
+        servers = (try? repo.list()) ?? servers
+
+        observationTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                for try await snapshot in repo.observeList() {
+                    guard !Task.isCancelled else { break }
+                    self.servers = snapshot
+                }
+            } catch {
+                // Keep the last known list rather than blanking the pane if
+                // the stream fails — same call as OverviewViewModel makes.
+            }
+        }
+    }
+
+    func stop() {
+        observationTask?.cancel()
+        observationTask = nil
     }
 
     // MARK: - Grouping
 
-    /// Groups by `groupTag` the same way `OverviewViewModel.filteredGroups`
-    /// groups targets — sorted group names first, "Ungrouped" always last —
-    /// but without that view model's drag-reorder/rename-group machinery,
-    /// which nothing here has asked for yet.
+    /// Groups by `groupTag` through the same helper the Overview list uses,
+    /// minus the saved drag order — nothing here has asked for reordering or
+    /// renaming groups yet, so no `preferredOrder` is passed and the sections
+    /// come out alphabetical with "Ungrouped" last.
     var groupedServers: [(group: String, items: [RemoteServer])] {
-        let grouped = Dictionary(grouping: servers) { $0.groupTag ?? Self.ungroupedLabel }
-        var groupNames = grouped.keys.filter { $0 != Self.ungroupedLabel }.sorted()
-        if grouped[Self.ungroupedLabel] != nil { groupNames.append(Self.ungroupedLabel) }
-        return groupNames.map { (group: $0, items: grouped[$0] ?? []) }
+        TagGrouping.groups(servers) { $0.groupTag }
     }
 
     // MARK: - CRUD
@@ -64,7 +81,6 @@ final class RemoteServerListViewModel {
         guard let repo else { return }
         do {
             _ = try repo.add(input)
-            load()
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -74,7 +90,6 @@ final class RemoteServerListViewModel {
         guard let repo else { return }
         do {
             _ = try repo.update(server, newCredential: newCredential)
-            load()
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -84,7 +99,6 @@ final class RemoteServerListViewModel {
         guard let repo else { return }
         try? repo.delete(id: id)
         testResultMessages.removeValue(forKey: id)
-        load()
     }
 
     // MARK: - Test connection
@@ -97,7 +111,6 @@ final class RemoteServerListViewModel {
             do {
                 let whoami = try await connectionService.testConnection(server)
                 testResultMessages[id] = "Connected as \(whoami)"
-                load() // picks up the host key fingerprint if it was just pinned
             } catch {
                 testResultMessages[id] = error.localizedDescription
             }
@@ -111,15 +124,10 @@ final class RemoteServerListViewModel {
     /// — safe to share/back up without leaking a private key or password.
     func exportServers() {
         guard let repo else { return }
-        let panel = NSSavePanel()
-        panel.allowedContentTypes = [.json]
-        panel.nameFieldStringValue = "dkb-monitor-remote-servers.json"
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        do {
-            let data = try RemoteServerPortability.export(repo)
-            try data.write(to: url)
-        } catch {
-            errorMessage = "Export failed: \(error.localizedDescription)"
+        if let failure = JSONDocumentPanel.export(suggestedName: "dkb-monitor-remote-servers.json", makeData: {
+            try RemoteServerPortability.export(repo)
+        }) {
+            errorMessage = failure
         }
     }
 
@@ -128,17 +136,11 @@ final class RemoteServerListViewModel {
     /// in the list ready to be edited.
     func importServers() {
         guard let repo else { return }
-        let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.json]
-        panel.allowsMultipleSelection = false
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        do {
-            let data = try Data(contentsOf: url)
+        if let failure = JSONDocumentPanel.import(apply: { data in
             let count = try RemoteServerPortability.importInto(repo, data: data)
-            load()
             infoMessage = "Imported \(count) server(s). Edit each one to add its credential before connecting."
-        } catch {
-            errorMessage = "Import failed: \(error.localizedDescription)"
+        }) {
+            errorMessage = failure
         }
     }
 }

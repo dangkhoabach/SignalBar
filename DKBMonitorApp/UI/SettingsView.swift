@@ -47,7 +47,6 @@ struct SettingsView: View {
                     }
                 }
                 .pickerStyle(.segmented)
-                .labelsHidden()
 
                 Picker("Language", selection: Binding(
                     get: { AppLocale(rawValue: languageRaw) ?? .systemDefault },
