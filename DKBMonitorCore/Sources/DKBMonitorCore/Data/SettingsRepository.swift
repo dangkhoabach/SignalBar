@@ -5,6 +5,12 @@ public struct AppSettings: Equatable, Sendable {
     public var notificationsEnabled: Bool
     public var smtpEnabled: Bool
     public var smtpRecipientEmail: String
+    /// The address this install actually proved it can read, as confirmed by
+    /// the relay. Kept separately from `smtpRecipientEmail` because the two
+    /// drifting apart is the whole failure this guards: edit the recipient
+    /// after verifying and, without this, reports would keep arriving at the
+    /// old address while the screen showed the new one.
+    public var smtpVerifiedEmail: String
     /// "daily" | "weekly" | "monthly"
     public var smtpFrequency: String
     public var smtpDayOfWeek: Int
@@ -38,11 +44,23 @@ public struct AppSettings: Equatable, Sendable {
     public var remoteCPUAlertThresholdPercent: Int
     public var remoteMemoryAlertThresholdPercent: Int
     public var remoteDiskAlertThresholdPercent: Int
+    /// Runs the Cleanup tab's selected targets on a schedule instead of only
+    /// on a click. Off by default — this deletes files, so it is never
+    /// something the user gets without asking.
+    public var cleanupScheduleEnabled: Bool
+    /// "daily" | "weekly" | "monthly", same vocabulary as the report schedule.
+    public var cleanupFrequency: String
+    public var cleanupDayOfWeek: Int
+    /// The selected targets' paths, newline-separated. Stored as paths rather
+    /// than indexes so reordering or adding a target in a later build cannot
+    /// silently repoint a saved selection at something else.
+    public var cleanupTargetPaths: String
 
     public static let defaults = AppSettings(
         notificationsEnabled: false,
         smtpEnabled: false,
         smtpRecipientEmail: "",
+        smtpVerifiedEmail: "",
         smtpFrequency: "monthly",
         smtpDayOfWeek: 1,
         smtpDayOfMonth: 1,
@@ -58,7 +76,11 @@ public struct AppSettings: Equatable, Sendable {
         webhookURL: "",
         remoteCPUAlertThresholdPercent: 0,
         remoteMemoryAlertThresholdPercent: 0,
-        remoteDiskAlertThresholdPercent: 0
+        remoteDiskAlertThresholdPercent: 0,
+        cleanupScheduleEnabled: false,
+        cleanupFrequency: "weekly",
+        cleanupDayOfWeek: 0,
+        cleanupTargetPaths: ""
     )
 }
 
@@ -82,6 +104,7 @@ public struct SettingsRepository: Sendable {
             notificationsEnabled: try AppSettingsStore.get(db, key: "notifications_enabled", default: "0") == "1",
             smtpEnabled: try AppSettingsStore.get(db, key: "smtp_enabled", default: "0") == "1",
             smtpRecipientEmail: try AppSettingsStore.get(db, key: "smtp_recipient_email", default: d.smtpRecipientEmail),
+            smtpVerifiedEmail: try AppSettingsStore.get(db, key: "smtp_verified_email", default: d.smtpVerifiedEmail),
             smtpFrequency: try AppSettingsStore.get(db, key: "smtp_frequency", default: d.smtpFrequency),
             smtpDayOfWeek: try int("smtp_day_of_week", d.smtpDayOfWeek),
             smtpDayOfMonth: try int("smtp_day_of_month", d.smtpDayOfMonth),
@@ -97,7 +120,11 @@ public struct SettingsRepository: Sendable {
             webhookURL: try AppSettingsStore.get(db, key: "webhook_url", default: d.webhookURL),
             remoteCPUAlertThresholdPercent: try int("remote_cpu_alert_threshold_percent", d.remoteCPUAlertThresholdPercent),
             remoteMemoryAlertThresholdPercent: try int("remote_memory_alert_threshold_percent", d.remoteMemoryAlertThresholdPercent),
-            remoteDiskAlertThresholdPercent: try int("remote_disk_alert_threshold_percent", d.remoteDiskAlertThresholdPercent)
+            remoteDiskAlertThresholdPercent: try int("remote_disk_alert_threshold_percent", d.remoteDiskAlertThresholdPercent),
+            cleanupScheduleEnabled: try AppSettingsStore.get(db, key: "cleanup_schedule_enabled", default: "0") == "1",
+            cleanupFrequency: try AppSettingsStore.get(db, key: "cleanup_frequency", default: d.cleanupFrequency),
+            cleanupDayOfWeek: try int("cleanup_day_of_week", d.cleanupDayOfWeek),
+            cleanupTargetPaths: try AppSettingsStore.get(db, key: "cleanup_target_paths", default: d.cleanupTargetPaths)
         )
     }
 
@@ -106,6 +133,7 @@ public struct SettingsRepository: Sendable {
             try AppSettingsStore.set(db, key: "notifications_enabled", value: settings.notificationsEnabled ? "1" : "0")
             try AppSettingsStore.set(db, key: "smtp_enabled", value: settings.smtpEnabled ? "1" : "0")
             try AppSettingsStore.set(db, key: "smtp_recipient_email", value: settings.smtpRecipientEmail)
+            try AppSettingsStore.set(db, key: "smtp_verified_email", value: settings.smtpVerifiedEmail)
             try AppSettingsStore.set(db, key: "smtp_frequency", value: settings.smtpFrequency)
             try AppSettingsStore.set(db, key: "smtp_day_of_week", value: String(settings.smtpDayOfWeek))
             try AppSettingsStore.set(db, key: "smtp_day_of_month", value: String(settings.smtpDayOfMonth))
@@ -122,6 +150,10 @@ public struct SettingsRepository: Sendable {
             try AppSettingsStore.set(db, key: "remote_cpu_alert_threshold_percent", value: String(settings.remoteCPUAlertThresholdPercent))
             try AppSettingsStore.set(db, key: "remote_memory_alert_threshold_percent", value: String(settings.remoteMemoryAlertThresholdPercent))
             try AppSettingsStore.set(db, key: "remote_disk_alert_threshold_percent", value: String(settings.remoteDiskAlertThresholdPercent))
+            try AppSettingsStore.set(db, key: "cleanup_schedule_enabled", value: settings.cleanupScheduleEnabled ? "1" : "0")
+            try AppSettingsStore.set(db, key: "cleanup_frequency", value: settings.cleanupFrequency)
+            try AppSettingsStore.set(db, key: "cleanup_day_of_week", value: String(settings.cleanupDayOfWeek))
+            try AppSettingsStore.set(db, key: "cleanup_target_paths", value: settings.cleanupTargetPaths)
         }
     }
 }

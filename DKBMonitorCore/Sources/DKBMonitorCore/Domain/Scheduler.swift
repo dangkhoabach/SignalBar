@@ -35,6 +35,10 @@ public actor Scheduler {
     private let webhookSender: AlertWebhookSending
     private let statsProvider: SystemStatsProvider?
     private let remoteStatsProvider: RemoteStatsProviding?
+    /// Nil in tests that don't exercise cleanup, and in any host that has no
+    /// AppKit — a nil runner means the scheduler simply never cleans, which
+    /// is the correct fallback for a file-deleting job.
+    private let cleanupRunner: CleanupRunning?
 
     private var loopTask: Task<Void, Never>?
     /// Guards `tick()` against re-entering while a previous run is suspended
@@ -56,7 +60,8 @@ public actor Scheduler {
         reportSender: ReportSending,
         statsProvider: SystemStatsProvider? = nil,
         webhookSender: AlertWebhookSending? = nil,
-        remoteStatsProvider: RemoteStatsProviding? = nil
+        remoteStatsProvider: RemoteStatsProviding? = nil,
+        cleanupRunner: CleanupRunning? = nil
     ) {
         self.targetRepo = TargetRepository(dbQueue: dbQueue)
         self.settingsRepo = SettingsRepository(dbQueue: dbQueue)
@@ -66,6 +71,9 @@ public actor Scheduler {
         self.webhookSender = webhookSender ?? WebhookAlertSender(dbQueue: dbQueue)
         self.statsProvider = statsProvider
         self.remoteStatsProvider = remoteStatsProvider ?? SSHRemoteStatsProvider(dbQueue: dbQueue)
+        // No production default, unlike the providers above: cleanup deletes
+        // files, so it runs only where a host has explicitly wired it up.
+        self.cleanupRunner = cleanupRunner
     }
 
     public func start() {
@@ -112,6 +120,7 @@ public actor Scheduler {
             try stateStore.cleanupHistoryIfDue(retentionDays: try settingsRepo.load().historyRetentionDays)
             await checkSystemAlerts()
             await checkRemoteServerAlertsIfDue()
+            await maybeRunScheduledCleanup()
         } catch {
             // Best-effort background loop: log and keep ticking next cycle
             // rather than letting one bad read/write kill the scheduler.
@@ -267,7 +276,15 @@ public actor Scheduler {
 
     private func maybeSendReport() async throws {
         let settings = try settingsRepo.load()
-        guard settings.smtpEnabled, !settings.smtpRecipientEmail.isEmpty else { return }
+        // The relay only delivers to a verified address, so an unverified
+        // (or since-edited) recipient can never produce mail. Stopping here
+        // rather than letting the send fail keeps the daily attempt+backoff
+        // machinery from running all day against a request that is certain
+        // to be rejected.
+        guard settings.smtpEnabled,
+              !settings.smtpRecipientEmail.isEmpty,
+              settings.smtpVerifiedEmail == settings.smtpRecipientEmail
+        else { return }
 
         let period = SchedulerStateStore.reportPeriod(frequency: settings.smtpFrequency, dayOfWeek: settings.smtpDayOfWeek, dayOfMonth: settings.smtpDayOfMonth)
         guard period.isDueToday, try stateStore.lastReportSentPeriod() != period.periodIdentifier else { return }
@@ -285,6 +302,52 @@ public actor Scheduler {
 
         guard await reportSender.sendReport(label: period.label, days: period.days) else { return }
         try stateStore.markReportSent(period: period.periodIdentifier)
+    }
+
+    /// Runs the user's chosen cleanup targets at most once per scheduled
+    /// period.
+    ///
+    /// Three separate things have to be true before a single file moves, and
+    /// they are kept separate on purpose: the schedule must be on, the saved
+    /// selection must still match targets this build offers, and each of
+    /// those targets must be Trash-safe. A selection saved by an older build
+    /// is re-filtered here on every run rather than trusted, so nothing an
+    /// unattended run touches depends on what was written to the database
+    /// months ago.
+    private func maybeRunScheduledCleanup() async {
+        guard let cleanupRunner, let settings = try? settingsRepo.load(), settings.cleanupScheduleEnabled else { return }
+
+        let period = SchedulerStateStore.reportPeriod(
+            frequency: settings.cleanupFrequency,
+            dayOfWeek: settings.cleanupDayOfWeek,
+            dayOfMonth: 1
+        )
+        guard period.isDueToday, (try? stateStore.lastCleanupPeriod()) != period.periodIdentifier else { return }
+
+        let selected = Set(settings.cleanupTargetPaths.split(separator: "\n").map(String.init))
+        guard !selected.isEmpty else { return }
+
+        let targets = JunkTarget.scheduledCleaningTargets(
+            from: selected, available: await cleanupRunner.availableTargets()
+        )
+        guard !targets.isEmpty else { return }
+
+        // Marked before the work, not after: a clean that crashes or is
+        // killed partway must not re-run on the next 15-second tick and start
+        // deleting again.
+        try? stateStore.markCleanupRun(period: period.periodIdentifier)
+
+        let result = await cleanupRunner.clean(targets)
+
+        // Always announced. An unattended job that moves gigabytes to the
+        // Trash without saying so is exactly the kind of silent behaviour the
+        // rest of this app was audited to remove.
+        let freed = ByteCountFormatter.string(fromByteCount: result.bytes, countStyle: .file)
+        var body = "Moved \(freed) to the Trash from \(targets.count) location(s)."
+        if !result.skipped.isEmpty {
+            body += " Not fully cleared: \(result.skipped.joined(separator: ", "))."
+        }
+        await notifyIfEnabled(title: "Scheduled cleanup finished", body: body, route: "/cleanup")
     }
 
     private func checkSystemAlerts() async {

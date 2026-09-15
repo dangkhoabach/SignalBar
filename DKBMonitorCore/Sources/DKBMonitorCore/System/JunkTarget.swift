@@ -54,6 +54,30 @@ public struct JunkTarget: Sendable, Equatable, Identifiable {
         }
     }
 
+    /// Whether this target may be cleaned by the scheduler rather than only
+    /// by an explicit click.
+    ///
+    /// Anything that bypasses the Trash is excluded, always — an unattended
+    /// run that destroys files outright leaves the user nothing to undo, and
+    /// the Trash is the only reason automating this is defensible at all.
+    /// Today that is exactly the Trash target itself, but the rule is written
+    /// against the flag rather than the path so a future
+    /// `deletesPermanently: true` entry is excluded the moment it is added,
+    /// without anyone having to remember this decision.
+    public var isEligibleForScheduledCleaning: Bool {
+        !deletesPermanently
+    }
+
+    /// The subset of `paths` the scheduler is allowed to act on. Applied to
+    /// the user's stored selection on every run — not once when they choose —
+    /// so a selection saved by an older build can never widen what an
+    /// unattended run touches.
+    public static func scheduledCleaningTargets(
+        from paths: Set<String>, available: [JunkTarget]
+    ) -> [JunkTarget] {
+        withoutNested(available.filter { paths.contains($0.path) && $0.isEligibleForScheduledCleaning })
+    }
+
     /// Path with `$HOME` collapsed back to `~` for display.
     public var displayPath: String {
         let home = NSHomeDirectory()

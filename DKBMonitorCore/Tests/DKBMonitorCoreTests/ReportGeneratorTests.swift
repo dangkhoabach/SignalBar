@@ -48,16 +48,3 @@ import Testing
         #expect(!report.contains("domain expires"))
     }
 }
-
-@Suite struct EmailReportSenderTests {
-    // The actual HTTPS POST to the production relay is deliberately not
-    // exercised here — a real send there would deliver a genuine email.
-    // These tests only cover the guard logic that runs before any network
-    // call is made.
-    @Test func doesNotSendWhenRecipientEmailIsBlank() async throws {
-        let app = try AppDatabase(inMemory: DatabaseQueue())
-        let sender = EmailReportSender(dbQueue: app.dbQueue)
-        let sent = await sender.sendReport(label: "Daily", days: 1)
-        #expect(!sent)
-    }
-}

@@ -214,6 +214,7 @@ struct SettingsView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     TextField("Recipient Email", text: $viewModel.settings.smtpRecipientEmail, prompt: Text("you@example.com"))
+                    emailVerification
                     Picker("Frequency", selection: $viewModel.settings.smtpFrequency) {
                         Text("Daily").tag("daily")
                         Text("Weekly").tag("weekly")
@@ -236,9 +237,34 @@ struct SettingsView: View {
                             ProgressView().controlSize(.small)
                         } else {
                             Button("Send Test Email") { Task { await viewModel.sendTestEmail() } }
-                                .disabled(viewModel.settings.smtpRecipientEmail.isEmpty)
+                                .disabled(!viewModel.isEmailVerified)
                         }
                     }
+                }
+            }
+
+            Section("Scheduled Cleanup") {
+                Toggle("Clean selected locations on a schedule", isOn: $viewModel.settings.cleanupScheduleEnabled)
+                if viewModel.settings.cleanupScheduleEnabled {
+                    // Said plainly at the switch, not buried: this is the one
+                    // setting in the app that deletes the user's files while
+                    // they are not looking.
+                    Text("Everything is moved to the Trash, never deleted outright, and you get a notification when a run finishes. The Trash itself can't be emptied on a schedule.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Picker("Frequency", selection: $viewModel.settings.cleanupFrequency) {
+                        Text("Daily").tag("daily")
+                        Text("Weekly").tag("weekly")
+                        Text("Monthly").tag("monthly")
+                    }
+                    if viewModel.settings.cleanupFrequency == "weekly" {
+                        Picker("Day of Week", selection: $viewModel.settings.cleanupDayOfWeek) {
+                            ForEach(0..<7, id: \.self) { daysFromMonday in
+                                Text(Calendar.current.weekdaySymbols[(daysFromMonday + 1) % 7]).tag(daysFromMonday)
+                            }
+                        }
+                    }
+                    cleanupTargetPicker
                 }
             }
 
@@ -355,6 +381,103 @@ struct SettingsView: View {
             Button("Clear All Domains", role: .destructive) { overviewViewModel.clearAllTargets() }
         } message: {
             Text("This permanently deletes every monitored domain and its history. This cannot be undone.")
+        }
+    }
+
+    /// Only Trash-safe locations are listed. The Trash target is excluded by
+    /// `isEligibleForScheduledCleaning` rather than filtered out by name here,
+    /// so this list and what the scheduler will actually touch cannot drift
+    /// apart.
+    @ViewBuilder
+    private var cleanupTargetPicker: some View {
+        let selected = Set(viewModel.settings.cleanupTargetPaths.split(separator: "\n").map(String.init))
+        let available = JunkTarget.defaults(homeDirectory: NSHomeDirectory())
+            .filter(\.isEligibleForScheduledCleaning)
+
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Locations").font(.subheadline.weight(.medium))
+            ForEach(available) { target in
+                Toggle(isOn: Binding(
+                    get: { selected.contains(target.path) },
+                    set: { isOn in
+                        var paths = selected
+                        if isOn { paths.insert(target.path) } else { paths.remove(target.path) }
+                        viewModel.settings.cleanupTargetPaths = paths.sorted().joined(separator: "\n")
+                    }
+                )) {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(target.name)
+                        Text(target.displayPath)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            if selected.isEmpty {
+                Label("No location selected — nothing will be cleaned.", systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
+        }
+    }
+
+    /// The relay refuses to deliver anywhere this Mac has not proved it can
+    /// read, so an address that looks filled in is not yet an address that
+    /// receives anything. This is the only place that difference is visible,
+    /// which is why the unverified state is a warning rather than a caption.
+    @ViewBuilder
+    private var emailVerification: some View {
+        if viewModel.isEmailVerified {
+            HStack {
+                Label("Verified — reports will arrive at \(viewModel.settings.smtpVerifiedEmail).", systemImage: "checkmark.seal.fill")
+                    .font(.caption)
+                    .foregroundStyle(.green)
+                Spacer()
+                Button("Change…") { viewModel.forgetEmailVerification() }
+                    .buttonStyle(.link)
+                    .font(.caption)
+            }
+        } else {
+            Label(
+                viewModel.settings.smtpVerifiedEmail.isEmpty
+                    ? "This address has not been verified yet, so no report can be delivered to it."
+                    : "The address changed since it was verified. Verify the new one, or reports will not be delivered.",
+                systemImage: "exclamationmark.triangle.fill"
+            )
+            .font(.caption)
+            .foregroundStyle(.orange)
+
+            if viewModel.isAwaitingVerificationCode {
+                HStack {
+                    TextField("6-digit code", text: $viewModel.verificationCode, prompt: Text("123456"))
+                        .frame(maxWidth: 120)
+                    if viewModel.isConfirmingVerification {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Button("Verify") { Task { await viewModel.confirmEmailVerification() } }
+                            .disabled(viewModel.verificationCode.isEmpty)
+                        Button("Resend") { Task { await viewModel.startEmailVerification() } }
+                            .buttonStyle(.link)
+                    }
+                    Spacer()
+                }
+            } else {
+                HStack {
+                    Spacer()
+                    if viewModel.isStartingVerification {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Button("Send Verification Code") { Task { await viewModel.startEmailVerification() } }
+                            .disabled(viewModel.settings.smtpRecipientEmail.isEmpty)
+                    }
+                }
+            }
+        }
+
+        if let message = viewModel.verificationMessage {
+            Text(message)
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 

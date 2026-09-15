@@ -7,6 +7,10 @@ import Security
 /// secret; it gets the exact same protection as a private key, no exception.
 public enum KeychainSecretKind: String, Sendable {
     case privateKey, passphrase, password
+    /// The bearer token proving this install may have report mail delivered
+    /// to its verified address. Not an SSH secret, so it is stored under its
+    /// own service (see `KeychainStore.init`) rather than alongside them.
+    case emailRelayToken
 }
 
 public enum KeychainStoreError: Error, Sendable, Equatable {
@@ -67,9 +71,18 @@ public protocol KeychainStoring: Sendable {
 /// distinct methods (rather than collapsed into one) specifically so that
 /// reinstatement only touches this file, not any call site.
 public struct KeychainStore: KeychainStoring, Sendable {
-    private static let service = "com.dangkhoabach.dkb-monitor.remote-ssh"
+    public static let remoteSSHService = "com.dangkhoabach.dkb-monitor.remote-ssh"
+    public static let emailRelayService = "com.dangkhoabach.dkb-monitor.email-relay"
 
-    public init() {}
+    private let service: String
+
+    /// Defaults to the SSH service so every existing call site keeps reading
+    /// the items it already wrote — the service string is part of an item's
+    /// identity, so changing it for them would strand every credential
+    /// already on a user's machine rather than migrating it.
+    public init(service: String = KeychainStore.remoteSSHService) {
+        self.service = service
+    }
 
     public func set(ref: String, kind: KeychainSecretKind, data: Data) throws {
         try Self.onMainThread {
@@ -79,7 +92,7 @@ public struct KeychainStore: KeychainStoring, Sendable {
             // guarantee a stale item with different attributes never lingers.
             let deleteQuery: [String: Any] = [
                 kSecClass as String: kSecClassGenericPassword,
-                kSecAttrService as String: Self.service,
+                kSecAttrService as String: service,
                 kSecAttrAccount as String: account,
             ]
             SecItemDelete(deleteQuery as CFDictionary)
@@ -97,7 +110,7 @@ public struct KeychainStore: KeychainStoring, Sendable {
         try Self.onMainThread {
             let query: [String: Any] = [
                 kSecClass as String: kSecClassGenericPassword,
-                kSecAttrService as String: Self.service,
+                kSecAttrService as String: service,
                 kSecAttrAccount as String: Self.account(ref: ref, kind: kind),
             ]
             let status = SecItemDelete(query as CFDictionary)
@@ -131,7 +144,7 @@ public struct KeychainStore: KeychainStoring, Sendable {
         try Self.onMainThread {
             let query: [String: Any] = [
                 kSecClass as String: kSecClassGenericPassword,
-                kSecAttrService as String: Self.service,
+                kSecAttrService as String: service,
                 kSecAttrAccount as String: Self.account(ref: ref, kind: kind),
                 kSecReturnData as String: true,
             ]

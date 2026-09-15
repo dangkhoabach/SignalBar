@@ -122,6 +122,19 @@ public struct SchedulerStateStore: Sendable {
         }
     }
 
+    // MARK: - Scheduled cleanup
+
+    /// Reuses `reportPeriod`'s identifier vocabulary, so "already ran this
+    /// week" means exactly what it means for reports and there is only one
+    /// notion of a period in the scheduler.
+    public func lastCleanupPeriod() throws -> String {
+        try dbQueue.read { db in try AppSettingsStore.get(db, key: "last_cleanup_period", default: "") }
+    }
+
+    public func markCleanupRun(period: String) throws {
+        try dbQueue.write { db in try AppSettingsStore.set(db, key: "last_cleanup_period", value: period) }
+    }
+
     // MARK: - Remote server polling
 
     /// When the remote servers were last polled for resource stats.

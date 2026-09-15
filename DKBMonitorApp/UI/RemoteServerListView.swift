@@ -5,6 +5,7 @@ struct RemoteServerListView: View {
     @Bindable private var viewModel = RemoteServerListViewModel.shared
     @Bindable private var navigationState = AppNavigationState.shared
     @State private var navigationPath = NavigationPath()
+    @State private var isPresentingBulkSheet = false
 
     var body: some View {
         NavigationStack(path: $navigationPath) {
@@ -53,6 +54,13 @@ struct RemoteServerListView: View {
                     }
 
                     Button {
+                        isPresentingBulkSheet = true
+                    } label: {
+                        Label("Run on Multiple…", systemImage: "bolt.horizontal")
+                    }
+                    .disabled(viewModel.servers.isEmpty)
+
+                    Button {
                         viewModel.isPresentingAddSheet = true
                     } label: {
                         Label("Add Server", systemImage: "plus")
@@ -69,6 +77,9 @@ struct RemoteServerListView: View {
             guard let serverId = newValue else { return }
             navigationPath.append(serverId)
             navigationState.pendingDetailServerID = nil
+        }
+        .sheet(isPresented: $isPresentingBulkSheet) {
+            RemoteBulkActionSheet(servers: viewModel.servers)
         }
         .sheet(isPresented: $viewModel.isPresentingAddSheet) {
             RemoteServerFormView(mode: .add, onSave: { viewModel.addServer($0) })

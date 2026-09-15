@@ -168,6 +168,9 @@ private struct PollFailure: Error {}
             var s = AppSettings.defaults
             s.smtpEnabled = true
             s.smtpRecipientEmail = "ops@example.com"
+            // The relay only delivers to a verified address, so an unverified
+            // install never even attempts a report.
+            s.smtpVerifiedEmail = "ops@example.com"
             s.smtpFrequency = "daily"
             return s
         }())
@@ -464,6 +467,9 @@ private struct PollFailure: Error {}
             var s = AppSettings.defaults
             s.smtpEnabled = true
             s.smtpRecipientEmail = "ops@example.com"
+            // The relay only delivers to a verified address, so an unverified
+            // install never even attempts a report.
+            s.smtpVerifiedEmail = "ops@example.com"
             s.smtpFrequency = "daily"
             return s
         }())

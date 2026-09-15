@@ -23,6 +23,10 @@ import Testing
             notificationsEnabled: true,
             smtpEnabled: true,
             smtpRecipientEmail: "ops@example.com",
+            // Deliberately different from the recipient: the two are separate
+            // keys, so a round trip that used the same value for both would
+            // pass even if `load` read one of them from the other's key.
+            smtpVerifiedEmail: "verified@example.com",
             smtpFrequency: "weekly",
             smtpDayOfWeek: 3,
             smtpDayOfMonth: 17,
@@ -38,7 +42,11 @@ import Testing
             webhookURL: "https://hooks.slack.com/services/T0/B0/xxx",
             remoteCPUAlertThresholdPercent: 85,
             remoteMemoryAlertThresholdPercent: 90,
-            remoteDiskAlertThresholdPercent: 95
+            remoteDiskAlertThresholdPercent: 95,
+            cleanupScheduleEnabled: true,
+            cleanupFrequency: "monthly",
+            cleanupDayOfWeek: 4,
+            cleanupTargetPaths: "/tmp/a\n/tmp/b"
         )
         try repo.update(settings)
         #expect(try repo.load() == settings)

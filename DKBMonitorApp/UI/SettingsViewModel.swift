@@ -6,10 +6,15 @@ import Observation
 @Observable
 final class SettingsViewModel {
     static let shared = SettingsViewModel(
-        repo: AppDatabase.shared.map { SettingsRepository(dbQueue: $0.dbQueue) }
+        repo: AppDatabase.shared.map { SettingsRepository(dbQueue: $0.dbQueue) },
+        sender: AppDatabase.shared.map { EmailReportSender(dbQueue: $0.dbQueue) }
     )
 
     private let repo: SettingsRepository?
+    /// Nil only when the database failed to open, the same condition `repo`
+    /// already encodes — the startup alert covers that case, so every action
+    /// here just no-ops rather than repeating the complaint.
+    private let sender: EmailReportSender?
     private var isLoaded = false
     private var saveTask: Task<Void, Never>?
     /// The edit waiting out the debounce in `scheduleSave`, if any.
@@ -25,13 +30,32 @@ final class SettingsViewModel {
     var isSendingTestEmail = false
     var testEmailResultMessage: String?
 
+    var isStartingVerification = false
+    var isConfirmingVerification = false
+    /// True once a code has been requested, which is what reveals the code
+    /// field. Not persisted: a code expires in minutes, so carrying this
+    /// across a relaunch would only offer a field that cannot work.
+    var isAwaitingVerificationCode = false
+    var verificationCode = ""
+    /// Shown under the email field — the one place a failed verification is
+    /// explained.
+    var verificationMessage: String?
+
+    /// The relay delivers only to the address this Mac verified, so an
+    /// edited recipient is unverified again. Comparing the two is what makes
+    /// that visible instead of reports quietly continuing to the old address.
+    var isEmailVerified: Bool {
+        !settings.smtpVerifiedEmail.isEmpty && settings.smtpVerifiedEmail == settings.smtpRecipientEmail
+    }
+
     var isSendingTestWebhook = false
     var webhookTestResultMessage: String?
     /// Why the entered URL was rejected, shown under the field.
     var webhookURLProblem: String?
 
-    init(repo: SettingsRepository?) {
+    init(repo: SettingsRepository?, sender: EmailReportSender? = nil) {
         self.repo = repo
+        self.sender = sender
     }
 
     func loadIfNeeded() {
@@ -75,12 +99,69 @@ final class SettingsViewModel {
     /// user confirm the relay + recipient work before waiting for a real
     /// scheduled report.
     func sendTestEmail() async {
-        let recipient = settings.smtpRecipientEmail
-        guard !recipient.isEmpty else { return }
+        guard let sender, isEmailVerified else { return }
         isSendingTestEmail = true
-        let sent = await EmailReportSender.sendTestEmail(recipientEmail: recipient)
+        let sent = await sender.sendTestEmail()
         isSendingTestEmail = false
-        testEmailResultMessage = sent ? "Test email sent to \(recipient)." : "Failed to send test email."
+        testEmailResultMessage = sent
+            ? "Test email sent to \(settings.smtpVerifiedEmail)."
+            : "Failed to send test email."
+    }
+
+    // MARK: - Email verification
+
+    /// Asks the relay to mail a code to the recipient address.
+    ///
+    /// The relay answers the same way whether or not it sent anything — it
+    /// must not become a way to probe which addresses exist — so a success
+    /// here means "accepted", not "delivered", and the message says so.
+    func startEmailVerification() async {
+        guard let sender else { return }
+        let email = settings.smtpRecipientEmail.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !email.isEmpty else { return }
+
+        isStartingVerification = true
+        verificationMessage = nil
+        let accepted = await sender.startVerification(email: email)
+        isStartingVerification = false
+
+        if accepted {
+            isAwaitingVerificationCode = true
+            verificationCode = ""
+            verificationMessage = "If \(email) can receive mail, a code is on its way. It expires in 10 minutes."
+        } else {
+            verificationMessage = "Could not reach admin.dangkhoabach.vn. Check your connection and try again."
+        }
+    }
+
+    func confirmEmailVerification() async {
+        guard let sender else { return }
+        let email = settings.smtpRecipientEmail.trimmingCharacters(in: .whitespacesAndNewlines)
+        let code = verificationCode.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !email.isEmpty, !code.isEmpty else { return }
+
+        isConfirmingVerification = true
+        verificationMessage = nil
+        do {
+            try await sender.confirmVerification(email: email, code: code)
+            // `confirmVerification` already wrote this through to the
+            // database alongside the Keychain token; mirroring it here keeps
+            // the on-screen state from lagging a relaunch behind.
+            settings.smtpVerifiedEmail = email
+            isAwaitingVerificationCode = false
+            verificationCode = ""
+        } catch {
+            verificationMessage = error.localizedDescription
+        }
+        isConfirmingVerification = false
+    }
+
+    func forgetEmailVerification() {
+        try? sender?.forgetVerification()
+        settings.smtpVerifiedEmail = ""
+        isAwaitingVerificationCode = false
+        verificationCode = ""
+        verificationMessage = nil
     }
 
     // MARK: - Webhook
