@@ -83,4 +83,48 @@ import Testing
         let nonMatching = SchedulerStateStore.reportPeriod(frequency: "monthly", dayOfWeek: 0, dayOfMonth: dayOfMonth == 1 ? 2 : 1, now: today)
         #expect(!nonMatching.isDueToday)
     }
+
+    private func utcDate(_ year: Int, _ month: Int, _ day: Int) throws -> Date {
+        var calendar = Calendar(identifier: .iso8601)
+        calendar.timeZone = try #require(TimeZone(identifier: "UTC"))
+        return try #require(calendar.date(from: DateComponents(year: year, month: month, day: day, hour: 12)))
+    }
+
+    /// The monthly window was a flat 30 days regardless of the month, so the
+    /// report headed "last 30 days" quietly missed a day of a 31-day month
+    /// and covered three days twice after February.
+    @Test func theMonthlyWindowMatchesTheMonthThatJustEnded() throws {
+        // 1 Mar back to 1 Feb is 28 days in a common year.
+        let march = SchedulerStateStore.reportPeriod(
+            frequency: "monthly", dayOfWeek: 0, dayOfMonth: 1, now: try utcDate(2026, 3, 1)
+        )
+        #expect(march.days == 28)
+
+        // 1 May back to 1 Apr is 30.
+        let may = SchedulerStateStore.reportPeriod(
+            frequency: "monthly", dayOfWeek: 0, dayOfMonth: 1, now: try utcDate(2026, 5, 1)
+        )
+        #expect(may.days == 30)
+
+        // 1 Jun back to 1 May is 31.
+        let june = SchedulerStateStore.reportPeriod(
+            frequency: "monthly", dayOfWeek: 0, dayOfMonth: 1, now: try utcDate(2026, 6, 1)
+        )
+        #expect(june.days == 31)
+    }
+
+    /// A leap February is 29, not 28 — the whole point of deriving this from
+    /// the calendar rather than a constant.
+    @Test func theMonthlyWindowHandlesALeapFebruary() throws {
+        let march2028 = SchedulerStateStore.reportPeriod(
+            frequency: "monthly", dayOfWeek: 0, dayOfMonth: 1, now: try utcDate(2028, 3, 1)
+        )
+        #expect(march2028.days == 29)
+    }
+
+    /// Daily and weekly windows are fixed by definition and must not move.
+    @Test func dailyAndWeeklyWindowsAreUnchanged() {
+        #expect(SchedulerStateStore.reportPeriod(frequency: "daily", dayOfWeek: 0, dayOfMonth: 1).days == 1)
+        #expect(SchedulerStateStore.reportPeriod(frequency: "weekly", dayOfWeek: 0, dayOfMonth: 1).days == 7)
+    }
 }

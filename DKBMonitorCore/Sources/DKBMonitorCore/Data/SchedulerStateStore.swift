@@ -74,7 +74,17 @@ public struct SchedulerStateStore: Sendable {
             )
         default:
             let day = calendar.component(.day, from: now)
-            return ReportPeriod(isDueToday: day == dayOfMonth, periodIdentifier: monthFormatter.string(from: now), label: "Monthly", days: 30)
+            // Measured back to the same day of the previous month rather than
+            // a flat 30. The report is labelled "Monthly" and its header says
+            // "last N days", so a fixed 30 quietly dropped a day in a 31-day
+            // month and covered three days twice after February.
+            let previousMonth = calendar.date(byAdding: .month, value: -1, to: now) ?? now
+            let days = calendar.dateComponents([.day], from: previousMonth, to: now).day ?? 30
+            return ReportPeriod(
+                isDueToday: day == dayOfMonth,
+                periodIdentifier: monthFormatter.string(from: now),
+                label: "Monthly", days: days
+            )
         }
     }
 

@@ -1,4 +1,5 @@
 import AppKit
+import DKBMonitorCore
 
 /// Minimal AppKit glue for the 3 behaviors SwiftUI Scenes don't expose
 /// (see D2/Mục 2 in docs/swift-native-port-plan.md): keep running after the
@@ -12,6 +13,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let directory = LayoutSnapshot.requestedDirectory {
             Task { await LayoutSnapshot.run(directory: directory) }
             return
+        }
+
+        // Before anything else takes a dependency on it: without the
+        // database there is no monitoring, no settings and no history, and
+        // every one of those failures is silent on its own.
+        if let failure = AppDatabase.openFailure {
+            presentDatabaseFailure(failure)
         }
 
         MenuBarStatsViewModel.shared.start()
@@ -32,6 +40,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
         ) { _ in
             Task { await AppScheduler.shared?.tick() }
+        }
+    }
+
+    /// Says plainly that the app can't do its job, and where the file it
+    /// couldn't open lives, so the user has somewhere to start.
+    ///
+    /// A blocking alert rather than a banner: an uptime monitor that isn't
+    /// monitoring looks exactly like one where everything is fine, and that
+    /// is the single most misleading state this app can be in.
+    private func presentDatabaseFailure(_ error: Error) {
+        let alert = NSAlert()
+        alert.alertStyle = .critical
+        alert.messageText = "DKB Monitor can't open its database"
+        alert.informativeText = """
+            Nothing will be monitored and no settings can be saved until this is fixed.
+
+            \(error.localizedDescription)
+
+            The database is at:
+            \(AppDatabaseLocation.productionPath().path)
+            """
+        alert.addButton(withTitle: "Continue Anyway")
+        alert.addButton(withTitle: "Show in Finder")
+        if alert.runModal() == .alertSecondButtonReturn {
+            NSWorkspace.shared.activateFileViewerSelecting([AppDatabaseLocation.productionPath()])
         }
     }
 

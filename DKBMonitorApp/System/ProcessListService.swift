@@ -77,8 +77,11 @@ public actor ProcessListService: ProcessListProvider {
     }
 
     private func processName(for pid: pid_t) -> String? {
-        var buffer = [UInt8](repeating: 0, count: 64)
+        // `MAXCOMLEN * 2 + 1` is what `proc_name` itself writes at most; the
+        // old 64-byte buffer could cut a long name mid-UTF-8 and turn the
+        // remainder into replacement characters.
+        var buffer = [UInt8](repeating: 0, count: 2 * Int(MAXCOMLEN) + 1)
         guard proc_name(pid, &buffer, UInt32(buffer.count)) > 0 else { return nil }
-        return String(cString: buffer)
+        return String(decoding: buffer.prefix { $0 != 0 }, as: UTF8.self)
     }
 }

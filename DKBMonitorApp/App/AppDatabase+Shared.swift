@@ -14,5 +14,22 @@ import DKBMonitorCore
 /// silently went stale until the app restarted. Routing everything through
 /// this one shared `AppDatabase` fixes that at the root.
 extension AppDatabase {
-    static let shared: AppDatabase? = try? AppDatabase(path: AppDatabaseLocation.productionPath().path)
+    /// Opened once, and the failure kept rather than thrown away.
+    ///
+    /// Every view model and the scheduler alike reach the database through
+    /// `shared`, and each of them degrades to a quiet no-op when it's `nil`.
+    /// That combination meant a database that wouldn't open — corrupt file,
+    /// a migration that failed, a disk with no room — produced an app that
+    /// launched looking perfectly healthy, showed an empty domain list,
+    /// silently refused to save settings, and monitored nothing at all.
+    /// Keeping the error is what lets the app say so on launch.
+    private static let opened = Result { try AppDatabase(path: AppDatabaseLocation.productionPath().path) }
+
+    static var shared: AppDatabase? { try? opened.get() }
+
+    /// The reason the database couldn't be opened, if it couldn't.
+    static var openFailure: Error? {
+        if case .failure(let error) = opened { return error }
+        return nil
+    }
 }

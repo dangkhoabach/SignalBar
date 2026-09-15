@@ -55,13 +55,38 @@ public struct SSHCommandResult: Sendable, Equatable {
     public var succeeded: Bool { exitCode == 0 }
 }
 
+/// The part of a live session `RemoteConnectionService` actually uses.
+///
+/// Deliberately internal and deliberately small: it exists so the order in
+/// which that service pins the host key and runs its first command can be
+/// asserted without a live SSH daemon. `SSHConnection` is the only thing
+/// that conforms in the app.
+protocol SSHSession: Sendable {
+    var hostKeyFingerprint: String { get }
+    func run(_ command: String) async throws -> SSHCommandResult
+    func close() async throws
+}
+
+extension SSHConnection: SSHSession {
+    /// Bridges the protocol's one-argument `run` onto the real method's
+    /// defaults.
+    func run(_ command: String) async throws -> SSHCommandResult {
+        try await run(command, maxResponseSize: 1 << 20, timeoutSeconds: Self.operationTimeoutSeconds)
+    }
+}
+
 /// Validates the server's host key against a previously-pinned fingerprint
 /// (trust-on-first-use, like `~/.ssh/known_hosts`) instead of accepting any
 /// key — `SSHHostKeyValidator.acceptAnything()` would make every connection
 /// silently vulnerable to a MITM. `nil` `expectedFingerprint` means "no
 /// pinned key yet" (first-ever connect to this server): it's accepted and
 /// recorded via `observedFingerprint` for the caller to persist.
-private final class TOFUHostKeyValidator: NIOSSHClientServerAuthenticationDelegate, @unchecked Sendable {
+///
+/// `internal` rather than file-private so the host-key tests can drive it
+/// directly: this is the check that stands between a normal reconnect and a
+/// machine-in-the-middle, and it is not reachable any other way without a
+/// live SSH daemon.
+final class TOFUHostKeyValidator: NIOSSHClientServerAuthenticationDelegate, @unchecked Sendable {
     private let expectedFingerprint: String?
     private(set) var observedFingerprint: String?
 

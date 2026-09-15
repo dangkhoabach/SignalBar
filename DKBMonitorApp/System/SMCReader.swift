@@ -16,6 +16,9 @@ enum SMCError: Error {
     case openFailed(kern_return_t)
     case callFailed(kern_return_t)
     case keyNotFound(String)
+    /// `SMCParamStruct` no longer matches the layout the kernel expects, so
+    /// any reading taken through it would be garbage rather than a failure.
+    case unexpectedStructLayout(Int)
 }
 
 final class SMCReader {
@@ -83,6 +86,16 @@ final class SMCReader {
         }
     }
 
+    /// The owner is long-lived, so this rarely runs — but an `io_connect_t`
+    /// that outlives its reader is a kernel resource nothing can reclaim,
+    /// and relying on every future owner to remember `close()` is the kind
+    /// of contract that gets broken quietly.
+    deinit {
+        if connection != 0 {
+            IOServiceClose(connection)
+        }
+    }
+
     /// FourCC key (e.g. "TC0P", "F0Ac") -> UInt32, big-endian byte order (SMC convention).
     private static func fourCC(_ key: String) -> UInt32 {
         var result: UInt32 = 0
@@ -92,7 +105,20 @@ final class SMCReader {
         return result
     }
 
+    /// Size the kernel's `AppleSMC` method expects for its parameter struct.
+    ///
+    /// Swift makes no promise about how it lays out a struct's fields, and
+    /// this one has to match a C layout byte for byte. If a compiler ever
+    /// packs it differently, `IOConnectCallStructMethod` still succeeds and
+    /// just reads the wrong offsets — the app would report plausible-looking
+    /// nonsense temperatures rather than fail. Checking the size turns that
+    /// into a loud, immediate failure instead.
+    static let expectedParamStructSize = 80
+
     private func call(_ input: inout SMCParamStruct) throws -> SMCParamStruct {
+        guard MemoryLayout<SMCParamStruct>.stride == Self.expectedParamStructSize else {
+            throw SMCError.unexpectedStructLayout(MemoryLayout<SMCParamStruct>.stride)
+        }
         var output = SMCParamStruct()
         let inputSize = MemoryLayout<SMCParamStruct>.stride
         var outputSize = MemoryLayout<SMCParamStruct>.stride

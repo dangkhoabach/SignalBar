@@ -32,6 +32,9 @@ struct SettingsView: View {
     /// the state in which alerts are configured but can never be delivered.
     @State private var notificationsBlocked = false
     @State private var loginItemEnabled = LoginItemManager.shared.isEnabled
+    /// Registered, but macOS is holding it until the user approves it in
+    /// System Settings — on, yet not actually launching at login.
+    @State private var loginItemNeedsApproval = false
     @State private var loginItemError: String?
     @State private var isPresentingClearAllConfirm = false
 
@@ -63,6 +66,14 @@ struct SettingsView: View {
                     get: { loginItemEnabled },
                     set: { setLoginItemEnabled($0) }
                 ))
+                if loginItemNeedsApproval {
+                    Label(
+                        "Waiting for your approval in System Settings › General › Login Items. Until then DKB Monitor won't start at login.",
+                        systemImage: "exclamationmark.triangle.fill"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                }
 
                 Toggle("Enable Notifications", isOn: Binding(
                     get: { viewModel.settings.notificationsEnabled },
@@ -214,10 +225,14 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .onAppear { viewModel.loadIfNeeded() }
         .task {
-            // Permission can also be taken away from System Settings long
-            // after it was granted, which leaves the toggle on and every
-            // alert going nowhere. Re-check whenever this page opens rather
-            // than trusting what the toggle was last set to.
+            // Both of these live outside the app, and both were only ever
+            // read once. The user can revoke notifications or remove the
+            // login item from System Settings at any point, which left the
+            // toggles here showing a state that stopped being true. Re-read
+            // whenever this page opens rather than trusting the last value.
+            loginItemEnabled = LoginItemManager.shared.isEnabled
+            loginItemNeedsApproval = LoginItemManager.shared.requiresApproval
+
             guard viewModel.settings.notificationsEnabled else { return }
             notificationsBlocked = await NotificationManager.shared.authorizationStatus() == .denied
         }
@@ -326,13 +341,20 @@ struct SettingsView: View {
     private func setLoginItemEnabled(_ enabled: Bool) {
         do {
             if enabled {
-                try LoginItemManager.shared.enable()
+                // The returned flag was being discarded. macOS can register
+                // the item and still hold it until the user approves it in
+                // System Settings, which leaves the toggle on while the app
+                // doesn't actually launch at login — worth saying out loud
+                // rather than letting it look finished.
+                loginItemNeedsApproval = try LoginItemManager.shared.enable()
             } else {
                 try LoginItemManager.shared.disable()
+                loginItemNeedsApproval = false
             }
             loginItemEnabled = LoginItemManager.shared.isEnabled
         } catch {
             loginItemError = error.localizedDescription
+            loginItemNeedsApproval = false
             loginItemEnabled = LoginItemManager.shared.isEnabled
         }
     }
