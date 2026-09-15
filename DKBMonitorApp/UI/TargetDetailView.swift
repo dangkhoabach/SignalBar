@@ -206,7 +206,7 @@ struct TargetDetailView: View {
             } else {
                 Table(viewModel.historyForSelectedDay) {
                     TableColumn("Time") { Text($0.checkedAt.formatted(date: .omitted, time: .standard)) }
-                    TableColumn("Status") { Text($0.success ? "Up" : "Down").foregroundStyle($0.success ? .green : .red) }
+                    TableColumn("Status") { ($0.success ? Text("Up") : Text("Down")).foregroundStyle($0.success ? .green : .red) }
                     TableColumn("Code") { Text($0.statusCode.map(String.init) ?? "—") }
                     TableColumn("Response") { Text($0.responseTimeMs.map { "\($0)ms" } ?? "—") }
                     TableColumn("Error") { Text($0.errorMessage ?? "—") }

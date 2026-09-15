@@ -12,8 +12,13 @@ A personal, native macOS menu-bar app for monitoring the uptime, SSL certificate
 - **Groups** — targets group by root domain (subdomains fold under it), with drag-and-drop reordering of both targets and groups, and inline group renaming.
 - **Pause/resume checks** — snooze a target for 30m/1h/4h/24h or indefinitely.
 - **Native macOS integration** — `MenuBarExtra` with live CPU/RAM/uptime summary, native notifications (click-to-navigate), launch-at-login, light/dark theme, in-app language switching (English/Vietnamese).
-- **Scheduled email reports** — a weekly/monthly summary of uptime and incidents sent over SMTP, with the app password stored in the macOS Keychain (never in the database or config).
-- **Import/export/clear** domains as JSON.
+- **Scheduled email reports** — a daily/weekly/monthly summary of uptime and incidents, delivered through the app's own relay so there is no SMTP account to configure. The relay only sends to an address this Mac has verified with a one-time code, so the endpoint cannot be pointed at anyone else; the token that proves it lives in the macOS Keychain, never in the database.
+- **Webhook alerts** — every alert can also go to a Slack, Discord, or plain-JSON webhook, posted straight from this Mac.
+- **Server Manager** — manage remote Linux servers over SSH: systemd services, nginx config and reload, log tailing, and live CPU/RAM/disk stats. Every action is allowlisted per server (no free-form shell), host keys are pinned on first contact, and credentials stay in the Keychain. One action can be run across several servers at once.
+- **Remote resource alerts** — opt a server into monitoring and get alerted when its CPU, RAM, or disk crosses a threshold.
+- **Cleanup** — measure and clear developer and app caches (moved to the Trash, never deleted outright), find large files, and optionally run the selected locations on a daily/weekly/monthly schedule.
+- **Response-time percentiles** — p50 and p95 beside every latency chart, computed over successful checks only.
+- **Import/export/clear** domains and servers as JSON (server exports never include credentials).
 
 ## Tech stack
 
@@ -33,16 +38,17 @@ DKBMonitorApp/
   Notifications/                      UNUserNotificationCenter wrapper, click-to-navigate routing
 DKBMonitorCore/
   Sources/DKBMonitorCore/
-    Domain/                           Scheduler, HttpChecker, ExpiryChecker, EmailReportSender, ReportGenerator
-    Data/                             AppDatabase (GRDB), TargetRepository, SettingsRepository
-    Models/                           Target, TargetOverview, Incident, CheckResult, ExpiryStatus
+    Domain/                           Scheduler, HttpChecker, ExpiryChecker, EmailReportSender, ReportGenerator,
+                                      RemoteCommandExecutor + SSHCommandRunner (SSH), AlertWebhook, RemoteResourceAlerts
+    Data/                             AppDatabase (GRDB), TargetRepository, SettingsRepository, RemoteServerRepository, KeychainStore
+    Models/                           Target, TargetOverview, Incident, CheckResult, ExpiryStatus, RemoteServer
     System/                           Cross-platform-safe stats/process value types
   Tests/                              swift-testing suite for DKBMonitorCore
 docs/
   swift-native-port-plan.md           full history of the Tauri → native port
-  release.md                          local build/sign/notarize/publish process
+  release.md                          local build/sign/publish process (ad-hoc signed, not notarized)
 scripts/
-  release.sh                          builds, signs, notarizes, DMGs, and Sparkle-signs a release
+  release.sh                          tests, builds, ad-hoc signs, DMGs, and Sparkle-signs a release
 ```
 
 ## Getting started

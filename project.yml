@@ -6,6 +6,12 @@ options:
 settings:
   MACOSX_DEPLOYMENT_TARGET: "14.0"
   SWIFT_VERSION: "6.0"
+  # The compiler writes every SwiftUI string literal it sees, with the exact
+  # runtime key it will look up (an Int interpolation is `%lld`, a String is
+  # `%@`), into .stringsdata under DerivedData. The catalog was hand-written
+  # before this was on, and every one of its 42 interpolated keys used `%@`,
+  # so its translations for any number never matched at runtime.
+  SWIFT_EMIT_LOC_STRINGS: YES
   CODE_SIGN_STYLE: Automatic
   ENABLE_HARDENED_RUNTIME: NO
 packages:

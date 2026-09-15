@@ -30,7 +30,7 @@ struct RemoteBulkActionSheet: View {
         .frame(width: 560, height: 520)
         .onAppear { viewModel.load(servers: servers) }
         .confirmationDialog(
-            "Run \(viewModel.kind.label) on \(viewModel.selectedIds.count) server(s)?",
+            "Run this on \(viewModel.selectedIds.count) server(s)?",
             isPresented: $viewModel.isPresentingConfirm,
             titleVisibility: .visible
         ) {
@@ -108,11 +108,11 @@ struct RemoteBulkActionSheet: View {
             Table(viewModel.outcomes) {
                 TableColumn("Server") { Text($0.serverName) }
                 TableColumn("Result") { outcome in
-                    Label(
-                        outcome.succeeded ? "OK" : "Failed",
-                        systemImage: outcome.succeeded ? "checkmark.circle.fill" : "xmark.octagon.fill"
-                    )
-                    .foregroundStyle(outcome.succeeded ? .green : .red)
+                    if outcome.succeeded {
+                        Label("OK", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                    } else {
+                        Label("Failed", systemImage: "xmark.octagon.fill").foregroundStyle(.red)
+                    }
                 }
                 TableColumn("Detail") { Text($0.summary).lineLimit(2) }
             }

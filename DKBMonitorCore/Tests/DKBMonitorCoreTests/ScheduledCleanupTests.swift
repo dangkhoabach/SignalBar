@@ -30,6 +30,35 @@ import Testing
         }
     }
 
+    /// Blocks inside `clean` until released, so a test can observe whether
+    /// the tick came back while the cleanup was still going.
+    private actor GatedCleanupRunner: CleanupRunning {
+        private let available: [JunkTarget]
+        private(set) var started = false
+        private(set) var finished = false
+        private var gate: CheckedContinuation<Void, Never>?
+        private var released = false
+
+        init(available: [JunkTarget]) { self.available = available }
+
+        func availableTargets() async -> [JunkTarget] { available }
+
+        func clean(_ targets: [JunkTarget]) async -> (bytes: Int64, skipped: [String]) {
+            started = true
+            if !released {
+                await withCheckedContinuation { gate = $0 }
+            }
+            finished = true
+            return (1, [])
+        }
+
+        func release() {
+            released = true
+            gate?.resume()
+            gate = nil
+        }
+    }
+
     private final class RecordingNotifier: NotificationSending, @unchecked Sendable {
         private let lock = NSLock()
         private var _messages: [(title: String, body: String)] = []
@@ -139,11 +168,12 @@ import Testing
         }
 
         await scheduler.tick()
+        await scheduler.waitForBackgroundWork()
 
         #expect(runner.cleaned.count == 1)
         #expect(runner.cleaned.first?.count == 2)
         #expect(try state.lastCleanupPeriod().isEmpty == false)
-        #expect(notifier.messages.first?.title == "Scheduled cleanup finished")
+        #expect(notifier.messages.first?.title == "Dọn dẹp theo lịch đã xong")
     }
 
     /// The tick runs every 15 seconds; without the period guard a daily
@@ -155,7 +185,9 @@ import Testing
         }
 
         await scheduler.tick()
+        await scheduler.waitForBackgroundWork()
         await scheduler.tick()
+        await scheduler.waitForBackgroundWork()
 
         #expect(runner.cleaned.count == 1)
     }
@@ -168,6 +200,7 @@ import Testing
         }
 
         await scheduler.tick()
+        await scheduler.waitForBackgroundWork()
 
         #expect(runner.cleaned.isEmpty)
     }
@@ -179,6 +212,7 @@ import Testing
         }
 
         await scheduler.tick()
+        await scheduler.waitForBackgroundWork()
 
         #expect(runner.cleaned.isEmpty)
     }
@@ -192,6 +226,7 @@ import Testing
         }
 
         await scheduler.tick()
+        await scheduler.waitForBackgroundWork()
 
         #expect(runner.cleaned.isEmpty)
         #expect(try state.lastCleanupPeriod().isEmpty)
@@ -209,10 +244,62 @@ import Testing
         }
 
         await scheduler.tick()
+        await scheduler.waitForBackgroundWork()
 
         let body = try #require(notifier.messages.first?.body)
-        #expect(body.contains("Not fully cleared"))
+        #expect(body.contains("Chưa dọn hết"))
         #expect(body.contains("App caches"))
+    }
+
+    /// The tick is what runs every HTTP check. A cleanup that takes minutes
+    /// must not hold it, or domain monitoring pauses for the whole run.
+    @Test func aSlowCleanupDoesNotHoldTheTick() async throws {
+        let runner = GatedCleanupRunner(available: [Self.cache])
+        let (scheduler, _) = try makeScheduler(runner: runner, notifier: RecordingNotifier()) {
+            $0.cleanupTargetPaths = Self.cache.path
+        }
+
+        let tick = Task { await scheduler.tick() }
+        let tickReturnedFirst = await withTaskGroup(of: Bool.self) { group in
+            group.addTask { await tick.value; return true }
+            group.addTask {
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                // A tick that awaits the cleanup can only come back once the
+                // gate opens, and the group cannot drain until it does — so
+                // the timeout opens it. Without this the test deadlocked
+                // under exactly the regression it exists to catch.
+                await runner.release()
+                return false
+            }
+            let first = await group.next()!
+            group.cancelAll()
+            return first
+        }
+
+        #expect(tickReturnedFirst, "tick() waited for the cleanup to finish")
+        #expect(await runner.started)
+        await runner.release()
+        await scheduler.waitForBackgroundWork()
+        await tick.value
+        #expect(await runner.finished)
+    }
+
+    /// Notifications can be off. The Settings page still has to be able to
+    /// say what the last run did.
+    @Test func whatTheRunDidIsRecordedForTheSettingsPage() async throws {
+        let runner = RecordingCleanupRunner(available: [Self.cache, Self.derivedData], result: (3_000_000, ["DerivedData"]))
+        let (scheduler, state) = try makeScheduler(runner: runner, notifier: RecordingNotifier()) {
+            $0.notificationsEnabled = false
+            $0.cleanupTargetPaths = "\(Self.cache.path)\n\(Self.derivedData.path)"
+        }
+
+        await scheduler.tick()
+        await scheduler.waitForBackgroundWork()
+
+        let run = try #require(try state.lastCleanupRun())
+        #expect(run.bytes == 3_000_000)
+        #expect(run.locations == 2)
+        #expect(run.skipped == ["DerivedData"])
     }
 
     /// A host that never wired up a runner must behave as if the feature does
@@ -223,6 +310,7 @@ import Testing
         }
 
         await scheduler.tick()
+        await scheduler.waitForBackgroundWork()
 
         #expect(try state.lastCleanupPeriod().isEmpty)
     }

@@ -26,6 +26,10 @@ public actor Scheduler {
     /// catch a server filling up, and rare enough that the monitoring is not
     /// itself a load on what it watches.
     static let remoteStatsIntervalSecs: TimeInterval = 300
+    /// Remote polls run concurrently, capped like `RemoteBulkExecutor`: an
+    /// unreachable server costs a full connect timeout, and in sequence N of
+    /// them held the tick — and every HTTP check behind it — for N timeouts.
+    static let maxConcurrentRemotePolls = 8
 
     private let targetRepo: TargetRepository
     private let settingsRepo: SettingsRepository
@@ -41,6 +45,10 @@ public actor Scheduler {
     private let cleanupRunner: CleanupRunning?
 
     private var loopTask: Task<Void, Never>?
+    /// The scheduled cleanup in progress, if any. Kept out of `tick()`
+    /// because measuring and trashing caches can take minutes, and the tick
+    /// is what runs every HTTP check — see `maybeRunScheduledCleanup`.
+    private var cleanupTask: Task<Void, Never>?
     /// Guards `tick()` against re-entering while a previous run is suspended
     /// — see the comment on `tick()` itself.
     private var tickInFlight = false
@@ -89,6 +97,12 @@ public actor Scheduler {
     public func stop() {
         loopTask?.cancel()
         loopTask = nil
+    }
+
+    /// Waits for work that `tick()` deliberately hands off rather than
+    /// awaits — today only the scheduled cleanup. Internal, for tests.
+    func waitForBackgroundWork() async {
+        await cleanupTask?.value
     }
 
     /// Runs one cycle immediately — used both by the periodic loop and by the
@@ -300,7 +314,9 @@ public actor Scheduler {
         // send hangs for a while.
         try stateStore.markReportAttempted()
 
-        guard await reportSender.sendReport(label: period.label, days: period.days) else { return }
+        let sent = await reportSender.sendReport(label: period.label, days: period.days)
+        try? stateStore.recordReportOutcome(.init(at: Date(), label: period.label, sent: sent))
+        guard sent else { return }
         try stateStore.markReportSent(period: period.periodIdentifier)
     }
 
@@ -315,12 +331,14 @@ public actor Scheduler {
     /// unattended run touches depends on what was written to the database
     /// months ago.
     private func maybeRunScheduledCleanup() async {
-        guard let cleanupRunner, let settings = try? settingsRepo.load(), settings.cleanupScheduleEnabled else { return }
+        guard cleanupTask == nil,
+              let cleanupRunner, let settings = try? settingsRepo.load(), settings.cleanupScheduleEnabled
+        else { return }
 
         let period = SchedulerStateStore.reportPeriod(
             frequency: settings.cleanupFrequency,
             dayOfWeek: settings.cleanupDayOfWeek,
-            dayOfMonth: 1
+            dayOfMonth: settings.cleanupDayOfMonth
         )
         guard period.isDueToday, (try? stateStore.lastCleanupPeriod()) != period.periodIdentifier else { return }
 
@@ -337,17 +355,40 @@ public actor Scheduler {
         // deleting again.
         try? stateStore.markCleanupRun(period: period.periodIdentifier)
 
-        let result = await cleanupRunner.clean(targets)
+        // Handed off rather than awaited. Measuring and trashing a few cache
+        // trees can take minutes, and `tick()` is what runs every HTTP check
+        // — holding it would pause domain monitoring for the whole run. The
+        // period is already marked, so a tick arriving meanwhile cannot start
+        // a second run; `cleanupTask` only guards the moment between marking
+        // and reading the mark back.
+        cleanupTask = Task { [weak self] in
+            guard let self else { return }
+            await self.runScheduledCleanup(targets, with: cleanupRunner)
+            await self.finishCleanupTask()
+        }
+    }
+
+    private func runScheduledCleanup(_ targets: [JunkTarget], with runner: CleanupRunning) async {
+        let result = await runner.clean(targets)
+        try? stateStore.recordCleanupRun(
+            .init(at: Date(), bytes: result.bytes, locations: targets.count, skipped: result.skipped)
+        )
 
         // Always announced. An unattended job that moves gigabytes to the
         // Trash without saying so is exactly the kind of silent behaviour the
-        // rest of this app was audited to remove.
+        // rest of this app was audited to remove. Vietnamese like every other
+        // notification this actor sends — Core has no localization, and the
+        // Settings page shows the same outcome in the user's chosen language.
         let freed = ByteCountFormatter.string(fromByteCount: result.bytes, countStyle: .file)
-        var body = "Moved \(freed) to the Trash from \(targets.count) location(s)."
+        var body = "Đã chuyển \(freed) vào Thùng rác từ \(targets.count) vị trí."
         if !result.skipped.isEmpty {
-            body += " Not fully cleared: \(result.skipped.joined(separator: ", "))."
+            body += " Chưa dọn hết: \(result.skipped.joined(separator: ", "))."
         }
-        await notifyIfEnabled(title: "Scheduled cleanup finished", body: body, route: "/cleanup")
+        await notifyIfEnabled(title: "Dọn dẹp theo lịch đã xong", body: body, route: "/cleanup")
+    }
+
+    private func finishCleanupTask() {
+        cleanupTask = nil
     }
 
     private func checkSystemAlerts() async {
@@ -419,13 +460,36 @@ public actor Scheduler {
         // the same reasoning as the report send's attempt marker.
         try? stateStore.markRemoteStatsPolled()
 
-        for server in servers {
-            guard let id = server.id else { continue }
+        let readings = await withTaskGroup(of: (Int, RemoteServerStats?).self) { group in
+            var next = 0
+            func add(_ index: Int) {
+                let server = servers[index]
+                group.addTask { (index, try? await remoteStatsProvider.stats(for: server)) }
+            }
+            while next < min(Self.maxConcurrentRemotePolls, servers.count) {
+                add(next)
+                next += 1
+            }
+            var collected: [(Int, RemoteServerStats?)] = []
+            while let done = await group.next() {
+                collected.append(done)
+                if next < servers.count {
+                    add(next)
+                    next += 1
+                }
+            }
+            // Back in the user's order, so alerts for several servers arrive
+            // in a stable sequence rather than whichever answered first.
+            return collected.sorted { $0.0 < $1.0 }
+        }
+
+        for (index, stats) in readings {
+            let server = servers[index]
             // One unreachable server must not stop the rest from being
             // checked. Deliberately *not* alerting on the failure itself:
             // this Mac's own network dropping would fire one per server, and
             // "is it up" is what domain monitoring is for.
-            guard let stats = try? await remoteStatsProvider.stats(for: server) else { continue }
+            guard let id = server.id, let stats else { continue }
             await raiseRemoteAlerts(for: server, id: id, stats: stats, thresholds: thresholds)
         }
     }

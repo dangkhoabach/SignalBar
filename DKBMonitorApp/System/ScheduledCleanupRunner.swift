@@ -21,9 +21,21 @@ struct ScheduledCleanupRunner: CleanupRunning {
     }
 
     func clean(_ targets: [JunkTarget]) async -> (bytes: Int64, skipped: [String]) {
-        // No `knownSizes` to pass: a scheduled run never went through the
-        // measure pass the UI does, so the cleaner measures what it removes.
-        let result = await service.clean(paths: Set(targets.map(\.path)), knownSizes: [:])
+        // Measured first, the way the Cleanup tab's own pass does before its
+        // Clean button. `clean` reports the freed total from these sizes and
+        // never re-walks a target that cleared cleanly — pass none and every
+        // run announces "Moved Zero KB", however much actually went. Walked
+        // concurrently, off the caller's actor, since a cold cache tree can
+        // take seconds each.
+        let sizes = await withTaskGroup(of: (String, Int64).self) { group in
+            for target in targets {
+                group.addTask { (target.path, JunkCleanerService.directorySize(at: target.path)) }
+            }
+            var sizes: [String: Int64] = [:]
+            for await (path, bytes) in group { sizes[path] = bytes }
+            return sizes
+        }
+        let result = await service.clean(paths: Set(targets.map(\.path)), knownSizes: sizes)
         return (result.freedBytes, result.skipped)
     }
 }

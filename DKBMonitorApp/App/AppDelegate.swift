@@ -5,6 +5,10 @@ import DKBMonitorCore
 /// (see D2/Mục 2 in docs/swift-native-port-plan.md): keep running after the
 /// last window closes, reopen on Dock click, and restore Regular activation
 /// policy (Dock icon) when reopening.
+/// `@MainActor` because every `NSApplicationDelegate` callback arrives on the
+/// main thread anyway, and the database-failure alert below builds an
+/// `NSAlert` — AppKit UI that must never be touched from anywhere else.
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Layout-snapshot mode renders the panes to PNG and exits, so it

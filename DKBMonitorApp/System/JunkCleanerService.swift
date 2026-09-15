@@ -26,6 +26,7 @@ actor JunkCleanerService {
     /// during view setup. `lazy` inside an actor moves the work to the first
     /// `await` on this property, which every caller already does.
     lazy var targets: [JunkTarget] = {
+        if let overrideTargets { return overrideTargets }
         // Filtered to what exists: listing "Gradle cache — 0 bytes" on a Mac
         // with no Gradle is noise, and the list is long enough already.
         let fileManager = FileManager.default
@@ -33,7 +34,13 @@ actor JunkCleanerService {
             .filter { fileManager.fileExists(atPath: $0.path) }
     }()
 
-    init() {}
+    /// Set only by tests, which point the cleaner at a temporary directory
+    /// instead of the real caches under `~`.
+    private let overrideTargets: [JunkTarget]?
+
+    init(targets: [JunkTarget]? = nil) {
+        self.overrideTargets = targets
+    }
 
     /// Measures every target concurrently. Yields each result as it lands so
     /// the UI can fill in progressively — a cold `~/Library/Caches` walk can

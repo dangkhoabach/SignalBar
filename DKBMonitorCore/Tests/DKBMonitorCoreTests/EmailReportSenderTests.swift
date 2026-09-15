@@ -125,17 +125,69 @@ final class InMemoryRelayTokenStore: EmailRelayTokenStoring, @unchecked Sendable
         StubURLProtocol.reset()
         let (sender, _, _) = try makeSender(token: nil)
 
-        let sent = await sender.send(subject: "S", body: "B")
+        let failure = await sender.send(subject: "S", body: "B")
 
-        #expect(sent == false)
+        #expect(failure == .notVerified)
         #expect(StubURLProtocol.requests.isEmpty)
     }
 
-    @Test func aServerThatRefusesTheTokenReportsFailure() async throws {
+    /// A 401 means the relay no longer knows this token — its database was
+    /// reset, or the row was revoked — and nothing on this Mac can change
+    /// that. Keeping the local half would leave Settings saying "Verified"
+    /// and the scheduler retrying twice an hour, forever.
+    @Test func aRefusedTokenIsDroppedSoTheUserIsAskedToVerifyAgain() async throws {
         StubURLProtocol.reset(status: 401, body: "")
-        let (sender, _, _) = try makeSender(token: "stale_token")
+        let (sender, store, app) = try makeSender(token: "stale_token")
+        try SettingsRepository(dbQueue: app.dbQueue).update({
+            var s = AppSettings.defaults
+            s.smtpRecipientEmail = "owner@example.com"
+            s.smtpVerifiedEmail = "owner@example.com"
+            return s
+        }())
 
-        #expect(await sender.send(subject: "S", body: "B") == false)
+        let failure = await sender.send(subject: "S", body: "B")
+
+        #expect(failure == .notVerified)
+        #expect(store.token() == nil)
+        #expect(try SettingsRepository(dbQueue: app.dbQueue).load().smtpVerifiedEmail.isEmpty)
+    }
+
+    /// The three answers a user needs to tell apart: verify again, fix the
+    /// message, or just wait. A bare "failed" is how a wrong relay host went
+    /// unnoticed for months.
+    @Test func eachKindOfFailureIsReportedAsItself() async throws {
+        StubURLProtocol.reset(status: 503, body: "")
+        var (sender, _, _) = try makeSender(token: "tok")
+        #expect(await sender.send(subject: "S", body: "B") == .network)
+
+        StubURLProtocol.reset(status: 400, body: "")
+        (sender, _, _) = try makeSender(token: "tok")
+        #expect(await sender.send(subject: "S", body: "B") == .rejected(status: 400))
+
+        StubURLProtocol.reset(status: 429, body: "")
+        (sender, _, _) = try makeSender(token: "tok")
+        #expect(await sender.send(subject: "S", body: "B") == .rateLimited)
+
+        StubURLProtocol.reset(body: #"{"sent":false}"#)
+        (sender, _, _) = try makeSender(token: "tok")
+        #expect(await sender.send(subject: "S", body: "B") == .notDelivered)
+
+        StubURLProtocol.reset(body: #"{"sent":true}"#)
+        (sender, _, _) = try makeSender(token: "tok")
+        #expect(await sender.send(subject: "S", body: "B") == nil)
+    }
+
+    /// A relay that is down must not be reported as the user having typed
+    /// the wrong code — that sends them off to request another one from a
+    /// server that cannot answer.
+    @Test func aServerErrorDuringConfirmIsNotBlamedOnTheCode() async throws {
+        StubURLProtocol.reset(status: 503, body: "")
+        let (sender, store, _) = try makeSender()
+
+        await #expect(throws: EmailRelayError.network) {
+            try await sender.confirmVerification(email: "owner@example.com", code: "123456")
+        }
+        #expect(store.token() == nil)
     }
 
     // MARK: - Verification

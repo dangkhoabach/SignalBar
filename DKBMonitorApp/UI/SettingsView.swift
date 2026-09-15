@@ -240,6 +240,18 @@ struct SettingsView: View {
                                 .disabled(!viewModel.isEmailVerified)
                         }
                     }
+                    if let outcome = viewModel.lastReportOutcome {
+                        let when = outcome.at.formatted(.relative(presentation: .named))
+                        if outcome.sent {
+                            Label("Last report (\(outcome.label)) was sent \(when).", systemImage: "checkmark.circle")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Label("The last report (\(outcome.label)) failed to send \(when). It will be retried.", systemImage: "exclamationmark.triangle.fill")
+                                .font(.caption)
+                                .foregroundStyle(.orange)
+                        }
+                    }
                 }
             }
 
@@ -252,6 +264,19 @@ struct SettingsView: View {
                     Text("Everything is moved to the Trash, never deleted outright, and you get a notification when a run finishes. The Trash itself can't be emptied on a schedule.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    if let run = viewModel.lastCleanupRun {
+                        let when = run.at.formatted(.relative(presentation: .named))
+                        let moved = ByteCountFormatter.string(fromByteCount: run.bytes, countStyle: .file)
+                        if run.skipped.isEmpty {
+                            Label("Last run \(when): moved \(moved) to the Trash from \(run.locations) location(s).", systemImage: "checkmark.circle")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Label("Last run \(when): moved \(moved) to the Trash. Not fully cleared: \(run.skipped.joined(separator: ", ")).", systemImage: "exclamationmark.triangle.fill")
+                                .font(.caption)
+                                .foregroundStyle(.orange)
+                        }
+                    }
                     Picker("Frequency", selection: $viewModel.settings.cleanupFrequency) {
                         Text("Daily").tag("daily")
                         Text("Weekly").tag("weekly")
@@ -263,6 +288,8 @@ struct SettingsView: View {
                                 Text(Calendar.current.weekdaySymbols[(daysFromMonday + 1) % 7]).tag(daysFromMonday)
                             }
                         }
+                    } else if viewModel.settings.cleanupFrequency == "monthly" {
+                        Stepper("Day of Month: \(viewModel.settings.cleanupDayOfMonth)", value: $viewModel.settings.cleanupDayOfMonth, in: 1...28)
                     }
                     cleanupTargetPicker
                 }
@@ -353,6 +380,7 @@ struct SettingsView: View {
             // Settings is ever opened, and its Check for Updates sheet can
             // change it too.
             automaticUpdateChecks = AppUpdater.automaticallyChecksForUpdates
+            viewModel.refreshLastRuns()
 
             guard viewModel.settings.notificationsEnabled else { return }
             notificationsBlocked = await NotificationManager.shared.authorizationStatus() == .denied
@@ -438,14 +466,17 @@ struct SettingsView: View {
                     .font(.caption)
             }
         } else {
-            Label(
-                viewModel.settings.smtpVerifiedEmail.isEmpty
-                    ? "This address has not been verified yet, so no report can be delivered to it."
-                    : "The address changed since it was verified. Verify the new one, or reports will not be delivered.",
-                systemImage: "exclamationmark.triangle.fill"
-            )
-            .font(.caption)
-            .foregroundStyle(.orange)
+            // Two literals rather than one ternary: a key built from an
+            // expression is skipped by string extraction and never localized.
+            if viewModel.settings.smtpVerifiedEmail.isEmpty {
+                Label("This address has not been verified yet, so no report can be delivered to it.", systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            } else {
+                Label("The address changed since it was verified. Verify the new one, or reports will not be delivered.", systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
 
             if viewModel.isAwaitingVerificationCode {
                 HStack {

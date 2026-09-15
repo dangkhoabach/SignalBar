@@ -135,6 +135,81 @@ public struct SchedulerStateStore: Sendable {
         try dbQueue.write { db in try AppSettingsStore.set(db, key: "last_cleanup_period", value: period) }
     }
 
+    // MARK: - Last outcomes, for the Settings page
+
+    /// What the last scheduled cleanup did. Kept so the Settings page can say
+    /// so even with notifications off: an unattended job that moves the
+    /// user's files must leave a trace they can find without one.
+    public struct CleanupRun: Sendable, Equatable {
+        public let at: Date
+        public let bytes: Int64
+        public let locations: Int
+        public let skipped: [String]
+
+        public init(at: Date, bytes: Int64, locations: Int, skipped: [String]) {
+            self.at = at
+            self.bytes = bytes
+            self.locations = locations
+            self.skipped = skipped
+        }
+    }
+
+    public func lastCleanupRun() throws -> CleanupRun? {
+        try dbQueue.read { db in
+            guard let seconds = Double(try AppSettingsStore.get(db, key: "last_cleanup_run_at", default: "")) else { return nil }
+            let skipped = try AppSettingsStore.get(db, key: "last_cleanup_run_skipped", default: "")
+            return CleanupRun(
+                at: Date(timeIntervalSince1970: seconds),
+                bytes: Int64(try AppSettingsStore.get(db, key: "last_cleanup_run_bytes", default: "0")) ?? 0,
+                locations: Int(try AppSettingsStore.get(db, key: "last_cleanup_run_locations", default: "0")) ?? 0,
+                skipped: skipped.isEmpty ? [] : skipped.components(separatedBy: "\n")
+            )
+        }
+    }
+
+    public func recordCleanupRun(_ run: CleanupRun) throws {
+        try dbQueue.write { db in
+            try AppSettingsStore.set(db, key: "last_cleanup_run_at", value: String(run.at.timeIntervalSince1970))
+            try AppSettingsStore.set(db, key: "last_cleanup_run_bytes", value: String(run.bytes))
+            try AppSettingsStore.set(db, key: "last_cleanup_run_locations", value: String(run.locations))
+            try AppSettingsStore.set(db, key: "last_cleanup_run_skipped", value: run.skipped.joined(separator: "\n"))
+        }
+    }
+
+    /// How the last report attempt ended. Closes the gap Phase 4 left open:
+    /// a send that keeps failing was retried with backoff, but nothing on
+    /// screen ever said so.
+    public struct ReportOutcome: Sendable, Equatable {
+        public let at: Date
+        public let label: String
+        public let sent: Bool
+
+        public init(at: Date, label: String, sent: Bool) {
+            self.at = at
+            self.label = label
+            self.sent = sent
+        }
+    }
+
+    public func lastReportOutcome() throws -> ReportOutcome? {
+        try dbQueue.read { db in
+            guard let seconds = Double(try AppSettingsStore.get(db, key: "last_report_outcome_at", default: "")) else { return nil }
+            return ReportOutcome(
+                at: Date(timeIntervalSince1970: seconds),
+                label: try AppSettingsStore.get(db, key: "last_report_outcome_label", default: ""),
+                sent: try AppSettingsStore.get(db, key: "last_report_outcome_sent", default: "0") == "1"
+            )
+        }
+    }
+
+    public func recordReportOutcome(_ outcome: ReportOutcome) throws {
+        try dbQueue.write { db in
+            try AppSettingsStore.set(db, key: "last_report_outcome_at", value: String(outcome.at.timeIntervalSince1970))
+            try AppSettingsStore.set(db, key: "last_report_outcome_label", value: outcome.label)
+            try AppSettingsStore.set(db, key: "last_report_outcome_sent", value: outcome.sent ? "1" : "0")
+        }
+    }
+
     // MARK: - Remote server polling
 
     /// When the remote servers were last polled for resource stats.

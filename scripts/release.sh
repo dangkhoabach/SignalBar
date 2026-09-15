@@ -24,8 +24,19 @@ SPARKLE_TOOLS_DIR=".sparkle-tools"
 
 command -v create-dmg >/dev/null || { echo "Error: create-dmg not found. Run: brew install create-dmg" >&2; exit 1; }
 
+# Generated before the tests, not only before the build: the .xcodeproj is
+# gitignored, so on a fresh checkout there is nothing for `xcodebuild test`
+# to open until this has run.
+echo "==> Regenerating Xcode project"
+xcodegen generate
+
 echo "==> Testing DKBMonitorCore"
 (cd DKBMonitorCore && swift test)
+
+# The Core suite alone let a release ship with the app target's own tests
+# never run — the view models, cleanup and scanner live there.
+echo "==> Testing DKBMonitorApp"
+xcodebuild test -project "$PROJECT" -scheme "$SCHEME" -destination "platform=macOS" -quiet
 
 # project.yml is the source of truth, not Info.plist - xcodegen fully
 # regenerates Info.plist from project.yml's properties on every `generate`

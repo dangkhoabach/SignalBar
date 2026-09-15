@@ -178,13 +178,13 @@ final class OverviewViewModel {
             allIds[index] = reordered[cursor]
             cursor += 1
         }
-        try? repo.reorder(ids: allIds)
+        _ = try? repo.reorder(ids: allIds)
     }
 
     func moveToGroup(id: Int64, group: String) {
         guard let repo, var target = overviews.first(where: { $0.target.id == id })?.target else { return }
         target.groupTag = (group == Self.ungroupedLabel) ? nil : group
-        try? repo.update(target)
+        _ = try? repo.update(target)
     }
 
     func renameGroup(from oldName: String, to newName: String) {

@@ -46,6 +46,7 @@ import Testing
             cleanupScheduleEnabled: true,
             cleanupFrequency: "monthly",
             cleanupDayOfWeek: 4,
+            cleanupDayOfMonth: 17,
             cleanupTargetPaths: "/tmp/a\n/tmp/b"
         )
         try repo.update(settings)

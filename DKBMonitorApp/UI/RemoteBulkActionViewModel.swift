@@ -1,5 +1,6 @@
 import DKBMonitorCore
 import Foundation
+import SwiftUI
 import Observation
 
 /// Drives the "run one action across several servers" sheet.
@@ -20,7 +21,9 @@ final class RemoteBulkActionViewModel {
 
         var id: String { rawValue }
 
-        var label: String {
+        /// A key, not a `String`: `Text(kind.label)` with a `String` bypasses
+        /// the string catalog entirely.
+        var label: LocalizedStringKey {
             switch self {
             case .status: "Service status"
             case .restart: "Restart service"

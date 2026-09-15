@@ -71,7 +71,10 @@ those are for the retired Tauri build only. The admin panel writes
 `updates.dangkhoabach.vn/dkb-monitor/appcast.xml` from the Sparkle fields,
 which `SUFeedURL` in `project.yml` points at.
 
-Once the first version has been uploaded this way, flip
-`SUEnableAutomaticChecks` to `true` in `project.yml` (it's `false` until
-then, otherwise Sparkle pops an "Unable to Check for Updates" alert on every
-launch since there's no feed to reach yet) and re-run `xcodegen generate`.
+`SUEnableAutomaticChecks` is deliberately **absent** from `project.yml` and
+must stay that way: with the key unset, Sparkle asks the user on first launch
+whether it may check automatically, and the answer is theirs to change under
+Settings → Updates. Pinning it to `true` (as an early version of this project
+did) skipped that consent prompt and phoned home daily without ever asking;
+pinning it to `false` decides "no" on the user's behalf just as silently.
+`SUScheduledCheckInterval` (once a day) only applies once they have said yes.

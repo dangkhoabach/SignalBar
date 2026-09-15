@@ -51,6 +51,7 @@ public struct AppSettings: Equatable, Sendable {
     /// "daily" | "weekly" | "monthly", same vocabulary as the report schedule.
     public var cleanupFrequency: String
     public var cleanupDayOfWeek: Int
+    public var cleanupDayOfMonth: Int
     /// The selected targets' paths, newline-separated. Stored as paths rather
     /// than indexes so reordering or adding a target in a later build cannot
     /// silently repoint a saved selection at something else.
@@ -80,6 +81,7 @@ public struct AppSettings: Equatable, Sendable {
         cleanupScheduleEnabled: false,
         cleanupFrequency: "weekly",
         cleanupDayOfWeek: 0,
+        cleanupDayOfMonth: 1,
         cleanupTargetPaths: ""
     )
 }
@@ -124,6 +126,7 @@ public struct SettingsRepository: Sendable {
             cleanupScheduleEnabled: try AppSettingsStore.get(db, key: "cleanup_schedule_enabled", default: "0") == "1",
             cleanupFrequency: try AppSettingsStore.get(db, key: "cleanup_frequency", default: d.cleanupFrequency),
             cleanupDayOfWeek: try int("cleanup_day_of_week", d.cleanupDayOfWeek),
+            cleanupDayOfMonth: try int("cleanup_day_of_month", d.cleanupDayOfMonth),
             cleanupTargetPaths: try AppSettingsStore.get(db, key: "cleanup_target_paths", default: d.cleanupTargetPaths)
         )
     }
@@ -153,6 +156,7 @@ public struct SettingsRepository: Sendable {
             try AppSettingsStore.set(db, key: "cleanup_schedule_enabled", value: settings.cleanupScheduleEnabled ? "1" : "0")
             try AppSettingsStore.set(db, key: "cleanup_frequency", value: settings.cleanupFrequency)
             try AppSettingsStore.set(db, key: "cleanup_day_of_week", value: String(settings.cleanupDayOfWeek))
+            try AppSettingsStore.set(db, key: "cleanup_day_of_month", value: String(settings.cleanupDayOfMonth))
             try AppSettingsStore.set(db, key: "cleanup_target_paths", value: settings.cleanupTargetPaths)
         }
     }

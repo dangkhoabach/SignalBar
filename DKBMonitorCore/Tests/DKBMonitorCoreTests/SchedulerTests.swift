@@ -124,6 +124,48 @@ private actor StaticRemoteStatsProvider: RemoteStatsProviding {
 
 private struct PollFailure: Error {}
 
+/// Server A waits (bounded) for server B's poll to begin. Under sequential
+/// polling B never begins until A returns, so the wait times out and the
+/// flag stays false.
+private actor GatedRemoteStatsProvider: RemoteStatsProviding {
+    private let servers: [RemoteServer]
+    private let reading: RemoteServerStats
+    private var bStarted = false
+    private var waitingForB: CheckedContinuation<Void, Never>?
+    private(set) var bStartedBeforeAFinished = false
+
+    init(servers: [RemoteServer], reading: RemoteServerStats) {
+        self.servers = servers
+        self.reading = reading
+    }
+
+    nonisolated func monitoredServers() throws -> [RemoteServer] { servers }
+
+    func stats(for server: RemoteServer) async throws -> RemoteServerStats {
+        if server.name == "B" {
+            bStarted = true
+            resumeA()
+            return reading
+        }
+        if !bStarted {
+            // Bounded: under sequential polling nothing would ever resume
+            // this, and a test that hangs is worse than one that fails.
+            Task {
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+                await self.resumeA()
+            }
+            await withCheckedContinuation { waitingForB = $0 }
+        }
+        bStartedBeforeAFinished = bStarted
+        return reading
+    }
+
+    private func resumeA() {
+        waitingForB?.resume()
+        waitingForB = nil
+    }
+}
+
 @Suite struct SchedulerTests {
     private func makeDatabase() throws -> AppDatabase {
         try AppDatabase(inMemory: DatabaseQueue())
@@ -460,6 +502,44 @@ private struct PollFailure: Error {}
         await scheduler.tick()
 
         #expect(await provider.pollCount == 1)
+    }
+
+    /// Sequential polling meant one dead server delayed every server behind
+    /// it by a full connect timeout, and the tick with them. Server A's poll
+    /// here refuses to answer until server B's has started — which can only
+    /// happen if the two run at the same time.
+    @Test func serversArePolledConcurrently() async throws {
+        let app = try makeDatabase()
+        try remoteThresholdSettings(SettingsRepository(dbQueue: app.dbQueue), cpu: 80)
+        let provider = GatedRemoteStatsProvider(
+            servers: [monitoredServer("A", id: 1), monitoredServer("B", id: 2)], reading: loaded(cpu: 10)
+        )
+        let scheduler = Scheduler(
+            dbQueue: app.dbQueue, notifier: RecordingNotifier(), reportSender: RecordingReportSender(),
+            remoteStatsProvider: provider
+        )
+
+        await scheduler.tick()
+
+        #expect(await provider.bStartedBeforeAFinished)
+    }
+
+    @Test func theOutcomeOfEachReportAttemptIsRecorded() async throws {
+        let app = try makeDatabase()
+        let settingsRepo = SettingsRepository(dbQueue: app.dbQueue)
+        let stateStore = SchedulerStateStore(dbQueue: app.dbQueue)
+        try makeReportSettings(settingsRepo)
+
+        let failing = Scheduler(dbQueue: app.dbQueue, notifier: RecordingNotifier(), reportSender: FailingReportSender())
+        await failing.tick()
+        let failed = try #require(try stateStore.lastReportOutcome())
+        #expect(failed.sent == false)
+        #expect(failed.label == "Daily")
+
+        try stateStore.markReportAttempted(at: .distantPast)
+        let succeeding = Scheduler(dbQueue: app.dbQueue, notifier: RecordingNotifier(), reportSender: RecordingReportSender())
+        await succeeding.tick()
+        #expect(try stateStore.lastReportOutcome()?.sent == true)
     }
 
     private func makeReportSettings(_ settingsRepo: SettingsRepository) throws {

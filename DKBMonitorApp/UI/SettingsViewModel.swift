@@ -7,7 +7,8 @@ import Observation
 final class SettingsViewModel {
     static let shared = SettingsViewModel(
         repo: AppDatabase.shared.map { SettingsRepository(dbQueue: $0.dbQueue) },
-        sender: AppDatabase.shared.map { EmailReportSender(dbQueue: $0.dbQueue) }
+        sender: AppDatabase.shared.map { EmailReportSender(dbQueue: $0.dbQueue) },
+        stateStore: AppDatabase.shared.map { SchedulerStateStore(dbQueue: $0.dbQueue) }
     )
 
     private let repo: SettingsRepository?
@@ -15,6 +16,7 @@ final class SettingsViewModel {
     /// already encodes — the startup alert covers that case, so every action
     /// here just no-ops rather than repeating the complaint.
     private let sender: EmailReportSender?
+    private let stateStore: SchedulerStateStore?
     private var isLoaded = false
     private var saveTask: Task<Void, Never>?
     /// The edit waiting out the debounce in `scheduleSave`, if any.
@@ -53,15 +55,28 @@ final class SettingsViewModel {
     /// Why the entered URL was rejected, shown under the field.
     var webhookURLProblem: String?
 
-    init(repo: SettingsRepository?, sender: EmailReportSender? = nil) {
+    /// What the scheduler last did on the user's behalf. Read whenever the
+    /// page opens, not observed: both change in the background a few times a
+    /// day at most, and a stale figure for the length of one visit is fine.
+    var lastReportOutcome: SchedulerStateStore.ReportOutcome?
+    var lastCleanupRun: SchedulerStateStore.CleanupRun?
+
+    init(repo: SettingsRepository?, sender: EmailReportSender? = nil, stateStore: SchedulerStateStore? = nil) {
         self.repo = repo
         self.sender = sender
+        self.stateStore = stateStore
     }
 
     func loadIfNeeded() {
         guard !isLoaded else { return }
         settings = (try? repo?.load()) ?? .defaults
         isLoaded = true
+        refreshLastRuns()
+    }
+
+    func refreshLastRuns() {
+        lastReportOutcome = try? stateStore?.lastReportOutcome()
+        lastCleanupRun = try? stateStore?.lastCleanupRun()
     }
 
     /// Coalesces rapid-fire changes (a Stepper tick, or typing into the
@@ -101,11 +116,19 @@ final class SettingsViewModel {
     func sendTestEmail() async {
         guard let sender, isEmailVerified else { return }
         isSendingTestEmail = true
-        let sent = await sender.sendTestEmail()
+        let failure = await sender.sendTestEmail()
         isSendingTestEmail = false
-        testEmailResultMessage = sent
-            ? "Test email sent to \(settings.smtpVerifiedEmail)."
-            : "Failed to send test email."
+        guard let failure else {
+            testEmailResultMessage = "Test email sent to \(settings.smtpVerifiedEmail)."
+            return
+        }
+        if failure == .notVerified {
+            // The sender already dropped the token and the stored address;
+            // mirroring it here is what makes the warning appear now rather
+            // than after the next relaunch.
+            settings.smtpVerifiedEmail = ""
+        }
+        testEmailResultMessage = failure.localizedDescription
     }
 
     // MARK: - Email verification
