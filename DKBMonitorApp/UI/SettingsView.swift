@@ -213,7 +213,7 @@ struct SettingsView: View {
                     Text("Reports are sent through api.dangkhoabach.vn. The recipient address and your domain names are sent to that server so it can deliver the mail.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    TextField("Recipient Email", text: $viewModel.settings.smtpRecipientEmail, prompt: Text("you@example.com"))
+                    TextField("Recipient Email", text: $viewModel.settings.smtpRecipientEmail, prompt: Text(String(localized: "you@example.com"))) // not a literal: Markdown would autolink it
                     emailVerification
                     Picker("Frequency", selection: $viewModel.settings.smtpFrequency) {
                         Text("Daily").tag("daily")

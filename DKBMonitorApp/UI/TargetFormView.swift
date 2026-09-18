@@ -64,7 +64,10 @@ struct TargetFormView: View {
             Form {
                 Section("Target") {
                     TextField("Name", text: $name)
-                    TextField("URL", text: $url, prompt: Text("example.com or https://example.com"))
+                    // `String(localized:)` rather than a literal: a literal
+                    // is a `LocalizedStringKey`, which `Text` parses as
+                    // Markdown, and Markdown autolinks the URL half blue.
+                    TextField("URL", text: $url, prompt: Text(String(localized: "example.com or https://example.com")))
                     TextField("Group (optional)", text: $groupTag, prompt: Text("Auto-detected from domain"))
                 }
                 Section("Checks") {
@@ -80,7 +83,15 @@ struct TargetFormView: View {
                 }
             }
             .formStyle(.grouped)
-            .navigationTitle(isEditing ? "Edit Target" : "Add Target")
+            // A macOS sheet drops every toolbar placement except the two
+            // action buttons, so the symbol has to live inside the title.
+            // It is the sidebar symbol for this section, so the sheet says
+            // what kind of thing it edits at a glance. Two literal `Text`s
+            // rather than one with a ternary inside: only literals localize.
+            .navigationTitle(
+                Text(Image(systemName: "network")) + Text(verbatim: "  ")
+                    + (isEditing ? Text("Edit Target") : Text("Add Target"))
+            )
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
