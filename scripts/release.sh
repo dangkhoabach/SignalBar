@@ -124,7 +124,7 @@ echo "==> Building (Release, ad-hoc signed, universal arm64+x86_64)"
 xcodebuild build \
   -project "$PROJECT" -scheme "$SCHEME" -configuration Release \
   -derivedDataPath "$BUILD_DIR" \
-  -destination "generic/platform=macOS" \
+  -destination "generic/platform=macOS" -quiet \
   CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="-" DEVELOPMENT_TEAM=""
 
 APP_PATH="$BUILD_DIR/Build/Products/Release/$APP_NAME.app"
