@@ -401,14 +401,28 @@ public struct RemoteCommandExecutor: Sendable {
     /// ```
     /// %Cpu(s):  2.3 us,  1.2 sy,  0.0 ni, 96.0 id,  0.3 wa,  0.0 hi,  0.1 si,  0.0 st
     /// ```
-    /// Busy % is derived from idle (`100 - id`) rather than summing `us`/`sy`
-    /// — `id` is always present across `procps` versions, while the exact
-    /// set of other fields (`ni`/`wa`/`hi`/`si`/`st`) varies.
+    /// Busy % is derived by subtraction (`100 - id - wa`) rather than summing
+    /// `us`/`sy` — `id` is always present across `procps` versions, while the
+    /// exact set of other fields (`ni`/`hi`/`si`/`st`) varies.
+    ///
+    /// I/O wait is subtracted too: it is idle time the kernel labels by what
+    /// the CPU was waiting for, not work. Counting it as busy showed 100% on
+    /// a server whose kernel iowait counter had stuck at 99% while its load
+    /// average read 0.00. `wa` is treated as 0 when absent.
     static func parseCPUUsage(_ output: String) -> RemoteCPUUsage? {
-        guard let match = output.range(of: #"([0-9]+\.[0-9]+)\s*id"#, options: .regularExpression) else { return nil }
-        let idleText = output[match].split(separator: " ").first.map(String.init) ?? ""
-        guard let idle = Double(idleText) else { return nil }
-        return RemoteCPUUsage(busyPercent: max(0, min(100, 100 - idle)))
+        guard let idle = topField("id", in: output) else { return nil }
+        let ioWait = topField("wa", in: output) ?? 0
+        return RemoteCPUUsage(
+            busyPercent: max(0, min(100, 100 - idle - ioWait)),
+            ioWaitPercent: max(0, min(100, ioWait))
+        )
+    }
+
+    /// The number before a `top` summary-line suffix such as `id` or `wa`.
+    private static func topField(_ suffix: String, in output: String) -> Double? {
+        guard let match = output.range(of: #"([0-9]+\.[0-9]+)\s*"# + suffix + #"\b"#, options: .regularExpression) else { return nil }
+        let text = output[match].split(separator: " ").first.map(String.init) ?? ""
+        return Double(text)
     }
 
     /// Parses `uname -sr` (first line) + `/etc/os-release`'s

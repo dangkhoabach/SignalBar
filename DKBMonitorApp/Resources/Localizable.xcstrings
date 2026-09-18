@@ -1752,6 +1752,16 @@
     "https://hooks.slack.com/services/…" : {
 
     },
+    "I/O wait %lld%%" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chờ I/O %lld%%"
+          }
+        }
+      }
+    },
     "Import" : {
       "localizations" : {
         "vi" : {

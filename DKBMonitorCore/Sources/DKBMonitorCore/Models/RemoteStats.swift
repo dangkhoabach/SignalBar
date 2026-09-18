@@ -41,7 +41,17 @@ public struct RemoteUptime: Sendable, Equatable {
 /// second apart (the first batch-mode iteration of `top` compares against
 /// cumulative time since boot, not a live rate, so it's discarded).
 public struct RemoteCPUUsage: Sendable, Equatable {
+    /// Time the CPU spent doing work: everything except idle and I/O wait.
     public let busyPercent: Double
+    /// Time the CPU sat idle waiting on a disk. Kept apart from `busyPercent`
+    /// because it is not load — but a box reporting 99% here with a load
+    /// average of zero has a stuck kernel counter, and that is worth seeing.
+    public let ioWaitPercent: Double
+
+    public init(busyPercent: Double, ioWaitPercent: Double = 0) {
+        self.busyPercent = busyPercent
+        self.ioWaitPercent = ioWaitPercent
+    }
 }
 
 /// From `uname -sr` + `/etc/os-release`'s `PRETTY_NAME` — static server

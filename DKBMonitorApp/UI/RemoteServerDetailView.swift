@@ -442,6 +442,14 @@ struct RemoteServerDetailView: View {
     private var cpuStatCard: some View {
         statCard(title: "CPU", systemImage: "cpu", trailingText: viewModel.cpuUsage.map { "\(Int($0.busyPercent.rounded()))%" }) {
             StatBar(percent: viewModel.cpuUsage?.busyPercent ?? 0, color: statBarColor(viewModel.cpuUsage?.busyPercent ?? 0))
+            // I/O wait is idle time, so it stays out of the bar — but a high
+            // figure with a low load average is a stuck kernel counter, and
+            // hiding it would hide the one clue that says so.
+            if let ioWait = viewModel.cpuUsage?.ioWaitPercent, ioWait >= 1 {
+                Text("I/O wait \(Int(ioWait.rounded()))%")
+                    .font(.caption)
+                    .foregroundStyle(ioWait >= 50 ? .orange : .secondary)
+            }
         }
     }
 

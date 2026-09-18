@@ -138,10 +138,35 @@ import Testing
         #expect(parsed.loadAverages.isEmpty)
     }
 
-    @Test func parsesCPUUsageFromTopOutput() {
+    @Test func parsesCPUUsageFromTopOutput() throws {
         let output = "%Cpu(s):  2.3 us,  1.2 sy,  0.0 ni, 96.0 id,  0.3 wa,  0.0 hi,  0.1 si,  0.0 st"
-        let parsed = RemoteCommandExecutor.parseCPUUsage(output)
-        #expect(parsed == RemoteCPUUsage(busyPercent: 4.0))
+        let parsed = try #require(RemoteCommandExecutor.parseCPUUsage(output))
+        #expect(abs(parsed.busyPercent - 3.7) < 0.001)
+        #expect(abs(parsed.ioWaitPercent - 0.3) < 0.001)
+    }
+
+    /// Taken verbatim from a production server whose load average read 0.00
+    /// at the same moment: the kernel's iowait counter was stuck, not the
+    /// disk. Read as `100 - id` this showed a flat 100% and tripped the CPU
+    /// alert; the CPU was doing 1% of work.
+    @Test func ioWaitIsNotCountedAsBusy() throws {
+        let output = "%Cpu(s):  0.6 us,  0.4 sy,  0.0 ni,  0.0 id, 99.0 wa,  0.0 hi,  0.0 si,  0.0 st"
+        let parsed = try #require(RemoteCommandExecutor.parseCPUUsage(output))
+        #expect(abs(parsed.busyPercent - 1.0) < 0.001)
+        #expect(abs(parsed.ioWaitPercent - 99.0) < 0.001)
+    }
+
+    /// `top` drops the space before a three-digit idle figure.
+    @Test func aFullyIdleCPUParsesAsZeroBusy() throws {
+        let output = "%Cpu(s):  0.0 us,  0.0 sy,  0.0 ni,100.0 id,  0.0 wa,  0.0 hi,  0.0 si,  0.0 st"
+        let parsed = try #require(RemoteCommandExecutor.parseCPUUsage(output))
+        #expect(parsed == RemoteCPUUsage(busyPercent: 0, ioWaitPercent: 0))
+    }
+
+    @Test func aMissingIOWaitFieldCountsAsZero() throws {
+        let parsed = try #require(RemoteCommandExecutor.parseCPUUsage("Cpu(s): 10.0 us,  5.0 sy, 85.0 id"))
+        #expect(abs(parsed.busyPercent - 15.0) < 0.001)
+        #expect(parsed.ioWaitPercent == 0)
     }
 
     @Test func parseCPUUsageFailsOnUnrecognizedOutput() {
