@@ -26,4 +26,19 @@ import Testing
     @Test func reportsNothingWhenTheValueIsMissing() {
         #expect(SystemStatsService.parseGPUPercent(#""Device Utilization %"="#) == nil)
     }
+
+    /// Reads the real registry: there is no seam under the IOKit calls and
+    /// the whole point is whether the keys are where the code expects them.
+    /// On a Mac with a battery the wear figures are always present and
+    /// bounded; on a desktop the whole thing must be absent, not zeroes.
+    @Test func batteryHealthComesWithTheBatteryOrNotAtAll() async {
+        let stats = await SystemStatsService().snapshot()
+        guard stats.batteryPercent != nil else {
+            #expect(stats.batteryHealth == nil)
+            return
+        }
+        let health = try? #require(stats.batteryHealth)
+        #expect((health?.maxCapacityPercent).map { (1...100).contains($0) } == true)
+        #expect((health?.cycleCount).map { $0 >= 0 } == true)
+    }
 }

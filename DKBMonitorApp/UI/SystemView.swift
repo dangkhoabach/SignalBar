@@ -367,10 +367,53 @@ struct SystemView: View {
             trailingText: "\(Int(percent.rounded()))%"
         ) {
             StatBar(percent: percent, color: batteryBarColor(percent))
-            Text(stats.batteryCharging == true ? "Charging" : "On battery")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            HStack(spacing: 4) {
+                (stats.batteryCharging == true ? Text("Charging") : Text("On battery"))
+                if let minutes = stats.batteryHealth?.minutesRemaining {
+                    Text(verbatim: "·")
+                    (stats.batteryCharging == true
+                        ? Text("\(minutesText(minutes)) until full")
+                        : Text("\(minutesText(minutes)) remaining"))
+                }
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            if let health = stats.batteryHealth {
+                batteryHealthRows(health)
+            }
         }
+    }
+
+    /// The same three lines System Information puts under "Health
+    /// Information", in its order and wording.
+    private func batteryHealthRows(_ health: BatteryHealth) -> some View {
+        Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 2) {
+            if let capacity = health.maxCapacityPercent {
+                GridRow {
+                    Text("Maximum Capacity").foregroundStyle(.secondary)
+                    Text(verbatim: "\(capacity)%")
+                }
+            }
+            if let cycles = health.cycleCount {
+                GridRow {
+                    Text("Cycle Count").foregroundStyle(.secondary)
+                    Text(verbatim: "\(cycles)")
+                }
+            }
+            GridRow {
+                Text("Condition").foregroundStyle(.secondary)
+                switch health.condition {
+                case .normal: Text("Normal")
+                case .serviceRecommended: Text("Service Recommended").foregroundStyle(.orange)
+                }
+            }
+        }
+        .font(.caption)
+        .padding(.top, 2)
+    }
+
+    private func minutesText(_ minutes: Int) -> String {
+        String(format: "%d:%02d", minutes / 60, minutes % 60)
     }
 
     private var uptimeCard: some View {

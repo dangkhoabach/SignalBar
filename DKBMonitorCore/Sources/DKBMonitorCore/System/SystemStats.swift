@@ -59,6 +59,8 @@ public struct SystemStats: Sendable, Equatable {
     /// `true` while the battery is filling or the machine is on AC with a full
     /// battery; `nil` on machines with no battery (desktops).
     public var batteryCharging: Bool?
+    /// Wear and estimate figures for the System page; `nil` without a battery.
+    public var batteryHealth: BatteryHealth?
     public var uptimeSecs: UInt64
     /// Current RPM of each fan. Empty on machines where fan speed isn't
     /// readable (fanless models, or the SMC key set not matching).
@@ -75,7 +77,7 @@ public struct SystemStats: Sendable, Equatable {
         networkConnected: Bool = false, networkType: String? = nil, networkName: String? = nil, networkLocalIP: String? = nil,
         networkDownloadKbps: Double = 0, networkUploadKbps: Double = 0,
         cpuTempCelsius: Double? = nil, temperatures: [TemperatureReading] = [], thermalStateRawValue: Int = 0,
-        batteryPercent: Double? = nil, batteryCharging: Bool? = nil,
+        batteryPercent: Double? = nil, batteryCharging: Bool? = nil, batteryHealth: BatteryHealth? = nil,
         uptimeSecs: UInt64 = 0, fanRPMs: [Double] = []
     ) {
         self.cpuPercent = cpuPercent
@@ -106,6 +108,7 @@ public struct SystemStats: Sendable, Equatable {
         self.thermalStateRawValue = thermalStateRawValue
         self.batteryPercent = batteryPercent
         self.batteryCharging = batteryCharging
+        self.batteryHealth = batteryHealth
         self.uptimeSecs = uptimeSecs
         self.fanRPMs = fanRPMs
     }

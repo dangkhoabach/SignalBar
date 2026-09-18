@@ -56,6 +56,9 @@ public actor SystemStatsService: SystemStatsProvider {
     private var cachedGPUPercent: Double?
     private var gpuPercentFetchedAt: Date?
 
+    private var batteryServiceProbed = false
+    private var batteryService: io_service_t = 0
+
     public init() {}
 
     /// CPU/RAM/temperature/battery only — no `Process` spawns. Used by
@@ -104,6 +107,7 @@ public actor SystemStatsService: SystemStatsProvider {
             cpuTempCelsius: cpuTempCelsius(from: readings), temperatures: readings,
             thermalStateRawValue: ProcessInfo.processInfo.thermalState.rawValue,
             batteryPercent: battery.percent, batteryCharging: battery.charging,
+            batteryHealth: battery.percent == nil ? nil : batteryHealth(),
             uptimeSecs: uptimeSecs(), fanRPMs: fanRPMs()
         )
     }
@@ -491,6 +495,59 @@ public actor SystemStatsService: SystemStatsProvider {
         let charging = (description[kIOPSPowerSourceStateKey] as? String).map { $0 != (kIOPSBatteryPowerValue as String) }
 
         return (percent, charging)
+    }
+
+    /// Cycle count and capacities come from the `AppleSmartBattery` registry
+    /// entry — `IOPowerSources` does not carry them — and the time estimate
+    /// and health flag from the power source description that `batteryStatus`
+    /// already reads. Only the full `snapshot()` asks for this: the figures
+    /// are for the System page, and the light snapshot's callers never show
+    /// them.
+    private func batteryHealth() -> BatteryHealth? {
+        // Looked up once, like `AppleSMC`: the entry is there at boot or
+        // never, and the System pane asks every couple of seconds.
+        if !batteryServiceProbed {
+            batteryServiceProbed = true
+            batteryService = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("AppleSmartBattery"))
+        }
+        let service = batteryService
+        guard service != 0 else { return nil }
+
+        func property(_ key: String) -> Any? {
+            IORegistryEntryCreateCFProperty(service, key as NSString, kCFAllocatorDefault, 0)?.takeRetainedValue()
+        }
+        // On Apple Silicon the capacities sit in a `BatteryData` dictionary;
+        // Intel firmware puts the same keys at the top level.
+        let data = property("BatteryData") as? [String: Any] ?? [:]
+        func capacity(_ key: String) -> Int? { data[key] as? Int ?? property(key) as? Int }
+
+        var maxCapacityPercent: Int?
+        if let design = capacity("DesignCapacity"),
+           let fullCharge = capacity("NominalChargeCapacity") ?? capacity("AppleRawMaxCapacity") {
+            // Nominal rather than raw: it is the figure System Information
+            // reports, and the raw one drifts a few percent between charges.
+            maxCapacityPercent = BatteryHealth.maxCapacityPercent(fullCharge: fullCharge, design: design)
+        }
+
+        var flagged = false
+        var minutesRemaining: Int?
+        if let snapshot = IOPSCopyPowerSourcesInfo()?.takeRetainedValue(),
+           let sources = IOPSCopyPowerSourcesList(snapshot)?.takeRetainedValue() as? [CFTypeRef],
+           let source = sources.first,
+           let description = IOPSGetPowerSourceDescription(snapshot, source)?.takeUnretainedValue() as? [String: Any] {
+            flagged = description[kIOPSBatteryHealthConditionKey] != nil
+            // -1 means macOS is still estimating; 0 means nothing to estimate.
+            let charging = description[kIOPSIsChargingKey] as? Bool ?? false
+            let minutes = description[charging ? kIOPSTimeToFullChargeKey : kIOPSTimeToEmptyKey] as? Int ?? 0
+            minutesRemaining = minutes > 0 ? minutes : nil
+        }
+
+        return BatteryHealth(
+            maxCapacityPercent: maxCapacityPercent,
+            cycleCount: property("CycleCount") as? Int,
+            condition: BatteryHealth.condition(flaggedByOS: flagged, maxCapacityPercent: maxCapacityPercent),
+            minutesRemaining: minutesRemaining
+        )
     }
 
     // MARK: - SMC (temperature + fans)

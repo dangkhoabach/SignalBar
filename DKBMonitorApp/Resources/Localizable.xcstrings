@@ -2317,6 +2317,66 @@
         }
       }
     },
+    "Maximum Capacity" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dung lượng tối đa"
+          }
+        }
+      }
+    },
+    "Cycle Count" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Số chu kỳ sạc"
+          }
+        }
+      }
+    },
+    "Condition" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tình trạng"
+          }
+        }
+      }
+    },
+    "Service Recommended" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nên bảo dưỡng"
+          }
+        }
+      }
+    },
+    "%@ until full" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ nữa là đầy"
+          }
+        }
+      }
+    },
+    "%@ remaining" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "còn %@"
+          }
+        }
+      }
+    },
     "On battery" : {
       "localizations" : {
         "vi" : {
