@@ -25,13 +25,14 @@ A personal, native macOS menu-bar app for monitoring the uptime, SSL certificate
 - **Swift 6 + SwiftUI**, targeting macOS 14+.
 - **`DKBMonitorCore`** — a headless Swift package (Foundation + GRDB only, no AppKit) holding the domain logic: target CRUD, the HTTP/SSL/domain check scheduler, alert/report generation, and SQLite storage via [GRDB](https://github.com/groue/GRDB.swift).
 - **`DKBMonitorApp`** — the app target: SwiftUI views, `MenuBarExtra`, AppKit-only system integration (SMC temperature/fan reads via IOKit, process list via `libproc`, login item, notifications), and [Sparkle](https://sparkle-project.org/) for auto-updates.
-- **`xcodegen`** generates the `.xcodeproj` from `project.yml` — the project file itself isn't committed.
+- **`DKBMonitorNative.xcodeproj`** — committed as-is (only `project.pbxproj` is tracked); targets, deps and `Info.plist` are edited in Xcode.
 
 ## Project structure
 
 ```
-project.yml                          xcodegen spec (targets, deps, Info.plist, Sparkle keys)
+DKBMonitorNative.xcodeproj/          Xcode project (targets, deps, Sparkle pin)
 DKBMonitorApp/
+  Info.plist                          version (source of truth for release.sh), Sparkle feed URL + public key
   App/                                App/Scene setup, window management, Sparkle updater, login item
   UI/                                 SwiftUI views + view models (Overview, System, Settings, Target detail)
   System/                             SMC reader, process list (libproc), system stats service
@@ -54,8 +55,6 @@ scripts/
 ## Getting started
 
 ```bash
-brew install xcodegen
-xcodegen generate
 open DKBMonitorNative.xcodeproj
 ```
 
@@ -68,6 +67,6 @@ swift test
 
 ## Releasing (Check for Updates)
 
-Sparkle reads `SUFeedURL`/`SUPublicEDKey` from `project.yml`'s `Info.plist` properties. `SUFeedURL` points at `updates.dangkhoabach.vn` (the same domain the old Tauri app's updater used) — not GitHub Releases, which this project doesn't publish to.
+Sparkle reads `SUFeedURL`/`SUPublicEDKey` from `DKBMonitorApp/Info.plist`. `SUFeedURL` points at `updates.dangkhoabach.vn` (the same domain the old Tauri app's updater used) — not GitHub Releases, which this project doesn't publish to.
 
 Releases are built, ad-hoc signed, and uploaded entirely from this machine — no CI, no paid Apple Developer Program membership (so no notarization; first launch needs right-click → Open, same as the old Tauri build). Run `./scripts/release.sh`, then upload the resulting DMG + `.sig` via admin.dangkhoabach.vn's web UI. See `docs/release.md` for details.

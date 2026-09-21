@@ -10,7 +10,7 @@ logs
 .sparkle-tools/
 release-output/
 
-# Xcode / Swift Package Manager
+# Xcode / Swift Package Manager — only project.pbxproj is tracked
 build/
 .build/
 DerivedData/
@@ -18,10 +18,6 @@ DerivedData/
 !*.xcodeproj/project.pbxproj
 *.xcuserstate
 xcuserdata/
-
-# xcodegen-generated project is reproducible from project.yml — not tracked
-DKBMonitorNative.xcodeproj/
-DKBMonitorPoC.xcodeproj/
 
 # Editor directories and files
 .vscode/*

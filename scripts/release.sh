@@ -18,17 +18,11 @@ cd "$(dirname "$0")/.."
 SCHEME="DKBMonitorApp"
 PROJECT="DKBMonitorNative.xcodeproj"
 APP_NAME="DKB Monitor"
-PROJECT_YML="project.yml"
+INFO_PLIST="DKBMonitorApp/Info.plist"
 SPARKLE_VERSION="2.6.4"
 SPARKLE_TOOLS_DIR=".sparkle-tools"
 
 command -v create-dmg >/dev/null || { echo "Error: create-dmg not found. Run: brew install create-dmg" >&2; exit 1; }
-
-# Generated before the tests, not only before the build: the .xcodeproj is
-# gitignored, so on a fresh checkout there is nothing for `xcodebuild test`
-# to open until this has run.
-echo "==> Regenerating Xcode project"
-xcodegen generate
 
 echo "==> Testing DKBMonitorCore"
 (cd DKBMonitorCore && swift test)
@@ -38,10 +32,7 @@ echo "==> Testing DKBMonitorCore"
 echo "==> Testing DKBMonitorApp"
 xcodebuild test -project "$PROJECT" -scheme "$SCHEME" -destination "platform=macOS" -quiet
 
-# project.yml is the source of truth, not Info.plist - xcodegen fully
-# regenerates Info.plist from project.yml's properties on every `generate`
-# (it doesn't merge), so editing Info.plist directly gets silently
-# discarded the moment this script runs `xcodegen generate` below.
+# Info.plist is the source of truth for the version.
 #
 # Both CFBundleShortVersionString and CFBundleVersion get set to the exact
 # same MAJOR.MINOR.PATCH string the user enters here, matching the
@@ -53,15 +44,14 @@ xcodebuild test -project "$PROJECT" -scheme "$SCHEME" -destination "platform=mac
 # very first "2.0" release, so Sparkle could never tell the two apart and
 # kept reporting an update as available even once the user was already on
 # the latest DMG.
-CURRENT_VERSION=$(grep -m1 'CFBundleShortVersionString:' "$PROJECT_YML" | sed -E 's/.*CFBundleShortVersionString: *"?([^"]*)"?/\1/')
+CURRENT_VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$INFO_PLIST")
 SUGGESTED_VERSION=$(awk -F. '{print $1"."$2"."$3+1}' <<< "$CURRENT_VERSION")
 read -rp "Current version is $CURRENT_VERSION. New version (e.g. $SUGGESTED_VERSION) [Enter to keep]: " INPUT
 VERSION="${INPUT:-$CURRENT_VERSION}"
 
-# The version goes through `sed` as part of a replacement string and ends up
-# in a filename, so anything but three plain numbers is rejected before it
-# can do damage: `&` expands to the whole match, `/` breaks the delimiter,
-# and a path separator would write the DMG somewhere unintended.
+# The version goes into a PlistBuddy command and ends up in a filename, so
+# anything but three plain numbers is rejected before it can do damage: a
+# path separator would write the DMG somewhere unintended.
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
   echo "Error: version must be MAJOR.MINOR.PATCH (digits only), got \"$VERSION\"." >&2
   exit 1
@@ -76,11 +66,11 @@ if [ "$VERSION" != "$CURRENT_VERSION" ] &&
   exit 1
 fi
 
-# project.yml is edited in place before the build, so any failure from here
+# Info.plist is edited in place before the build, so any failure from here
 # on would otherwise leave it bumped — and the next run would read that
 # abandoned number as the current version and refuse to reuse it.
-PROJECT_YML_BACKUP=$(mktemp)
-cp "$PROJECT_YML" "$PROJECT_YML_BACKUP"
+INFO_PLIST_BACKUP=$(mktemp)
+cp "$INFO_PLIST" "$INFO_PLIST_BACKUP"
 
 # One handler, installed once: `$?` inside a trap is whatever ran last, so
 # chaining two traps would have the second read the first's exit code
@@ -91,19 +81,15 @@ on_exit() {
     rm -rf "$BUILD_DIR"
   fi
   if [ "$status" -ne 0 ]; then
-    echo "==> Failed (exit $status) — restoring $PROJECT_YML" >&2
-    cp "$PROJECT_YML_BACKUP" "$PROJECT_YML"
+    echo "==> Failed (exit $status) — restoring $INFO_PLIST" >&2
+    cp "$INFO_PLIST_BACKUP" "$INFO_PLIST"
   fi
-  rm -f "$PROJECT_YML_BACKUP"
+  rm -f "$INFO_PLIST_BACKUP"
 }
 trap on_exit EXIT
 
-sed -i '' -E "s/(CFBundleShortVersionString: )\"?[^\"[:space:]]*\"?/\1\"$VERSION\"/" "$PROJECT_YML"
-sed -i '' -E "s/(CFBundleVersion: )\"?[^\"[:space:]]*\"?/\1\"$VERSION\"/" "$PROJECT_YML"
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" -c "Set :CFBundleVersion $VERSION" "$INFO_PLIST"
 echo "==> Releasing version $VERSION"
-
-echo "==> Regenerating Xcode project"
-xcodegen generate
 
 OUT_DIR="release-output/$VERSION"
 mkdir -p "$OUT_DIR"
