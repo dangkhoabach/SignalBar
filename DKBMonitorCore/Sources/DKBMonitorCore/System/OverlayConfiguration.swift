@@ -26,7 +26,7 @@ public enum OverlayBackground: String, CaseIterable, Sendable {
 }
 
 /// Which screen the overlay sits on.
-public enum OverlayDisplay: Equatable, Sendable {
+public enum OverlayDisplay: Hashable, Sendable {
     case main
     /// The screen under the mouse pointer when the overlay is placed.
     case mouse
@@ -76,6 +76,12 @@ public struct OverlayConfiguration: Equatable, Sendable {
     public var showOverFullScreen: Bool
     public var sparklines: Bool
     public var background: OverlayBackground
+    /// Samples half as often while running on battery.
+    public var slowOnBattery: Bool
+    /// Global shortcut that shows or hides the overlay; `nil` means none.
+    /// Off by default: a system-wide shortcut takes that key combination
+    /// away from every other app, so it is only claimed when asked for.
+    public var hotkey: OverlayHotkey?
 
     public static let refreshChoices = [500, 1000, 2000, 5000]
     public static let opacityRange = 30...100
@@ -94,13 +100,16 @@ public struct OverlayConfiguration: Equatable, Sendable {
         metrics: OverlayMetric.defaultMetrics,
         showOverFullScreen: true,
         sparklines: false,
-        background: .translucent
+        background: .translucent,
+        slowOnBattery: true,
+        hotkey: nil
     )
 
     public init(
         enabled: Bool, corner: OverlayCorner, offsetX: Int, offsetY: Int, display: OverlayDisplay,
         layout: OverlayLayout, scale: OverlayScale, opacityPercent: Int, refreshMillis: Int,
-        metrics: [OverlayMetric], showOverFullScreen: Bool, sparklines: Bool, background: OverlayBackground
+        metrics: [OverlayMetric], showOverFullScreen: Bool, sparklines: Bool, background: OverlayBackground,
+        slowOnBattery: Bool, hotkey: OverlayHotkey?
     ) {
         self.enabled = enabled
         self.corner = corner
@@ -115,6 +124,14 @@ public struct OverlayConfiguration: Equatable, Sendable {
         self.showOverFullScreen = showOverFullScreen
         self.sparklines = sparklines
         self.background = background
+        self.slowOnBattery = slowOnBattery
+        self.hotkey = hotkey
+    }
+
+    /// The sampling interval actually used: doubled on battery when
+    /// `slowOnBattery` is on.
+    public func effectiveRefreshMillis(onBattery: Bool) -> Int {
+        slowOnBattery && onBattery ? refreshMillis * 2 : refreshMillis
     }
 
     private static func clamp(_ value: Int, to range: ClosedRange<Int>) -> Int {

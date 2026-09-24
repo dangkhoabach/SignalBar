@@ -8,6 +8,9 @@ A personal, native macOS menu-bar app for monitoring the uptime, SSL certificate
 - **SSL certificate expiry** — checked via the system trust store, with alerts as expiry approaches.
 - **Domain (WHOIS/RDAP) expiry** — resolved via RDAP-over-HTTPS where the TLD supports it, falling back to `whois` otherwise. Some ccTLDs (e.g. `.vn`) don't expose this publicly through any method.
 - **Live system stats** — CPU, memory, swap, temperature (SMC), battery, and network, refreshed continuously and surfaced both in a System tab and the menu bar dropdown, with alerts for high temperature/low battery.
+- **Performance overlay** — an optional always-on-top panel in a screen corner with live CPU, GPU, RAM, temperatures, fans, network, battery, power and display refresh rate, like MSI Afterburner's on-screen display. Clicks pass through it and it never takes focus. It stays on every Space and over full-screen apps, and pauses while the display sleeps or the Mac is locked. Layout, size, background, opacity, refresh rate, which readings to show and their order, sparklines, drag-to-place and a global show/hide shortcut are all in Settings. It costs about 0.8% of one core at a one-second refresh, measured on a Release build. macOS gives no way to count another app's frames, so the overlay shows no FPS. Instead, Settings can switch on Apple's Metal Performance HUD, which draws real FPS inside each game.
+
+  <img src=".assets/overlay-vertical.png" width="320" alt="Overlay, vertical layout"> <img src=".assets/overlay-horizontal.png" width="100%" alt="Overlay, horizontal layout">
 - **Running Apps** — a Task-Manager-style list of user-facing apps with CPU/memory usage and status, sortable, with Quit/Force Quit.
 - **Groups** — targets group by root domain (subdomains fold under it), with drag-and-drop reordering of both targets and groups, and inline group renaming.
 - **Pause/resume checks** — snooze a target for 30m/1h/4h/24h or indefinitely.
@@ -35,7 +38,8 @@ DKBMonitorApp/
   Info.plist                          version (source of truth for release.sh), Sparkle feed URL + public key
   App/                                App/Scene setup, window management, Sparkle updater, login item
   UI/                                 SwiftUI views + view models (Overview, System, Settings, Target detail)
-  System/                             SMC reader, process list (libproc), system stats service
+  Overlay/                            always-on-top performance overlay: panel, window controller, view, global shortcut
+  System/                             SMC reader, GPU stats (IOKit), process list (libproc), system stats service
   Notifications/                      UNUserNotificationCenter wrapper, click-to-navigate routing
 DKBMonitorCore/
   Sources/DKBMonitorCore/
@@ -48,6 +52,7 @@ DKBMonitorCore/
 docs/
   swift-native-port-plan.md           full history of the Tauri → native port
   release.md                          local build/sign/publish process (ad-hoc signed, not notarized)
+  overlay-hud-plan.md                 performance overlay: design, measurements, phase checklists
 scripts/
   release.sh                          tests, builds, ad-hoc signs, DMGs, and Sparkle-signs a release
 ```

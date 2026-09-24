@@ -42,4 +42,18 @@ public enum OverlayMetric: String, CaseIterable, Sendable, Identifiable {
     }
 
     public static let noneMarker = "none"
+
+    /// `list` with `metric` switched on (added at the end) or off.
+    public static func toggling(_ metric: OverlayMetric, in list: [OverlayMetric]) -> [OverlayMetric] {
+        list.contains(metric) ? list.filter { $0 != metric } : list + [metric]
+    }
+
+    /// `list` with `metric` moved one place up (`-1`) or down (`+1`); unchanged
+    /// at either end or when the metric is not in the list.
+    public static func moving(_ metric: OverlayMetric, by offset: Int, in list: [OverlayMetric]) -> [OverlayMetric] {
+        guard let index = list.firstIndex(of: metric), list.indices.contains(index + offset) else { return list }
+        var moved = list
+        moved.swapAt(index, index + offset)
+        return moved
+    }
 }

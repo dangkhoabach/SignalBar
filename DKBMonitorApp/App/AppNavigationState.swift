@@ -22,6 +22,10 @@ final class AppNavigationState {
     /// the remote resource alerts' `/servers/<id>` route.
     var pendingDetailServerID: Int64?
 
+    /// Which Settings sub-page is open. Kept here rather than in the view so
+    /// the page survives switching sidebar tabs and back.
+    var settingsPath: [SettingsPage] = []
+
     private init() {}
 
     func handleNotificationRoute(_ route: String) {

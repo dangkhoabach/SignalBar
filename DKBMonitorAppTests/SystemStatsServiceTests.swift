@@ -31,9 +31,9 @@ import Testing
     /// that has a reading at all must keep it within physical bounds.
     @Test func overlaySnapshotReturnsBoundedReadings() async throws {
         let service = SystemStatsService()
-        _ = await service.snapshotOverlay()
+        _ = await service.snapshotOverlay(metrics: Set(OverlayMetric.allCases))
         try await Task.sleep(for: .milliseconds(200))
-        let sample = await service.snapshotOverlay()
+        let sample = await service.snapshotOverlay(metrics: Set(OverlayMetric.allCases))
 
         let cpu = try #require(sample.cpuPercent)
         #expect((0...100).contains(cpu))
@@ -47,6 +47,17 @@ import Testing
         #expect(sample.downloadKbps.map { $0.isFinite && $0 >= 0 } == true)
         // The app fills this from the screen, not the sampler.
         #expect(sample.displayHz == nil)
+    }
+
+    /// Metrics that are not on screen cost no SMC reads, so they come back
+    /// empty even on a Mac that has the sensors.
+    @Test func overlaySnapshotSkipsSensorsThatAreNotShown() async {
+        let sample = await SystemStatsService().snapshotOverlay(metrics: [.cpu, .memory])
+        #expect(sample.cpuTempCelsius == nil)
+        #expect(sample.gpuTempCelsius == nil)
+        #expect(sample.systemPowerWatts == nil)
+        #expect(sample.fanRPMs.isEmpty)
+        #expect(sample.ramTotalMB != nil)
     }
 
     /// Reads the real registry: there is no seam under the IOKit calls and

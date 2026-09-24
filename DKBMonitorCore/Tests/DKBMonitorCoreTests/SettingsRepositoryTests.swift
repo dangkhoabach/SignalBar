@@ -54,7 +54,8 @@ import Testing
                 enabled: true, corner: .bottomLeft, offsetX: 40, offsetY: 64,
                 display: .named("LG UltraFine"), layout: .horizontal, scale: .large,
                 opacityPercent: 55, refreshMillis: 2000, metrics: [.gpu, .cpu, .power],
-                showOverFullScreen: false, sparklines: true, background: .solid
+                showOverFullScreen: false, sparklines: true, background: .solid,
+                slowOnBattery: false, hotkey: .suggested
             )
         )
         try repo.update(settings)

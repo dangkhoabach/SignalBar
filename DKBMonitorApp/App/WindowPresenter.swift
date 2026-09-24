@@ -10,7 +10,9 @@ enum WindowPresenter {
     static func showMainWindow() {
         NSApp.setActivationPolicy(.regular)
         NSApp.unhide(nil)
-        for window in NSApp.windows {
+        // The overlay panel is one of `NSApp.windows` too, and must stay
+        // exactly as its setting says rather than be brought forward here.
+        for window in NSApp.windows where !(window is OverlayPanel) {
             window.makeKeyAndOrderFront(nil)
         }
         NSApp.activate(ignoringOtherApps: true)

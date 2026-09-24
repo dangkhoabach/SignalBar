@@ -42,6 +42,7 @@ struct MenuBarIconView: View {
 /// there's a trend, and the domains summary colour-coded by state.
 struct MenuBarContentView: View {
     @Bindable private var model = MenuBarStatsViewModel.shared
+    @Bindable private var settings = SettingsViewModel.shared
 
     private var stats: SystemStats { model.stats }
 
@@ -142,6 +143,12 @@ struct MenuBarContentView: View {
     private var actions: some View {
         VStack(spacing: 4) {
             menuButton("Show DKB Monitor", systemImage: "macwindow") { WindowPresenter.showMainWindow() }
+            menuButton(
+                settings.settings.overlay.enabled ? "Hide Overlay" : "Show Overlay",
+                systemImage: "rectangle.inset.topright.filled"
+            ) {
+                settings.settings.overlay.enabled.toggle()
+            }
             menuButton("Settings…", systemImage: "gearshape") { WindowPresenter.showSettings() }
             menuButton("Check for Updates…", systemImage: "arrow.triangle.2.circlepath") { AppUpdater.checkForUpdates() }
             menuButton("Quit", systemImage: "power") { NSApp.terminate(nil) }

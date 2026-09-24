@@ -46,6 +46,7 @@ enum LayoutSnapshot {
         write(MenuBarContentView(), size: CGSize(width: 300, height: 460), to: url, name: "menubar-popover")
         write(CleanupView().junkContent, size: CGSize(width: 980, height: 760), to: url, name: "cleanup-junk")
         writeSyntheticMachineLayouts(to: url)
+        writeOverlayLayouts(to: url)
 
         print("Snapshots written to \(url.path)")
         exit(0)
@@ -74,6 +75,39 @@ enum LayoutSnapshot {
         for shape in shapes {
             model.overrideStatsForSnapshot(shape.stats)
             write(MenuBarContentView(), size: CGSize(width: 300, height: 460), to: directory, name: shape.name)
+        }
+    }
+
+    /// The overlay at every size in both layouts, with sparklines on. The
+    /// solid background is used because `ImageRenderer` cannot draw the
+    /// blur's `NSVisualEffectView`.
+    private static func writeOverlayLayouts(to directory: URL) {
+        let model = OverlayViewModel(sampler: SystemStatsService())
+        var histories: [OverlayMetric: OverlayRing] = [:]
+        for metric in OverlayViewModel.historyMetrics {
+            var ring = OverlayRing()
+            for tick in 0..<60 { ring.append(50 + 40 * sin(Double(tick) / 6 + Double(metric.rawValue.count))) }
+            histories[metric] = ring
+        }
+        model.overrideForSnapshot(
+            sample: OverlaySample(
+                cpuPercent: 46, cpuTempCelsius: 71, gpuPercent: 93, gpuTempCelsius: 58, gpuMemoryMB: 2_150,
+                ramUsedMB: 12_400, ramTotalMB: 32_768, memoryPressureLevel: 2, swapUsedMB: 1_024,
+                downloadKbps: 1_536, uploadKbps: 35, fanRPMs: [2_100, 2_240],
+                batteryPercent: 18, batteryCharging: false, systemPowerWatts: 12.8, displayHz: 120, uptimeSecs: 291_600
+            ),
+            histories: histories
+        )
+        for layout in OverlayLayout.allCases {
+            for scale in OverlayScale.allCases {
+                var configuration = OverlayConfiguration.defaults
+                configuration.layout = layout
+                configuration.scale = scale
+                configuration.background = .solid
+                configuration.sparklines = true
+                configuration.metrics = OverlayMetric.allCases
+                write(OverlayView(model: model, configuration: configuration) { _ in }, size: nil, to: directory, name: "overlay-\(layout.rawValue)-\(scale.rawValue)")
+            }
         }
     }
 
@@ -107,8 +141,9 @@ enum LayoutSnapshot {
         )
     }
 
-    private static func write<V: View>(_ view: V, size: CGSize, to directory: URL, name: String) {
-        let renderer = ImageRenderer(content: view.frame(width: size.width, height: size.height))
+    /// `size: nil` renders the view at its own ideal size.
+    private static func write<V: View>(_ view: V, size: CGSize?, to directory: URL, name: String) {
+        let renderer = ImageRenderer(content: view.frame(width: size?.width, height: size?.height))
         renderer.scale = 2
         guard let image = renderer.nsImage,
               let tiff = image.tiffRepresentation,

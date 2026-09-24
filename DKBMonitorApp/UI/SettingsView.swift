@@ -25,12 +25,16 @@ import SwiftUI
 struct SettingsView: View {
     @Bindable private var viewModel = SettingsViewModel.shared
     @Bindable private var overviewViewModel = OverviewViewModel.shared
+    @Bindable private var overlayModel = OverlayWindowController.shared.model
+    @Bindable private var navigationState = AppNavigationState.shared
     @AppStorage("themePreference") private var themePreferenceRaw = ThemePreference.system.rawValue
     @AppStorage("languagePreference") private var languageRaw = AppLocale.systemDefault.rawValue
     @AppStorage("showCPUPercentInMenuBar") private var showCPUPercentInMenuBar = false
     /// Set when macOS refuses notifications while the in-app toggle is on —
     /// the state in which alerts are configured but can never be delivered.
     @State private var notificationsBlocked = false
+    @State private var hotkeyMonitor: Any?
+    @State private var metalHUDEnabled = MetalHUDSetting.global.isEnabled
     @State private var loginItemEnabled = LoginItemManager.shared.isEnabled
     /// Registered, but macOS is holding it until the user approves it in
     /// System Settings — on, yet not actually launching at login.
@@ -43,6 +47,60 @@ struct SettingsView: View {
     @State private var automaticUpdateChecks = AppUpdater.automaticallyChecksForUpdates
 
     var body: some View {
+        NavigationStack(path: $navigationState.settingsPath) {
+            mainPage
+                .navigationDestination(for: SettingsPage.self) { page in
+                    Form { sections(for: page) }
+                        .formStyle(.grouped)
+                        .navigationTitle(page.title)
+                }
+        }
+        .onAppear { viewModel.loadIfNeeded() }
+        .task {
+            // Both of these live outside the app, and both were only ever
+            // read once. The user can revoke notifications or remove the
+            // login item from System Settings at any point, which left the
+            // toggles here showing a state that stopped being true. Re-read
+            // whenever this page opens rather than trusting the last value.
+            loginItemEnabled = LoginItemManager.shared.isEnabled
+            loginItemNeedsApproval = LoginItemManager.shared.requiresApproval
+            // Sparkle's own first-launch prompt can answer this before
+            // Settings is ever opened, and its Check for Updates sheet can
+            // change it too.
+            automaticUpdateChecks = AppUpdater.automaticallyChecksForUpdates
+            viewModel.refreshLastRuns()
+
+            guard viewModel.settings.notificationsEnabled else { return }
+            notificationsBlocked = await NotificationManager.shared.authorizationStatus() == .denied
+        }
+        .alert("Login Item Error", isPresented: Binding(
+            get: { loginItemError != nil },
+            set: { if !$0 { loginItemError = nil } }
+        )) {
+            Button("OK", role: .cancel) { loginItemError = nil }
+        } message: {
+            Text(loginItemError ?? "")
+        }
+        .alert("Test Email", isPresented: Binding(
+            get: { viewModel.testEmailResultMessage != nil },
+            set: { if !$0 { viewModel.testEmailResultMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) { viewModel.testEmailResultMessage = nil }
+        } message: {
+            Text(viewModel.testEmailResultMessage ?? "")
+        }
+        .confirmationDialog(
+            "Clear All Domains?",
+            isPresented: $isPresentingClearAllConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Clear All Domains", role: .destructive) { overviewViewModel.clearAllTargets() }
+        } message: {
+            Text("This permanently deletes every monitored domain and its history. This cannot be undone.")
+        }
+    }
+
+    private var mainPage: some View {
         Form {
             Section("Appearance") {
                 Picker("Theme", selection: $themePreferenceRaw) {
@@ -131,203 +189,18 @@ struct SettingsView: View {
                 }
             }
 
-            Section("Health Checks") {
-                Picker("Default check interval", selection: $viewModel.settings.httpCheckIntervalSecs) {
-                    Text("1 minute").tag(60)
-                    Text("5 minutes").tag(300)
-                    Text("10 minutes").tag(600)
-                    Text("15 minutes").tag(900)
-                    Text("30 minutes").tag(1800)
-                    Text("1 hour").tag(3600)
-                }
-                Text("How often a newly added domain is re-checked. Existing domains keep their own interval, editable per domain.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                labeledStepper("Failure alert threshold", value: $viewModel.settings.failureAlertThreshold, in: 1...20, suffix: "checks")
-                labeledStepper(
-                    "Slow response threshold",
-                    value: $viewModel.settings.responseTimeAlertThresholdMs, in: 0...30000, step: 500,
-                    suffix: "ms", zeroMeans: "off"
-                )
-            }
-
-            Section("Expiry") {
-                labeledStepper("SSL alert", value: $viewModel.settings.sslAlertThresholdDays, in: 1...90, suffix: "days before")
-                labeledStepper("Domain alert", value: $viewModel.settings.domainAlertThresholdDays, in: 1...90, suffix: "days before")
-            }
-
-            Section("System") {
-                labeledStepper(
-                    "High temperature alert",
-                    value: $viewModel.settings.systemTempAlertThresholdCelsius, in: 0...100,
-                    suffix: "°C", zeroMeans: "off"
-                )
-                labeledStepper(
-                    "Low battery alert",
-                    value: $viewModel.settings.batteryLowAlertThresholdPercent, in: 0...100,
-                    suffix: "%", zeroMeans: "off"
-                )
-            }
-
-            Section("Remote Servers") {
-                // Thresholds are global; which servers are watched is set
-                // per server, in that server's own form. Neither alone does
-                // anything — a threshold with no watched server is silent,
-                // and a watched server with no threshold is never polled.
-                Text("Applies to servers you've switched Monitoring on for. Each is checked every few minutes over SSH.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                labeledStepper(
-                    "CPU alert",
-                    value: $viewModel.settings.remoteCPUAlertThresholdPercent, in: 0...100, step: 5,
-                    suffix: "%", zeroMeans: "off"
-                )
-                labeledStepper(
-                    "RAM alert",
-                    value: $viewModel.settings.remoteMemoryAlertThresholdPercent, in: 0...100, step: 5,
-                    suffix: "%", zeroMeans: "off"
-                )
-                labeledStepper(
-                    "Disk alert",
-                    value: $viewModel.settings.remoteDiskAlertThresholdPercent, in: 0...100, step: 5,
-                    suffix: "%", zeroMeans: "off"
-                )
-            }
-
-            Section("History") {
-                labeledStepper(
-                    "Retention",
-                    value: $viewModel.settings.historyRetentionDays, in: 0...365, step: 5,
-                    suffix: "days", zeroMeans: "forever"
-                )
-            }
-
-            Section("Email Report") {
-                Toggle("Enable Email Reports", isOn: $viewModel.settings.smtpEnabled)
-                if viewModel.settings.smtpEnabled {
-                    // The app holds no mail credential of its own, so reports
-                    // are posted to a relay — which means the recipient
-                    // address and the name of every monitored domain leave
-                    // this Mac. That is worth saying on the page where it is
-                    // switched on, not only in the source.
-                    Text("Reports are sent through api.dangkhoabach.vn. The recipient address and your domain names are sent to that server so it can deliver the mail.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    TextField("Recipient Email", text: $viewModel.settings.smtpRecipientEmail, prompt: Text(String(localized: "you@example.com"))) // not a literal: Markdown would autolink it
-                    emailVerification
-                    Picker("Frequency", selection: $viewModel.settings.smtpFrequency) {
-                        Text("Daily").tag("daily")
-                        Text("Weekly").tag("weekly")
-                        Text("Monthly").tag("monthly")
-                    }
-                    if viewModel.settings.smtpFrequency == "weekly" {
-                        // `smtpDayOfWeek` is days-from-Monday (0...6), matching
-                        // `SchedulerStateStore.reportPeriod`'s convention.
-                        Picker("Day of Week", selection: $viewModel.settings.smtpDayOfWeek) {
-                            ForEach(0..<7, id: \.self) { daysFromMonday in
-                                Text(Calendar.current.weekdaySymbols[(daysFromMonday + 1) % 7]).tag(daysFromMonday)
+            // Everything with more than a couple of controls lives on its
+            // own page, the way System Settings does it; this page keeps the
+            // basics and one row per feature with its current state.
+            Section("Features") {
+                ForEach(SettingsPage.allCases) { page in
+                    NavigationLink(value: page) {
+                        LabeledContent {
+                            if let isOn = isOn(page) {
+                                Text(isOn ? "On" : "Off")
                             }
-                        }
-                    } else if viewModel.settings.smtpFrequency == "monthly" {
-                        Stepper("Day of Month: \(viewModel.settings.smtpDayOfMonth)", value: $viewModel.settings.smtpDayOfMonth, in: 1...28)
-                    }
-                    HStack {
-                        Spacer()
-                        if viewModel.isSendingTestEmail {
-                            ProgressView().controlSize(.small)
-                        } else {
-                            Button("Send Test Email") { Task { await viewModel.sendTestEmail() } }
-                                .disabled(!viewModel.isEmailVerified)
-                        }
-                    }
-                    if let outcome = viewModel.lastReportOutcome {
-                        let when = outcome.at.formatted(.relative(presentation: .named))
-                        if outcome.sent {
-                            Label("Last report (\(outcome.label)) was sent \(when).", systemImage: "checkmark.circle")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        } else {
-                            Label("The last report (\(outcome.label)) failed to send \(when). It will be retried.", systemImage: "exclamationmark.triangle.fill")
-                                .font(.caption)
-                                .foregroundStyle(.orange)
-                        }
-                    }
-                }
-            }
-
-            Section("Scheduled Cleanup") {
-                Toggle("Clean selected locations on a schedule", isOn: $viewModel.settings.cleanupScheduleEnabled)
-                if viewModel.settings.cleanupScheduleEnabled {
-                    // Said plainly at the switch, not buried: this is the one
-                    // setting in the app that deletes the user's files while
-                    // they are not looking.
-                    Text("Everything is moved to the Trash, never deleted outright, and you get a notification when a run finishes. The Trash itself can't be emptied on a schedule.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    if let run = viewModel.lastCleanupRun {
-                        let when = run.at.formatted(.relative(presentation: .named))
-                        let moved = ByteCountFormatter.string(fromByteCount: run.bytes, countStyle: .file)
-                        if run.skipped.isEmpty {
-                            Label("Last run \(when): moved \(moved) to the Trash from \(run.locations) location(s).", systemImage: "checkmark.circle")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        } else {
-                            Label("Last run \(when): moved \(moved) to the Trash. Not fully cleared: \(run.skipped.joined(separator: ", ")).", systemImage: "exclamationmark.triangle.fill")
-                                .font(.caption)
-                                .foregroundStyle(.orange)
-                        }
-                    }
-                    Picker("Frequency", selection: $viewModel.settings.cleanupFrequency) {
-                        Text("Daily").tag("daily")
-                        Text("Weekly").tag("weekly")
-                        Text("Monthly").tag("monthly")
-                    }
-                    if viewModel.settings.cleanupFrequency == "weekly" {
-                        Picker("Day of Week", selection: $viewModel.settings.cleanupDayOfWeek) {
-                            ForEach(0..<7, id: \.self) { daysFromMonday in
-                                Text(Calendar.current.weekdaySymbols[(daysFromMonday + 1) % 7]).tag(daysFromMonday)
-                            }
-                        }
-                    } else if viewModel.settings.cleanupFrequency == "monthly" {
-                        Stepper("Day of Month: \(viewModel.settings.cleanupDayOfMonth)", value: $viewModel.settings.cleanupDayOfMonth, in: 1...28)
-                    }
-                    cleanupTargetPicker
-                }
-            }
-
-            Section("Webhook Alerts") {
-                Toggle("Send alerts to a webhook", isOn: $viewModel.settings.webhookEnabled)
-                if viewModel.settings.webhookEnabled {
-                    // Separate from "Enable Notifications" on purpose: the
-                    // point of a webhook is reaching a channel when nobody
-                    // is at this Mac, so switching off local notifications
-                    // must not switch this off too.
-                    Text("Every alert also goes to this URL. Slack and Discord webhook URLs are recognised automatically; anything else receives plain JSON. Sent straight from this Mac — no relay.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    TextField(
-                        "Webhook URL",
-                        text: $viewModel.settings.webhookURL,
-                        prompt: Text("https://hooks.slack.com/services/…")
-                    )
-                    .task(id: viewModel.settings.webhookURL) {
-                        await viewModel.validateWebhookURL()
-                    }
-                    if let problem = viewModel.webhookURLProblem {
-                        Label(problem, systemImage: "exclamationmark.triangle.fill")
-                            .font(.caption)
-                            .foregroundStyle(.orange)
-                    }
-                    HStack {
-                        if let result = viewModel.webhookTestResultMessage {
-                            Text(result).font(.caption).foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        if viewModel.isSendingTestWebhook {
-                            ProgressView().controlSize(.small)
-                        } else {
-                            Button("Send Test Alert") { Task { await viewModel.sendTestWebhook() } }
-                                .disabled(viewModel.settings.webhookURL.isEmpty || viewModel.webhookURLProblem != nil)
+                        } label: {
+                            Label(page.title, systemImage: page.systemImage)
                         }
                     }
                 }
@@ -367,49 +240,460 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .onAppear { viewModel.loadIfNeeded() }
-        .task {
-            // Both of these live outside the app, and both were only ever
-            // read once. The user can revoke notifications or remove the
-            // login item from System Settings at any point, which left the
-            // toggles here showing a state that stopped being true. Re-read
-            // whenever this page opens rather than trusting the last value.
-            loginItemEnabled = LoginItemManager.shared.isEnabled
-            loginItemNeedsApproval = LoginItemManager.shared.requiresApproval
-            // Sparkle's own first-launch prompt can answer this before
-            // Settings is ever opened, and its Check for Updates sheet can
-            // change it too.
-            automaticUpdateChecks = AppUpdater.automaticallyChecksForUpdates
-            viewModel.refreshLastRuns()
+    }
 
-            guard viewModel.settings.notificationsEnabled else { return }
-            notificationsBlocked = await NotificationManager.shared.authorizationStatus() == .denied
+    @ViewBuilder
+    private func sections(for page: SettingsPage) -> some View {
+        switch page {
+        case .overlay: overlaySections
+        case .checks: checksSections
+        case .email: emailSections
+        case .webhook: webhookSections
+        case .cleanup: cleanupSections
         }
-        .alert("Login Item Error", isPresented: Binding(
-            get: { loginItemError != nil },
-            set: { if !$0 { loginItemError = nil } }
-        )) {
-            Button("OK", role: .cancel) { loginItemError = nil }
-        } message: {
-            Text(loginItemError ?? "")
+    }
+
+    /// The state shown beside a feature's row; `nil` for a page that is
+    /// only thresholds and has no single on/off.
+    private func isOn(_ page: SettingsPage) -> Bool? {
+        switch page {
+        case .overlay: viewModel.settings.overlay.enabled
+        case .checks: nil
+        case .email: viewModel.settings.smtpEnabled
+        case .webhook: viewModel.settings.webhookEnabled
+        case .cleanup: viewModel.settings.cleanupScheduleEnabled
         }
-        .alert("Test Email", isPresented: Binding(
-            get: { viewModel.testEmailResultMessage != nil },
-            set: { if !$0 { viewModel.testEmailResultMessage = nil } }
-        )) {
-            Button("OK", role: .cancel) { viewModel.testEmailResultMessage = nil }
-        } message: {
-            Text(viewModel.testEmailResultMessage ?? "")
+    }
+
+    /// Settings › Performance Overlay, grouped the way the options are
+    /// used: where it sits, how it looks, how it runs, what it shows.
+    @ViewBuilder
+    private var overlaySections: some View {
+        Section {
+            Toggle("Show performance overlay", isOn: $viewModel.settings.overlay.enabled)
+            overlayShortcutRow
+        } header: {
+            Text("Overlay")
+        } footer: {
+            Text("A small always-on-top panel with live readings. Clicks pass through it. Games that take over the display exclusively draw above it.")
         }
-        .confirmationDialog(
-            "Clear All Domains?",
-            isPresented: $isPresentingClearAllConfirm,
-            titleVisibility: .visible
-        ) {
-            Button("Clear All Domains", role: .destructive) { overviewViewModel.clearAllTargets() }
-        } message: {
-            Text("This permanently deletes every monitored domain and its history. This cannot be undone.")
+
+        if viewModel.settings.overlay.enabled {
+            Section("Position") {
+                Picker("Corner", selection: $viewModel.settings.overlay.corner) {
+                    ForEach(OverlayCorner.allCases, id: \.self) { corner in
+                        Text(corner.label).tag(corner)
+                    }
+                }
+                Picker("Display", selection: $viewModel.settings.overlay.display) {
+                    Text("Main display").tag(OverlayDisplay.main)
+                    Text("Display with the pointer").tag(OverlayDisplay.mouse)
+                    ForEach(overlayScreenNames, id: \.self) { name in
+                        Text(verbatim: name).tag(OverlayDisplay.named(name))
+                    }
+                }
+                LabeledContent {
+                    Button(overlayModel.isUnlocked ? "Lock Position" : "Unlock to Move") {
+                        OverlayWindowController.shared.setUnlocked(!overlayModel.isUnlocked)
+                    }
+                } label: {
+                    Text("Drag to Place")
+                    Text(overlayModel.isUnlocked
+                        ? "Drag the overlay anywhere, then lock it. It snaps to the nearest corner."
+                        : "Unlock to drag the overlay with the mouse.")
+                }
+            }
+
+            Section("Appearance") {
+                Picker("Layout", selection: $viewModel.settings.overlay.layout) {
+                    Text("Vertical").tag(OverlayLayout.vertical)
+                    Text("Horizontal").tag(OverlayLayout.horizontal)
+                }
+                .pickerStyle(.segmented)
+                Picker("Size", selection: $viewModel.settings.overlay.scale) {
+                    Text("Small").tag(OverlayScale.small)
+                    Text("Medium").tag(OverlayScale.medium)
+                    Text("Large").tag(OverlayScale.large)
+                }
+                .pickerStyle(.segmented)
+                Picker("Panel Background", selection: $viewModel.settings.overlay.background) {
+                    Text("Blur").tag(OverlayBackground.translucent)
+                    Text("Solid").tag(OverlayBackground.solid)
+                    Text("Transparent").tag(OverlayBackground.none)
+                }
+                .pickerStyle(.segmented)
+                LabeledContent("Opacity") {
+                    HStack {
+                        Slider(
+                            value: Binding(
+                                get: { Double(viewModel.settings.overlay.opacityPercent) },
+                                set: { viewModel.settings.overlay.opacityPercent = Int($0.rounded()) }
+                            ),
+                            in: Double(OverlayConfiguration.opacityRange.lowerBound)...Double(OverlayConfiguration.opacityRange.upperBound),
+                            step: 5
+                        )
+                        Text(verbatim: "\(viewModel.settings.overlay.opacityPercent)%")
+                            .monospacedDigit()
+                            .frame(width: 40, alignment: .trailing)
+                    }
+                }
+                Toggle("Sparklines for CPU, GPU, RAM and network", isOn: $viewModel.settings.overlay.sparklines)
+            }
+
+            Section("Behavior") {
+                Picker("Refresh every", selection: $viewModel.settings.overlay.refreshMillis) {
+                    ForEach(OverlayConfiguration.refreshChoices, id: \.self) { millis in
+                        Text(verbatim: millis < 1000 ? "0.5 s" : "\(millis / 1000) s").tag(millis)
+                    }
+                }
+                Toggle("Refresh half as often on battery", isOn: $viewModel.settings.overlay.slowOnBattery)
+                Toggle("Show over full-screen apps", isOn: $viewModel.settings.overlay.showOverFullScreen)
+            }
+
+            Section("Readings") {
+                ForEach(overlayMetricRows, id: \.self) { metric in
+                    overlayMetricRow(metric)
+                }
+            }
         }
+
+        Section {
+            Toggle("Show Apple's Metal HUD in games and Metal apps", isOn: Binding(
+                get: { metalHUDEnabled },
+                set: { enabled in
+                    MetalHUDSetting.global.setEnabled(enabled)
+                    metalHUDEnabled = MetalHUDSetting.global.isEnabled
+                }
+            ))
+        } header: {
+            Text("Frame Rate")
+        } footer: {
+            Text("macOS doesn't let one app count another app's frames, so the overlay can't show FPS. Apple's Metal Performance HUD can: it is drawn by Metal inside each game with real FPS, frame time and GPU time. This is a system-wide setting and applies to apps opened after turning it on.")
+        }
+    }
+
+    /// Settings › Checks & Alerts: every alert threshold, plus history retention.
+    @ViewBuilder
+    private var checksSections: some View {
+        Section("Health Checks") {
+            Picker("Default check interval", selection: $viewModel.settings.httpCheckIntervalSecs) {
+                Text("1 minute").tag(60)
+                Text("5 minutes").tag(300)
+                Text("10 minutes").tag(600)
+                Text("15 minutes").tag(900)
+                Text("30 minutes").tag(1800)
+                Text("1 hour").tag(3600)
+            }
+            Text("How often a newly added domain is re-checked. Existing domains keep their own interval, editable per domain.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            labeledStepper("Failure alert threshold", value: $viewModel.settings.failureAlertThreshold, in: 1...20, suffix: "checks")
+            labeledStepper(
+                "Slow response threshold",
+                value: $viewModel.settings.responseTimeAlertThresholdMs, in: 0...30000, step: 500,
+                suffix: "ms", zeroMeans: "off"
+            )
+        }
+
+        Section("Expiry") {
+            labeledStepper("SSL alert", value: $viewModel.settings.sslAlertThresholdDays, in: 1...90, suffix: "days before")
+            labeledStepper("Domain alert", value: $viewModel.settings.domainAlertThresholdDays, in: 1...90, suffix: "days before")
+        }
+
+        Section("System") {
+            labeledStepper(
+                "High temperature alert",
+                value: $viewModel.settings.systemTempAlertThresholdCelsius, in: 0...100,
+                suffix: "°C", zeroMeans: "off"
+            )
+            labeledStepper(
+                "Low battery alert",
+                value: $viewModel.settings.batteryLowAlertThresholdPercent, in: 0...100,
+                suffix: "%", zeroMeans: "off"
+            )
+        }
+
+        Section("Remote Servers") {
+            // Thresholds are global; which servers are watched is set
+            // per server, in that server's own form. Neither alone does
+            // anything — a threshold with no watched server is silent,
+            // and a watched server with no threshold is never polled.
+            Text("Applies to servers you've switched Monitoring on for. Each is checked every few minutes over SSH.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            labeledStepper(
+                "CPU alert",
+                value: $viewModel.settings.remoteCPUAlertThresholdPercent, in: 0...100, step: 5,
+                suffix: "%", zeroMeans: "off"
+            )
+            labeledStepper(
+                "RAM alert",
+                value: $viewModel.settings.remoteMemoryAlertThresholdPercent, in: 0...100, step: 5,
+                suffix: "%", zeroMeans: "off"
+            )
+            labeledStepper(
+                "Disk alert",
+                value: $viewModel.settings.remoteDiskAlertThresholdPercent, in: 0...100, step: 5,
+                suffix: "%", zeroMeans: "off"
+            )
+        }
+
+        Section("History") {
+            labeledStepper(
+                "Retention",
+                value: $viewModel.settings.historyRetentionDays, in: 0...365, step: 5,
+                suffix: "days", zeroMeans: "forever"
+            )
+        }
+    }
+
+    /// Settings › Email Reports.
+    @ViewBuilder
+    private var emailSections: some View {
+        Section("Email Report") {
+            Toggle("Enable Email Reports", isOn: $viewModel.settings.smtpEnabled)
+            if viewModel.settings.smtpEnabled {
+                // The app holds no mail credential of its own, so reports
+                // are posted to a relay — which means the recipient
+                // address and the name of every monitored domain leave
+                // this Mac. That is worth saying on the page where it is
+                // switched on, not only in the source.
+                Text("Reports are sent through api.dangkhoabach.vn. The recipient address and your domain names are sent to that server so it can deliver the mail.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                TextField("Recipient Email", text: $viewModel.settings.smtpRecipientEmail, prompt: Text(String(localized: "you@example.com"))) // not a literal: Markdown would autolink it
+                emailVerification
+                Picker("Frequency", selection: $viewModel.settings.smtpFrequency) {
+                    Text("Daily").tag("daily")
+                    Text("Weekly").tag("weekly")
+                    Text("Monthly").tag("monthly")
+                }
+                if viewModel.settings.smtpFrequency == "weekly" {
+                    // `smtpDayOfWeek` is days-from-Monday (0...6), matching
+                    // `SchedulerStateStore.reportPeriod`'s convention.
+                    Picker("Day of Week", selection: $viewModel.settings.smtpDayOfWeek) {
+                        ForEach(0..<7, id: \.self) { daysFromMonday in
+                            Text(Calendar.current.weekdaySymbols[(daysFromMonday + 1) % 7]).tag(daysFromMonday)
+                        }
+                    }
+                } else if viewModel.settings.smtpFrequency == "monthly" {
+                    Stepper("Day of Month: \(viewModel.settings.smtpDayOfMonth)", value: $viewModel.settings.smtpDayOfMonth, in: 1...28)
+                }
+                HStack {
+                    Spacer()
+                    if viewModel.isSendingTestEmail {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Button("Send Test Email") { Task { await viewModel.sendTestEmail() } }
+                            .disabled(!viewModel.isEmailVerified)
+                    }
+                }
+                if let outcome = viewModel.lastReportOutcome {
+                    let when = outcome.at.formatted(.relative(presentation: .named))
+                    if outcome.sent {
+                        Label("Last report (\(outcome.label)) was sent \(when).", systemImage: "checkmark.circle")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Label("The last report (\(outcome.label)) failed to send \(when). It will be retried.", systemImage: "exclamationmark.triangle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
+                }
+            }
+        }
+    }
+
+    /// Settings › Scheduled Cleanup.
+    @ViewBuilder
+    private var cleanupSections: some View {
+        Section("Scheduled Cleanup") {
+            Toggle("Clean selected locations on a schedule", isOn: $viewModel.settings.cleanupScheduleEnabled)
+            if viewModel.settings.cleanupScheduleEnabled {
+                // Said plainly at the switch, not buried: this is the one
+                // setting in the app that deletes the user's files while
+                // they are not looking.
+                Text("Everything is moved to the Trash, never deleted outright, and you get a notification when a run finishes. The Trash itself can't be emptied on a schedule.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                if let run = viewModel.lastCleanupRun {
+                    let when = run.at.formatted(.relative(presentation: .named))
+                    let moved = ByteCountFormatter.string(fromByteCount: run.bytes, countStyle: .file)
+                    if run.skipped.isEmpty {
+                        Label("Last run \(when): moved \(moved) to the Trash from \(run.locations) location(s).", systemImage: "checkmark.circle")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Label("Last run \(when): moved \(moved) to the Trash. Not fully cleared: \(run.skipped.joined(separator: ", ")).", systemImage: "exclamationmark.triangle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
+                }
+                Picker("Frequency", selection: $viewModel.settings.cleanupFrequency) {
+                    Text("Daily").tag("daily")
+                    Text("Weekly").tag("weekly")
+                    Text("Monthly").tag("monthly")
+                }
+                if viewModel.settings.cleanupFrequency == "weekly" {
+                    Picker("Day of Week", selection: $viewModel.settings.cleanupDayOfWeek) {
+                        ForEach(0..<7, id: \.self) { daysFromMonday in
+                            Text(Calendar.current.weekdaySymbols[(daysFromMonday + 1) % 7]).tag(daysFromMonday)
+                        }
+                    }
+                } else if viewModel.settings.cleanupFrequency == "monthly" {
+                    Stepper("Day of Month: \(viewModel.settings.cleanupDayOfMonth)", value: $viewModel.settings.cleanupDayOfMonth, in: 1...28)
+                }
+                cleanupTargetPicker
+            }
+        }
+    }
+
+    /// Settings › Webhook Alerts.
+    @ViewBuilder
+    private var webhookSections: some View {
+        Section("Webhook Alerts") {
+            Toggle("Send alerts to a webhook", isOn: $viewModel.settings.webhookEnabled)
+            if viewModel.settings.webhookEnabled {
+                // Separate from "Enable Notifications" on purpose: the
+                // point of a webhook is reaching a channel when nobody
+                // is at this Mac, so switching off local notifications
+                // must not switch this off too.
+                Text("Every alert also goes to this URL. Slack and Discord webhook URLs are recognised automatically; anything else receives plain JSON. Sent straight from this Mac — no relay.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                TextField(
+                    "Webhook URL",
+                    text: $viewModel.settings.webhookURL,
+                    prompt: Text("https://hooks.slack.com/services/…")
+                )
+                .task(id: viewModel.settings.webhookURL) {
+                    await viewModel.validateWebhookURL()
+                }
+                if let problem = viewModel.webhookURLProblem {
+                    Label(problem, systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
+                HStack {
+                    if let result = viewModel.webhookTestResultMessage {
+                        Text(result).font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    if viewModel.isSendingTestWebhook {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Button("Send Test Alert") { Task { await viewModel.sendTestWebhook() } }
+                            .disabled(viewModel.settings.webhookURL.isEmpty || viewModel.webhookURLProblem != nil)
+                    }
+                }
+            }
+        }
+    }
+
+    /// The overlay's global shortcut: shown, recorded or cleared here, and
+    /// registered by `OverlayWindowController` when the setting changes.
+    @ViewBuilder
+    private var overlayShortcutRow: some View {
+        LabeledContent {
+            HStack {
+                if hotkeyMonitor != nil {
+                    Text("Press a shortcut…").foregroundStyle(.secondary)
+                } else if let hotkey = viewModel.settings.overlay.hotkey {
+                    Text(verbatim: hotkey.displayString).monospaced()
+                } else {
+                    Text("Not set").foregroundStyle(.secondary)
+                }
+                Button(hotkeyMonitor == nil ? "Record" : "Cancel") {
+                    hotkeyMonitor == nil ? startRecordingHotkey() : stopRecordingHotkey()
+                }
+                if viewModel.settings.overlay.hotkey != nil, hotkeyMonitor == nil {
+                    Button("Clear") { viewModel.settings.overlay.hotkey = nil }
+                }
+            }
+        } label: {
+            Text("Show/hide shortcut")
+            if let error = overlayModel.hotkeyError {
+                Text(error).foregroundStyle(.red)
+            } else {
+                Text("Works from any app. Use Command, Control or Option, for example ⌃⌥⌘O.")
+            }
+        }
+    }
+
+    /// Takes the next key press in this window as the shortcut. Esc cancels;
+    /// a press without Command, Control or Option is refused with a beep.
+    private func startRecordingHotkey() {
+        hotkeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            if event.keyCode == 53 {
+                stopRecordingHotkey()
+                return nil
+            }
+            let hotkey = OverlayHotkey(
+                keyCode: UInt32(event.keyCode),
+                modifiers: GlobalHotkey.carbonModifiers(event.modifierFlags),
+                key: GlobalHotkey.keyName(for: event)
+            )
+            guard hotkey.isUsable else {
+                NSSound.beep()
+                return nil
+            }
+            viewModel.settings.overlay.hotkey = hotkey
+            stopRecordingHotkey()
+            return nil
+        }
+    }
+
+    private func stopRecordingHotkey() {
+        if let hotkeyMonitor { NSEvent.removeMonitor(hotkeyMonitor) }
+        hotkeyMonitor = nil
+    }
+
+    /// Shown metrics first in their display order, then the rest.
+    private var overlayMetricRows: [OverlayMetric] {
+        let shown = viewModel.settings.overlay.metrics
+        return shown + OverlayMetric.allCases.filter { !shown.contains($0) }
+    }
+
+    private func overlayMetricRow(_ metric: OverlayMetric) -> some View {
+        let shown = viewModel.settings.overlay.metrics
+        let index = shown.firstIndex(of: metric)
+        return HStack {
+            Toggle(isOn: Binding(
+                get: { index != nil },
+                set: { _ in viewModel.settings.overlay.metrics = OverlayMetric.toggling(metric, in: shown) }
+            )) {
+                Text(metric.overlayLabel)
+            }
+            .toggleStyle(.checkbox)
+            Spacer()
+            if let index {
+                Button {
+                    viewModel.settings.overlay.metrics = OverlayMetric.moving(metric, by: -1, in: shown)
+                } label: {
+                    Image(systemName: "chevron.up")
+                }
+                .disabled(index == 0)
+                .accessibilityLabel(Text("Move Up"))
+                Button {
+                    viewModel.settings.overlay.metrics = OverlayMetric.moving(metric, by: 1, in: shown)
+                } label: {
+                    Image(systemName: "chevron.down")
+                }
+                .disabled(index == shown.count - 1)
+                .accessibilityLabel(Text("Move Down"))
+            }
+        }
+        .buttonStyle(.borderless)
+    }
+
+    /// Connected screens, plus the saved one while it is unplugged so the
+    /// picker still shows what was chosen instead of an empty selection.
+    private var overlayScreenNames: [String] {
+        var names = NSScreen.screens.map(\.localizedName)
+        if case .named(let saved) = viewModel.settings.overlay.display, !names.contains(saved) {
+            names.append(saved)
+        }
+        return names
     }
 
     /// Only Trash-safe locations are listed. The Trash target is excluded by
@@ -605,6 +889,34 @@ struct SettingsView: View {
             loginItemError = error.localizedDescription
             loginItemNeedsApproval = false
             loginItemEnabled = LoginItemManager.shared.isEnabled
+        }
+    }
+}
+
+/// The pages one level below Settings. Only features with enough options to
+/// crowd the main page get one.
+enum SettingsPage: String, CaseIterable, Identifiable, Hashable {
+    case overlay, checks, email, webhook, cleanup
+
+    var id: Self { self }
+
+    var title: LocalizedStringKey {
+        switch self {
+        case .overlay: "Performance Overlay"
+        case .checks: "Checks & Alerts"
+        case .email: "Email Reports"
+        case .webhook: "Webhook Alerts"
+        case .cleanup: "Scheduled Cleanup"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .overlay: "rectangle.inset.topright.filled"
+        case .checks: "bell.badge"
+        case .email: "envelope"
+        case .webhook: "link"
+        case .cleanup: "calendar.badge.clock"
         }
     }
 }

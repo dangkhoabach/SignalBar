@@ -126,7 +126,11 @@ public actor SystemStatsService: SystemStatsProvider {
     /// the HID sensors the System pane shows, and the two can differ by
     /// several degrees either way. On a Mac whose SMC carries none of the
     /// candidate keys the row is hidden.
-    public func snapshotOverlay() async -> OverlaySample {
+    ///
+    /// SMC reads cost 0.165 ms each, most of a sample, so they happen only
+    /// for the metrics in `metrics`. Everything else costs microseconds and
+    /// is read regardless.
+    public func snapshotOverlay(metrics: Set<OverlayMetric>) async -> OverlaySample {
         ensureSMCOpen()
         let keys = resolvedOverlaySensorKeys()
         let (cpuPercent, _) = cpuUsage()
@@ -137,17 +141,19 @@ public actor SystemStatsService: SystemStatsProvider {
 
         return OverlaySample(
             cpuPercent: cpuPercent,
-            cpuTempCelsius: smcValue(keys.cpuTemp, within: 1...150),
+            cpuTempCelsius: metrics.contains(.cpuTemp) ? smcValue(keys.cpuTemp, within: 1...150) : nil,
             gpuPercent: gpu?.utilizationPercent,
-            gpuTempCelsius: smcValue(keys.gpuTemp, within: 1...150),
+            gpuTempCelsius: metrics.contains(.gpuTemp) ? smcValue(keys.gpuTemp, within: 1...150) : nil,
             gpuMemoryMB: gpu?.inUseMemoryBytes.map { $0 / 1_048_576 },
             ramUsedMB: memory.usedMB, ramTotalMB: memory.totalMB,
             memoryPressureLevel: memoryPressureLevel(),
             swapUsedMB: swapUsageMB().used,
             downloadKbps: download, uploadKbps: upload,
-            fanRPMs: (0..<keys.fanCount).compactMap { try? smc.readFloatValue(key: SMCReader.fanActualKey(index: $0)) },
+            fanRPMs: metrics.contains(.fan)
+                ? (0..<keys.fanCount).compactMap { try? smc.readFloatValue(key: SMCReader.fanActualKey(index: $0)) }
+                : [],
             batteryPercent: battery.percent, batteryCharging: battery.charging,
-            systemPowerWatts: smcValue(keys.power, within: 0...2000),
+            systemPowerWatts: metrics.contains(.power) ? smcValue(keys.power, within: 0...2000) : nil,
             uptimeSecs: uptimeSecs()
         )
     }

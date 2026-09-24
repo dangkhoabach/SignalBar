@@ -115,4 +115,41 @@ public enum OverlayPlacement {
         let clampedY = min(max(y, visibleFrame.minY), max(visibleFrame.maxY - size.height, visibleFrame.minY))
         return CGRect(origin: CGPoint(x: clampedX, y: clampedY), size: size)
     }
+
+    /// Which of the connected screens the overlay goes on, given their names
+    /// and frames in `NSScreen.screens` order (the first is the one with the
+    /// menu bar). A named screen that is not connected, or a pointer outside
+    /// every screen, falls back to that first screen.
+    public static func screenIndex(
+        for display: OverlayDisplay, names: [String], frames: [CGRect], mouse: CGPoint
+    ) -> Int {
+        switch display {
+        case .main:
+            return 0
+        case .mouse:
+            // `contains` excludes the max edges, and the pointer can sit on
+            // the top edge of a screen, so the edges count too.
+            return frames.firstIndex { $0.insetBy(dx: -0.5, dy: -0.5).contains(mouse) } ?? 0
+        case .named(let name):
+            return names.firstIndex(of: name) ?? 0
+        }
+    }
+
+    /// The corner and offsets that reproduce `frame` on a screen, for saving
+    /// where the user dragged the overlay. The nearest corner is the one on
+    /// the frame's side of the screen's centre on each axis, so the overlay
+    /// keeps its place relative to that corner when its size changes later.
+    public static func anchor(of frame: CGRect, in visibleFrame: CGRect) -> (corner: OverlayCorner, offsetX: Int, offsetY: Int) {
+        let left = frame.midX < visibleFrame.midX
+        let bottom = frame.midY < visibleFrame.midY
+        let corner: OverlayCorner = switch (left, bottom) {
+        case (true, true): .bottomLeft
+        case (true, false): .topLeft
+        case (false, true): .bottomRight
+        case (false, false): .topRight
+        }
+        let dx = left ? frame.minX - visibleFrame.minX : visibleFrame.maxX - frame.maxX
+        let dy = bottom ? frame.minY - visibleFrame.minY : visibleFrame.maxY - frame.maxY
+        return (corner, max(0, Int(dx.rounded())), max(0, Int(dy.rounded())))
+    }
 }

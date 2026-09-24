@@ -160,7 +160,9 @@ public struct SettingsRepository: Sendable {
             metrics: OverlayMetric.parse(csv: try string("overlay_metrics", "")),
             showOverFullScreen: try bool("overlay_over_fullscreen", d.showOverFullScreen),
             sparklines: try bool("overlay_sparklines", d.sparklines),
-            background: OverlayBackground(rawValue: try string("overlay_background", d.background.rawValue)) ?? d.background
+            background: OverlayBackground(rawValue: try string("overlay_background", d.background.rawValue)) ?? d.background,
+            slowOnBattery: try bool("overlay_slow_on_battery", d.slowOnBattery),
+            hotkey: OverlayHotkey(rawValue: try string("overlay_hotkey", ""))
         )
     }
 
@@ -179,6 +181,8 @@ public struct SettingsRepository: Sendable {
         try set("overlay_over_fullscreen", overlay.showOverFullScreen ? "1" : "0")
         try set("overlay_sparklines", overlay.sparklines ? "1" : "0")
         try set("overlay_background", overlay.background.rawValue)
+        try set("overlay_slow_on_battery", overlay.slowOnBattery ? "1" : "0")
+        try set("overlay_hotkey", overlay.hotkey?.rawValue ?? "")
     }
 
     public func update(_ settings: AppSettings) throws {

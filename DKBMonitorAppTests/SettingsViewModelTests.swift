@@ -29,7 +29,11 @@ import Testing
         // Nothing persisted yet - still within the debounce window.
         #expect(try repo.load().smtpRecipientEmail.isEmpty)
 
-        try await Task.sleep(nanoseconds: 700_000_000)
+        // Polled rather than a fixed 700 ms: with other main-actor suites
+        // running in parallel the debounced write can land a little late.
+        for _ in 0..<40 where try repo.load().smtpRecipientEmail.isEmpty {
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
 
         #expect(try repo.load().smtpRecipientEmail == "abc@example.com")
     }

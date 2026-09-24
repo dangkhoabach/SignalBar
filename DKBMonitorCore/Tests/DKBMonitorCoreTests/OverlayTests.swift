@@ -139,3 +139,108 @@ import Testing
         #expect(placed.origin == CGPoint(x: 0, y: 82))
     }
 }
+
+@Suite struct OverlayScreenChoiceTests {
+    private let names = ["Built-in Retina Display", "LG UltraFine"]
+    private let frames = [CGRect(x: 0, y: 0, width: 1800, height: 1169), CGRect(x: 1800, y: 0, width: 2560, height: 1440)]
+
+    private func index(_ display: OverlayDisplay, mouse: CGPoint = .zero) -> Int {
+        OverlayPlacement.screenIndex(for: display, names: names, frames: frames, mouse: mouse)
+    }
+
+    @Test func mainIsTheMenuBarScreen() {
+        #expect(index(.main) == 0)
+    }
+
+    @Test func namedScreenIsFoundAndFallsBackWhenUnplugged() {
+        #expect(index(.named("LG UltraFine")) == 1)
+        #expect(index(.named("Studio Display")) == 0)
+    }
+
+    @Test func mouseFollowsThePointerIncludingTheTopEdge() {
+        #expect(index(.mouse, mouse: CGPoint(x: 2000, y: 500)) == 1)
+        #expect(index(.mouse, mouse: CGPoint(x: 100, y: 1169)) == 0)
+        #expect(index(.mouse, mouse: CGPoint(x: -5000, y: 0)) == 0)
+    }
+}
+
+@Suite struct OverlayMetricEditingTests {
+    @Test func switchingOnAppendsAndOffRemoves() {
+        #expect(OverlayMetric.toggling(.power, in: [.cpu, .gpu]) == [.cpu, .gpu, .power])
+        #expect(OverlayMetric.toggling(.cpu, in: [.cpu, .gpu]) == [.gpu])
+    }
+
+    @Test func movingStopsAtTheEnds() {
+        #expect(OverlayMetric.moving(.gpu, by: -1, in: [.cpu, .gpu, .fan]) == [.gpu, .cpu, .fan])
+        #expect(OverlayMetric.moving(.gpu, by: 1, in: [.cpu, .gpu, .fan]) == [.cpu, .fan, .gpu])
+        #expect(OverlayMetric.moving(.cpu, by: -1, in: [.cpu, .gpu]) == [.cpu, .gpu])
+        #expect(OverlayMetric.moving(.power, by: 1, in: [.cpu, .gpu]) == [.cpu, .gpu])
+    }
+
+    /// A reordered list must come back in the new order after a relaunch.
+    @Test func reorderedListRoundTrips() {
+        let reordered = OverlayMetric.moving(.network, by: -1, in: OverlayMetric.defaultMetrics)
+        #expect(OverlayMetric.parse(csv: OverlayMetric.csv(reordered)) == reordered)
+    }
+}
+
+@Suite struct OverlayAnchorTests {
+    private let visible = CGRect(x: 0, y: 82, width: 1800, height: 1049)
+    private let size = CGSize(width: 160, height: 200)
+
+    /// Placing and then reading back the anchor must be the identity for
+    /// every corner, or a drag-and-release would nudge the panel.
+    @Test func anchorInvertsPlacement() {
+        for corner in OverlayCorner.allCases {
+            let frame = OverlayPlacement.frame(size: size, corner: corner, offsetX: 30, offsetY: 45, in: visible)
+            let anchor = OverlayPlacement.anchor(of: frame, in: visible)
+            #expect(anchor.corner == corner)
+            #expect(anchor.offsetX == 30 && anchor.offsetY == 45, "\(corner)")
+        }
+    }
+
+    /// Dragged partly past the edge: offsets never go negative.
+    @Test func offsetsNeverGoNegative() {
+        let frame = CGRect(x: -20, y: 1000, width: 160, height: 200)
+        let anchor = OverlayPlacement.anchor(of: frame, in: visible)
+        #expect(anchor.corner == .topLeft)
+        #expect(anchor.offsetX == 0 && anchor.offsetY == 0)
+    }
+}
+
+@Suite struct OverlayRefreshTests {
+    @Test func batteryDoublesTheIntervalOnlyWhenAskedTo() {
+        var configuration = OverlayConfiguration.defaults
+        #expect(configuration.effectiveRefreshMillis(onBattery: false) == 1000)
+        #expect(configuration.effectiveRefreshMillis(onBattery: true) == 2000)
+        configuration.slowOnBattery = false
+        #expect(configuration.effectiveRefreshMillis(onBattery: true) == 1000)
+    }
+}
+
+@Suite struct OverlayHotkeyTests {
+    @Test func roundTripsThroughItsStoredForm() {
+        let hotkey = OverlayHotkey(keyCode: 122, modifiers: OverlayHotkey.control | OverlayHotkey.shift, key: "F1")
+        #expect(OverlayHotkey(rawValue: hotkey.rawValue) == hotkey)
+        #expect(OverlayHotkey(rawValue: OverlayHotkey.suggested.rawValue) == .suggested)
+    }
+
+    /// A colon is a key of its own on most layouts; only the first two
+    /// separators split the stored form.
+    @Test func aColonKeySurvives() {
+        let hotkey = OverlayHotkey(keyCode: 41, modifiers: OverlayHotkey.command | OverlayHotkey.option, key: ":")
+        #expect(OverlayHotkey(rawValue: hotkey.rawValue) == hotkey)
+    }
+
+    @Test func rejectsMalformedOrShiftOnlyShortcuts() {
+        #expect(OverlayHotkey(rawValue: "") == nil)
+        #expect(OverlayHotkey(rawValue: "31:abc:O") == nil)
+        #expect(OverlayHotkey(rawValue: "31:\(OverlayHotkey.shift):O") == nil)
+    }
+
+    @Test func printsModifiersInMenuOrder() {
+        let all = OverlayHotkey.command | OverlayHotkey.shift | OverlayHotkey.option | OverlayHotkey.control
+        #expect(OverlayHotkey(keyCode: 31, modifiers: all, key: "O").displayString == "⌃⌥⇧⌘O")
+        #expect(OverlayHotkey.suggested.displayString == "⌃⌥⌘O")
+    }
+}
