@@ -15,4 +15,19 @@ import Testing
         #expect(MemoryLayout<SMCReader.SMCParamStruct>.stride == SMCReader.expectedParamStructSize)
         #expect(SMCReader.expectedParamStructSize == 80)
     }
+
+    @Test func probingNoKeysFindsNothing() {
+        #expect(SMCReader().firstReadableKey(in: [], within: 0...1) == nil)
+    }
+
+    /// Reads the real SMC. Where it opens, a resolved GPU key must read a
+    /// plausible temperature — the range is what rejects a key that exists
+    /// but reports garbage.
+    @Test func aResolvedGPUTemperatureKeyReadsAPlausibleValue() throws {
+        let smc = SMCReader()
+        guard (try? smc.open()) != nil,
+              let key = smc.firstReadableKey(in: SMCReader.candidateGPUTempKeys, within: 1...150)
+        else { return }
+        #expect((1...150).contains(try smc.readFloatValue(key: key)))
+    }
 }

@@ -61,6 +61,7 @@
 		C4B5958875292335CDBA7547 /* TargetDragItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 518E4E110356D9297FC2D162 /* TargetDragItem.swift */; };
 		C9FB263F1F2C178356D97D59 /* SystemStatsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0BDAEB110C7AC9E0B1CF362 /* SystemStatsService.swift */; };
 		D2351EA00BF291383DEF0A7E /* SMCReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4D6F7B991BFB8D530ED6A13 /* SMCReader.swift */; };
+		68D3910AD7E62498760A91EA /* GPUStatsReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B7C185E9FF68462C1AE247C /* GPUStatsReader.swift */; };
 		D4587BADE842F378B776820D /* WindowPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5E1C376C79D159C74BDC9FA /* WindowPresenter.swift */; };
 		DCF7A328E0F39BEB7D679467 /* RemoteServerListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EFA1711A5E3BE28A9DA947E /* RemoteServerListViewModel.swift */; };
 		DD497DD6792746B2E1BF2440 /* SidebarSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B794D99ACEAE0E64E8340A36 /* SidebarSection.swift */; };
@@ -132,6 +133,7 @@
 		9C5FA98789AFC53FBC5D7389 /* CleanupViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleanupViewModel.swift; sourceTree = "<group>"; };
 		A0BDAEB110C7AC9E0B1CF362 /* SystemStatsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemStatsService.swift; sourceTree = "<group>"; };
 		A4D6F7B991BFB8D530ED6A13 /* SMCReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SMCReader.swift; sourceTree = "<group>"; };
+		2B7C185E9FF68462C1AE247C /* GPUStatsReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GPUStatsReader.swift; sourceTree = "<group>"; };
 		A7A606C42E3956DEACC3E084 /* NativeSearchField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeSearchField.swift; sourceTree = "<group>"; };
 		A9A1A866451C0422F4E916B0 /* LoginItemManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginItemManager.swift; sourceTree = "<group>"; };
 		AA924832D4BC4CAF46E7927B /* RemoteServerFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteServerFormView.swift; sourceTree = "<group>"; };
@@ -294,6 +296,7 @@
 		E6B939BC99075742AC05625D /* System */ = {
 			isa = PBXGroup;
 			children = (
+				2B7C185E9FF68462C1AE247C /* GPUStatsReader.swift */,
 				2B19850E0BF0DE40DBFF3A20 /* HIDThermalReader.swift */,
 				1A8000267D8462D7EFD12EE0 /* JunkCleanerService.swift */,
 				C88669047F863BCBA352C03D /* LargeFileScanner.swift */,
@@ -474,6 +477,7 @@
 				8CB444F0CEE359D4C8295CAD /* RemoteServerListView.swift in Sources */,
 				DCF7A328E0F39BEB7D679467 /* RemoteServerListViewModel.swift in Sources */,
 				D2351EA00BF291383DEF0A7E /* SMCReader.swift in Sources */,
+				68D3910AD7E62498760A91EA /* GPUStatsReader.swift in Sources */,
 				98C0E62AEA7AD3D7EDDBD30F /* ScheduledCleanupRunner.swift in Sources */,
 				88725D19DFB852E73843A827 /* SettingsView.swift in Sources */,
 				3577E6A3B86ABAA8BCB246CD /* SettingsViewModel.swift in Sources */,

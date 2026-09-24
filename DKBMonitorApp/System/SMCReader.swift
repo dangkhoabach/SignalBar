@@ -189,6 +189,26 @@ final class SMCReader {
     /// Candidate CPU/SoC die temperature keys, roughly newest-chip-first.
     static let candidateTempKeys = ["Tp09", "Tp0T", "Tc0a", "Tc0b", "TC0P", "TC0D", "TCXC", "TCXc"]
 
+    /// Candidate GPU die temperature keys. Apple Silicon generations name
+    /// them differently: `Tg05`/`Tg0D`/`Tg0L` read on an M3 Pro; `Tg0T`/`Tg0e`
+    /// (M2) and `Tg0f`/`Tg0j` (M1) are from other generations and unverified
+    /// here; `Tg0P` is the Intel proximity sensor.
+    static let candidateGPUTempKeys = ["Tg05", "Tg0D", "Tg0L", "Tg0T", "Tg0e", "Tg0f", "Tg0j", "Tg0P"]
+
+    /// Whole-system power draw in watts, as the SMC reports it (5.6 W idle on
+    /// an M3 Pro).
+    static let systemPowerKey = "PSTR"
+
+    /// The first key in `keys` that reads a value inside `range`, for probing
+    /// which of several per-generation key names this Mac actually has. Run
+    /// once and cached by the caller — each miss is a full SMC round trip.
+    func firstReadableKey(in keys: [String], within range: ClosedRange<Double>) -> String? {
+        keys.first { key in
+            guard let value = try? readFloatValue(key: key) else { return false }
+            return range.contains(value)
+        }
+    }
+
     /// Fan actual-speed keys. Per the note above, read `F{n}Ac` directly —
     /// do NOT probe `F{n}ID` first like classic SMCKit-derived code does.
     static func fanActualKey(index: Int) -> String { "F\(index)Ac" }

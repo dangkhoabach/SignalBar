@@ -5,10 +5,11 @@ import DKBMonitorCore
 
 /// Native replacement for `sysstats.rs`. Where a real public API exists
 /// (Mach host stats for CPU/RAM/swap, `statfs` for disk, `getifaddrs` for
-/// throughput, `IOPowerSources` for battery) this uses it directly. Where
-/// Apple exposes no public API at all — GPU name/utilization, active network
+/// throughput, `IOPowerSources` for battery, the `IOAccelerator` registry
+/// entry for GPU load) this uses it directly. Where
+/// Apple exposes no public API at all — GPU name, active network
 /// interface/Wi-Fi SSID/local IP — this shells out via `Process`, the exact
-/// same commands the Rust version used (`system_profiler`/`ioreg`,
+/// same commands the Rust version used (`system_profiler`,
 /// `route`/`networksetup`/`ifconfig`); those aren't shortcuts, they're
 /// genuinely the only source, same as Apple's own menu-bar utilities.
 ///
@@ -45,16 +46,20 @@ public actor SystemStatsService: SystemStatsProvider {
     private var cachedNetworkStatus: (connected: Bool, type: String?, name: String?, localIP: String?)?
     private var networkStatusFetchedAt: Date?
 
-    /// `gpuPercent()` forks `ioreg` too, and was the one process spawn the
-    /// network-status fix above missed: `SystemView` polls `snapshot()` every
-    /// 2s, so it ran ~30 times a minute for as long as the pane stayed open.
-    ///
-    /// A much shorter TTL than the network one, because unlike the active
-    /// interface this genuinely does change between polls — it just doesn't
-    /// need re-measuring several times within one refresh of the same view.
-    private static let gpuPercentTTL: TimeInterval = 1.5
-    private var cachedGPUPercent: Double?
-    private var gpuPercentFetchedAt: Date?
+    /// GPU load read in-process from IOKit. This replaced forking `ioreg`
+    /// every 1.5s while the System pane was open.
+    private let gpuStats = GPUStatsReader()
+
+    /// SMC keys for the overlay's readings, probed once: which per-generation
+    /// temperature key exists never changes on a given Mac, and each probe
+    /// miss is a full SMC round trip.
+    private struct OverlaySensorKeys {
+        var cpuTemp: String?
+        var gpuTemp: String?
+        var power: String?
+        var fanCount = 0
+    }
+    private var overlaySensorKeys: OverlaySensorKeys?
 
     private var batteryServiceProbed = false
     private var batteryService: io_service_t = 0
@@ -110,6 +115,61 @@ public actor SystemStatsService: SystemStatsProvider {
             batteryHealth: battery.percent == nil ? nil : batteryHealth(),
             uptimeSecs: uptimeSecs(), fanRPMs: fanRPMs()
         )
+    }
+
+    /// What the always-on-top overlay shows, sampled once a second. The
+    /// same rule as `snapshotLight()` — no `Process` spawns — and also none
+    /// of the HID sensor walk (51 ms a sample on an M3 Pro): temperatures,
+    /// fans and power are single SMC keys resolved once.
+    ///
+    /// CPU temperature is therefore one SMC die sensor, not the hottest of
+    /// the HID sensors the System pane shows, and the two can differ by
+    /// several degrees either way. On a Mac whose SMC carries none of the
+    /// candidate keys the row is hidden.
+    public func snapshotOverlay() async -> OverlaySample {
+        ensureSMCOpen()
+        let keys = resolvedOverlaySensorKeys()
+        let (cpuPercent, _) = cpuUsage()
+        let memory = memoryUsage()
+        let gpu = gpuStats.read()
+        let (download, upload) = networkThroughputKbps()
+        let battery = batteryStatus()
+
+        return OverlaySample(
+            cpuPercent: cpuPercent,
+            cpuTempCelsius: smcValue(keys.cpuTemp, within: 1...150),
+            gpuPercent: gpu?.utilizationPercent,
+            gpuTempCelsius: smcValue(keys.gpuTemp, within: 1...150),
+            gpuMemoryMB: gpu?.inUseMemoryBytes.map { $0 / 1_048_576 },
+            ramUsedMB: memory.usedMB, ramTotalMB: memory.totalMB,
+            memoryPressureLevel: memoryPressureLevel(),
+            swapUsedMB: swapUsageMB().used,
+            downloadKbps: download, uploadKbps: upload,
+            fanRPMs: (0..<keys.fanCount).compactMap { try? smc.readFloatValue(key: SMCReader.fanActualKey(index: $0)) },
+            batteryPercent: battery.percent, batteryCharging: battery.charging,
+            systemPowerWatts: smcValue(keys.power, within: 0...2000),
+            uptimeSecs: uptimeSecs()
+        )
+    }
+
+    private func resolvedOverlaySensorKeys() -> OverlaySensorKeys {
+        if let overlaySensorKeys { return overlaySensorKeys }
+        var keys = OverlaySensorKeys()
+        if smcOpened {
+            keys.cpuTemp = smc.firstReadableKey(in: SMCReader.candidateTempKeys, within: 1...150)
+            keys.gpuTemp = smc.firstReadableKey(in: SMCReader.candidateGPUTempKeys, within: 1...150)
+            keys.power = smc.firstReadableKey(in: [SMCReader.systemPowerKey], within: 0...2000)
+            keys.fanCount = smc.fanCount()
+        }
+        overlaySensorKeys = keys
+        return keys
+    }
+
+    /// A resolved key's current value, or `nil` when it reads outside
+    /// `range` — a sleeping sensor reports 0 or garbage.
+    private func smcValue(_ key: String?, within range: ClosedRange<Double>) -> Double? {
+        guard let key, let value = try? smc.readFloatValue(key: key), range.contains(value) else { return nil }
+        return value
     }
 
     // MARK: - CPU (Mach host_processor_info)
@@ -435,7 +495,7 @@ public actor SystemStatsService: SystemStatsProvider {
         return resolved
     }
 
-    // MARK: - GPU (Process — no public API for name or utilization either)
+    // MARK: - GPU (Process for the name — no public API for it)
 
     private func gpuName() -> String? {
         guard !gpuNameFetched else { return cachedGPUName }
@@ -451,24 +511,7 @@ public actor SystemStatsService: SystemStatsProvider {
     }
 
     private func gpuPercent() -> Double? {
-        if let fetchedAt = gpuPercentFetchedAt, Date().timeIntervalSince(fetchedAt) < Self.gpuPercentTTL {
-            return cachedGPUPercent
-        }
-        gpuPercentFetchedAt = Date()
-        cachedGPUPercent = Self.parseGPUPercent(
-            runProcess("/usr/sbin/ioreg", ["-r", "-d", "1", "-w", "0", "-c", "IOAccelerator"])
-        )
-        return cachedGPUPercent
-    }
-
-    /// Split out of `gpuPercent()` so the parsing can be tested without a
-    /// machine that has an `IOAccelerator` to report.
-    static func parseGPUPercent(_ output: String?) -> Double? {
-        guard let output else { return nil }
-        let key = "\"Device Utilization %\"="
-        guard let range = output.range(of: key) else { return nil }
-        let digits = output[range.upperBound...].prefix(while: \.isNumber)
-        return Double(digits)
+        gpuStats.read()?.utilizationPercent
     }
 
     // MARK: - Battery (IOPowerSources — public API)

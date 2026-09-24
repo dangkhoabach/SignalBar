@@ -9,7 +9,7 @@ import SwiftUI
 /// the Scheduler, Phase 4) rather than a `Timer`. Uses `snapshotLight()`
 /// (not `snapshot()`) since the menu bar never shows network/GPU/disk/swap/
 /// fan fields — the full snapshot would fork `route`/`networksetup`/
-/// `ifconfig`/`ioreg` processes on every tick for values nobody reads.
+/// `ifconfig` processes on every tick for values nobody reads.
 ///
 /// Exposes `LocalizedStringKey` labels (not pre-formatted `String`s) so
 /// Xcode's String Catalog extraction can localize them (Phase 13) — a

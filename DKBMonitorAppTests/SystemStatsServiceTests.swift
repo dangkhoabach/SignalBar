@@ -4,27 +4,49 @@ import Testing
 @testable import DKB_Monitor
 
 @Suite struct SystemStatsServiceTests {
-    /// Shape of the `ioreg -c IOAccelerator` line the reading is pulled from.
-    @Test func readsTheUtilisationPercentageFromIoregOutput() {
-        let output = #"  | | "PerformanceStatistics" = {"Device Utilization %"=37,"Alloc system memory"=12}"#
-        #expect(SystemStatsService.parseGPUPercent(output) == 37)
+    /// The dictionary `IOAccelerator` publishes as `PerformanceStatistics`.
+    @Test func readsUtilisationAndMemoryFromTheStatistics() {
+        let stats = GPUStatsReader.parse(["Device Utilization %": 37, "In use system memory": 292_962_304, "Tiler Utilization %": 20])
+        #expect(stats == GPUStatsReader.Stats(utilizationPercent: 37, inUseMemoryBytes: 292_962_304))
     }
 
     @Test func readsZeroAsARealReadingRatherThanNothing() {
-        #expect(SystemStatsService.parseGPUPercent(#""Device Utilization %"=0,"# ) == 0)
+        #expect(GPUStatsReader.parse(["Device Utilization %": 0]).utilizationPercent == 0)
     }
 
-    /// A Mac whose `ioreg` reports no accelerator, and the case where the
-    /// process itself produced nothing — both mean "no reading", not zero.
-    @Test func reportsNothingWhenTheKeyOrTheOutputIsAbsent() {
-        #expect(SystemStatsService.parseGPUPercent("no accelerator here") == nil)
-        #expect(SystemStatsService.parseGPUPercent("") == nil)
-        #expect(SystemStatsService.parseGPUPercent(nil) == nil)
+    @Test func missingKeysReadAsNothing() {
+        #expect(GPUStatsReader.parse([:]) == GPUStatsReader.Stats(utilizationPercent: nil, inUseMemoryBytes: nil))
+        #expect(GPUStatsReader.parse(["Device Utilization %": "37"]).utilizationPercent == nil)
     }
 
-    /// A truncated line must not read as a number.
-    @Test func reportsNothingWhenTheValueIsMissing() {
-        #expect(SystemStatsService.parseGPUPercent(#""Device Utilization %"="#) == nil)
+    /// Reads the real registry: a Mac either has no accelerator statistics
+    /// or reports a percentage, never something outside 0–100.
+    @Test func realAcceleratorReportsAPercentageOrNothing() {
+        guard let percent = GPUStatsReader().read()?.utilizationPercent else { return }
+        #expect((0...100).contains(percent))
+    }
+
+    /// CPU load is a delta between two calls, so the second one is the first
+    /// real reading. Nothing may come back NaN or out of range, and a Mac
+    /// that has a reading at all must keep it within physical bounds.
+    @Test func overlaySnapshotReturnsBoundedReadings() async throws {
+        let service = SystemStatsService()
+        _ = await service.snapshotOverlay()
+        try await Task.sleep(for: .milliseconds(200))
+        let sample = await service.snapshotOverlay()
+
+        let cpu = try #require(sample.cpuPercent)
+        #expect((0...100).contains(cpu))
+        #expect((sample.ramTotalMB ?? 0) > 0)
+        #expect((sample.ramUsedMB ?? 0) <= (sample.ramTotalMB ?? 0))
+        if let gpu = sample.gpuPercent { #expect((0...100).contains(gpu)) }
+        for temp in [sample.cpuTempCelsius, sample.gpuTempCelsius].compactMap({ $0 }) {
+            #expect((1...150).contains(temp))
+        }
+        #expect(sample.fanRPMs.allSatisfy { $0.isFinite && $0 >= 0 })
+        #expect(sample.downloadKbps.map { $0.isFinite && $0 >= 0 } == true)
+        // The app fills this from the screen, not the sampler.
+        #expect(sample.displayHz == nil)
     }
 
     /// Reads the real registry: there is no seam under the IOKit calls and

@@ -56,6 +56,9 @@ public struct AppSettings: Equatable, Sendable {
     /// than indexes so reordering or adding a target in a later build cannot
     /// silently repoint a saved selection at something else.
     public var cleanupTargetPaths: String
+    /// The always-on-top performance overlay. Stored as its own `overlay_*`
+    /// keys; see `OverlayConfiguration` for the clamps applied on read.
+    public var overlay: OverlayConfiguration
 
     public static let defaults = AppSettings(
         notificationsEnabled: false,
@@ -82,7 +85,8 @@ public struct AppSettings: Equatable, Sendable {
         cleanupFrequency: "weekly",
         cleanupDayOfWeek: 0,
         cleanupDayOfMonth: 1,
-        cleanupTargetPaths: ""
+        cleanupTargetPaths: "",
+        overlay: .defaults
     )
 }
 
@@ -127,8 +131,54 @@ public struct SettingsRepository: Sendable {
             cleanupFrequency: try AppSettingsStore.get(db, key: "cleanup_frequency", default: d.cleanupFrequency),
             cleanupDayOfWeek: try int("cleanup_day_of_week", d.cleanupDayOfWeek),
             cleanupDayOfMonth: try int("cleanup_day_of_month", d.cleanupDayOfMonth),
-            cleanupTargetPaths: try AppSettingsStore.get(db, key: "cleanup_target_paths", default: d.cleanupTargetPaths)
+            cleanupTargetPaths: try AppSettingsStore.get(db, key: "cleanup_target_paths", default: d.cleanupTargetPaths),
+            overlay: try loadOverlay(db)
         )
+    }
+
+    private static func loadOverlay(_ db: Database) throws -> OverlayConfiguration {
+        let d = OverlayConfiguration.defaults
+        func string(_ key: String, _ fallback: String) throws -> String {
+            try AppSettingsStore.get(db, key: key, default: fallback)
+        }
+        func int(_ key: String, _ fallback: Int) throws -> Int {
+            Int(try string(key, String(fallback))) ?? fallback
+        }
+        func bool(_ key: String, _ fallback: Bool) throws -> Bool {
+            try string(key, fallback ? "1" : "0") == "1"
+        }
+        return OverlayConfiguration(
+            enabled: try bool("overlay_enabled", d.enabled),
+            corner: OverlayCorner(rawValue: try string("overlay_corner", d.corner.rawValue)) ?? d.corner,
+            offsetX: try int("overlay_offset_x", d.offsetX),
+            offsetY: try int("overlay_offset_y", d.offsetY),
+            display: OverlayDisplay(rawValue: try string("overlay_display", d.display.rawValue)),
+            layout: OverlayLayout(rawValue: try string("overlay_layout", d.layout.rawValue)) ?? d.layout,
+            scale: OverlayScale(rawValue: try string("overlay_scale", d.scale.rawValue)) ?? d.scale,
+            opacityPercent: try int("overlay_opacity", d.opacityPercent),
+            refreshMillis: try int("overlay_refresh_ms", d.refreshMillis),
+            metrics: OverlayMetric.parse(csv: try string("overlay_metrics", "")),
+            showOverFullScreen: try bool("overlay_over_fullscreen", d.showOverFullScreen),
+            sparklines: try bool("overlay_sparklines", d.sparklines),
+            background: OverlayBackground(rawValue: try string("overlay_background", d.background.rawValue)) ?? d.background
+        )
+    }
+
+    private static func saveOverlay(_ db: Database, _ overlay: OverlayConfiguration) throws {
+        func set(_ key: String, _ value: String) throws { try AppSettingsStore.set(db, key: key, value: value) }
+        try set("overlay_enabled", overlay.enabled ? "1" : "0")
+        try set("overlay_corner", overlay.corner.rawValue)
+        try set("overlay_offset_x", String(overlay.offsetX))
+        try set("overlay_offset_y", String(overlay.offsetY))
+        try set("overlay_display", overlay.display.rawValue)
+        try set("overlay_layout", overlay.layout.rawValue)
+        try set("overlay_scale", overlay.scale.rawValue)
+        try set("overlay_opacity", String(overlay.opacityPercent))
+        try set("overlay_refresh_ms", String(overlay.refreshMillis))
+        try set("overlay_metrics", overlay.metrics.isEmpty ? OverlayMetric.noneMarker : OverlayMetric.csv(overlay.metrics))
+        try set("overlay_over_fullscreen", overlay.showOverFullScreen ? "1" : "0")
+        try set("overlay_sparklines", overlay.sparklines ? "1" : "0")
+        try set("overlay_background", overlay.background.rawValue)
     }
 
     public func update(_ settings: AppSettings) throws {
@@ -158,6 +208,7 @@ public struct SettingsRepository: Sendable {
             try AppSettingsStore.set(db, key: "cleanup_day_of_week", value: String(settings.cleanupDayOfWeek))
             try AppSettingsStore.set(db, key: "cleanup_day_of_month", value: String(settings.cleanupDayOfMonth))
             try AppSettingsStore.set(db, key: "cleanup_target_paths", value: settings.cleanupTargetPaths)
+            try Self.saveOverlay(db, settings.overlay)
         }
     }
 }
