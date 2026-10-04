@@ -10,12 +10,20 @@ enum WindowPresenter {
     static func showMainWindow() {
         NSApp.setActivationPolicy(.regular)
         NSApp.unhide(nil)
-        // The overlay panel is one of `NSApp.windows` too, and must stay
-        // exactly as its setting says rather than be brought forward here.
-        for window in NSApp.windows where !(window is OverlayPanel) {
+        for window in mainWindows(in: NSApp.windows) {
             window.makeKeyAndOrderFront(nil)
         }
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    /// Only the `WindowGroup` windows, recognised by the delegate
+    /// `WindowAccessor` gives them. `NSApp.windows` also holds the menu bar
+    /// extra's panel, the status item windows and the overlay panel; ordering
+    /// the menu bar panel front opened the dropdown on every Dock-icon reopen,
+    /// outside SwiftUI's own open/close tracking, so clicking elsewhere never
+    /// closed it.
+    static func mainWindows(in windows: [NSWindow]) -> [NSWindow] {
+        windows.filter { $0.delegate is HideInsteadOfCloseDelegate }
     }
 
     /// Brings the main window forward and selects the Settings sidebar tab —
