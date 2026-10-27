@@ -41,7 +41,7 @@ struct SignalBarApp: App {
         }
         .commands {
             // Standard Sparkle placement: right under "About SignalBar" in
-            // the app menu — matches DKB Downloader's app menu (and this
+            // the app menu — matches MediaCatch's app menu (and this
             // app's own menu bar extra, see MenuBarContentView).
             CommandGroup(after: .appInfo) {
                 Button("Check for Updates…") {

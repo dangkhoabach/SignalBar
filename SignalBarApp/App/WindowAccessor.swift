@@ -24,7 +24,7 @@ final class HideInsteadOfCloseDelegate: NSObject, NSWindowDelegate {
 /// SwiftUI's `WindowGroup` has no direct API to intercept close behavior or
 /// hide the title text — this reaches into AppKit once via
 /// `NSViewRepresentable` to grab the window and configure both. Ported from
-/// DKB-Downloader's `WindowAccessor` (`native/DKBDownloaderApp/App/
+/// MediaCatch's `WindowAccessor` (`native/MediaCatchApp/App/
 /// WindowAccessor.swift`), which already solved the "SignalBar" title bar
 /// text the user didn't want — `titleVisibility = .hidden` alone leaves an
 /// empty gray strip above the toolbar, so it's paired with

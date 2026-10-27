@@ -4,8 +4,8 @@ import SwiftUI
 /// sidebar tab so the app menu (Cmd+,) and the menu bar's "Settings…" both
 /// land in the same place instead of a separate `Settings {}` window.
 ///
-/// Sidebar styling ported from DKB-Downloader's `ContentView`
-/// (`native/DKBDownloaderApp/UI/ContentView.swift`): unselected row icons
+/// Sidebar styling ported from MediaCatch's `ContentView`
+/// (`native/MediaCatchApp/UI/ContentView.swift`): unselected row icons
 /// dimmed to `.secondary` so the selected one reads as "lit up" against
 /// them, a resizable min/ideal column width instead of a fixed one, and an
 /// explicit `@FocusState` that's reclaimed after every tab switch — without

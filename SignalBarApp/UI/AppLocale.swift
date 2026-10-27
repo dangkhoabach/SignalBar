@@ -1,8 +1,8 @@
 import Foundation
 
 /// In-app language override, independent of System Settings > Language &
-/// Region — ports the same idea as DKB-Downloader's `AppLocale`/
-/// `LocalizationCenter` (`native/DKBDownloaderApp/App/Localization.swift`).
+/// Region — ports the same idea as MediaCatch's `AppLocale`/
+/// `LocalizationCenter` (`native/MediaCatchApp/App/Localization.swift`).
 /// Unlike Downloader's approach (a manual `t(key)` lookup against a
 /// hand-picked `.lproj` bundle, needed there because its Settings view builds
 /// `Text` from plain `String`s), this app's views already use

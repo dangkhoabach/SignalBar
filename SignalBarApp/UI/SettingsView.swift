@@ -4,8 +4,8 @@ import SwiftUI
 /// The app's unified Settings tab (sidebar + app menu Cmd+, + menu bar both
 /// route here, see `WindowPresenter.showSettings()`).
 ///
-/// Restyled to match DKB-Downloader's `SettingsView` (`native/
-/// DKBDownloaderApp/UI/Settings/SettingsView.swift`): a single `Form` with
+/// Restyled to match MediaCatch's `SettingsView` (`native/
+/// MediaCatchApp/UI/Settings/SettingsView.swift`): a single `Form` with
 /// `.formStyle(.grouped)` and one `Section` per topic, segmented `Picker`s
 /// for small either/or choices (Theme, Language), rather than this page's
 /// earlier `GroupBox` card layout — the goal is visual consistency across
