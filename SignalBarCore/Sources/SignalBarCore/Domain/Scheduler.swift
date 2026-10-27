@@ -37,6 +37,7 @@ public actor Scheduler {
     private let notifier: NotificationSending
     private let reportSender: ReportSending
     private let webhookSender: AlertWebhookSending
+    private let alertText: AlertTextLocalizing
     private let statsProvider: SystemStatsProvider?
     private let remoteStatsProvider: RemoteStatsProviding?
     /// Nil in tests that don't exercise cleanup, and in any host that has no
@@ -69,7 +70,8 @@ public actor Scheduler {
         statsProvider: SystemStatsProvider? = nil,
         webhookSender: AlertWebhookSending? = nil,
         remoteStatsProvider: RemoteStatsProviding? = nil,
-        cleanupRunner: CleanupRunning? = nil
+        cleanupRunner: CleanupRunning? = nil,
+        alertText: AlertTextLocalizing = EnglishAlertText()
     ) {
         self.targetRepo = TargetRepository(dbQueue: dbQueue)
         self.settingsRepo = SettingsRepository(dbQueue: dbQueue)
@@ -82,6 +84,7 @@ public actor Scheduler {
         // No production default, unlike the providers above: cleanup deletes
         // files, so it runs only where a host has explicitly wired it up.
         self.cleanupRunner = cleanupRunner
+        self.alertText = alertText
     }
 
     public func start() {
@@ -190,17 +193,16 @@ public actor Scheduler {
         let route = "/targets/\(targetId)"
         switch Self.alert(success: outcome.success, transition: transition, threshold: settings.failureAlertThreshold) {
         case .down:
-            await notifyIfEnabled(title: "\(target.name) đang down", body: outcome.errorMessage ?? "Health check thất bại", route: route)
+            await notifyIfEnabled(.targetDown(name: target.name, error: outcome.errorMessage), route: route)
         case .backUp:
-            await notifyIfEnabled(title: "\(target.name) đã hoạt động lại", body: "Health check đã thành công", route: route)
+            await notifyIfEnabled(.targetBackUp(name: target.name), route: route)
         case .slow:
             await notifyIfEnabled(
-                title: "\(target.name) phản hồi chậm",
-                body: "\(outcome.responseTimeMs)ms (ngưỡng \(settings.responseTimeAlertThresholdMs)ms)",
+                .targetSlow(name: target.name, responseMs: outcome.responseTimeMs, thresholdMs: settings.responseTimeAlertThresholdMs),
                 route: route
             )
         case .responseTimeNormal:
-            await notifyIfEnabled(title: "\(target.name) đã phản hồi bình thường trở lại", body: "Response time đã ổn định", route: route)
+            await notifyIfEnabled(.targetResponseNormal(name: target.name), route: route)
         case nil:
             break
         }
@@ -273,7 +275,7 @@ public actor Scheduler {
               let transition = try? targetRepo.storeSSLStatus(targetId: targetId, expiryDate: expiry, thresholdDays: thresholdDays)
         else { return }
         if transition.shouldAlert, let days = transition.daysRemaining {
-            await notifyIfEnabled(title: "SSL sắp hết hạn: \(target.name)", body: "Còn \(days) ngày", route: "/targets/\(targetId)")
+            await notifyIfEnabled(.sslExpiring(name: target.name, daysLeft: days), route: "/targets/\(targetId)")
         }
     }
 
@@ -282,7 +284,7 @@ public actor Scheduler {
               let transition = try? targetRepo.storeDomainStatus(targetId: targetId, expiryDate: expiry, thresholdDays: thresholdDays)
         else { return }
         if transition.shouldAlert, let days = transition.daysRemaining {
-            await notifyIfEnabled(title: "Domain sắp hết hạn: \(target.name)", body: "Còn \(days) ngày", route: "/targets/\(targetId)")
+            await notifyIfEnabled(.domainExpiring(name: target.name, daysLeft: days), route: "/targets/\(targetId)")
         }
     }
 
@@ -376,15 +378,12 @@ public actor Scheduler {
 
         // Always announced. An unattended job that moves gigabytes to the
         // Trash without saying so is exactly the kind of silent behaviour the
-        // rest of this app was audited to remove. Vietnamese like every other
-        // notification this actor sends — Core has no localization, and the
-        // Settings page shows the same outcome in the user's chosen language.
+        // rest of this app was audited to remove.
         let freed = ByteCountFormatter.string(fromByteCount: result.bytes, countStyle: .file)
-        var body = "Đã chuyển \(freed) vào Thùng rác từ \(targets.count) vị trí."
-        if !result.skipped.isEmpty {
-            body += " Chưa dọn hết: \(result.skipped.joined(separator: ", "))."
-        }
-        await notifyIfEnabled(title: "Dọn dẹp theo lịch đã xong", body: body, route: "/cleanup")
+        await notifyIfEnabled(
+            .cleanupFinished(freed: freed, locations: targets.count, skipped: result.skipped),
+            route: "/cleanup"
+        )
     }
 
     private func finishCleanupTask() {
@@ -401,7 +400,7 @@ public actor Scheduler {
             let isHot = temp >= Double(settings.systemTempAlertThresholdCelsius)
             let wasActive = (try? stateStore.alertFlag("system_temp_alert_active")) ?? false
             if isHot && !wasActive {
-                await notifyIfEnabled(title: "Nhiệt độ máy đang cao", body: "\(Int(temp))°C (ngưỡng \(settings.systemTempAlertThresholdCelsius)°C)", route: "/system")
+                await notifyIfEnabled(.systemHot(celsius: Int(temp), thresholdCelsius: settings.systemTempAlertThresholdCelsius), route: "/system")
                 try? stateStore.setAlertFlag("system_temp_alert_active", true)
             } else if !isHot && wasActive {
                 try? stateStore.setAlertFlag("system_temp_alert_active", false)
@@ -413,7 +412,7 @@ public actor Scheduler {
             let isLow = !charging && percent <= Double(settings.batteryLowAlertThresholdPercent)
             let wasActive = (try? stateStore.alertFlag("system_battery_alert_active")) ?? false
             if isLow && !wasActive {
-                await notifyIfEnabled(title: "Pin yếu", body: "Còn \(Int(percent))% — hãy cắm sạc", route: "/system")
+                await notifyIfEnabled(.batteryLow(percent: Int(percent)), route: "/system")
                 try? stateStore.setAlertFlag("system_battery_alert_active", true)
             } else if (!isLow || charging) && wasActive {
                 try? stateStore.setAlertFlag("system_battery_alert_active", false)
@@ -514,8 +513,8 @@ public actor Scheduler {
             guard !wasActive else { continue }
 
             await notifyIfEnabled(
-                title: "\(server.name): \(resource.label) đang cao",
-                body: RemoteResourceAlerts.alertBody(breach),
+                .remoteResourceHigh(server: server.name, resource: resource,
+                                    percent: RemoteResourceAlerts.wholePercent(breach), thresholdPercent: breach.threshold),
                 route: "/servers/\(id)"
             )
             try? stateStore.setAlertFlag(key, true)
@@ -530,7 +529,8 @@ public actor Scheduler {
         }
     }
 
-    private func notifyIfEnabled(title: String, body: String, route: String?) async {
+    private func notifyIfEnabled(_ message: AlertMessage, route: String?) async {
+        let (title, body) = alertText.text(for: message)
         if (try? settingsRepo.load().notificationsEnabled) == true {
             await notifier.notify(title: title, body: body, route: route)
         }

@@ -173,7 +173,7 @@ import Testing
         #expect(runner.cleaned.count == 1)
         #expect(runner.cleaned.first?.count == 2)
         #expect(try state.lastCleanupPeriod().isEmpty == false)
-        #expect(notifier.messages.first?.title == "Dọn dẹp theo lịch đã xong")
+        #expect(notifier.messages.first?.title == "Scheduled cleanup finished")
     }
 
     /// The tick runs every 15 seconds; without the period guard a daily
@@ -247,7 +247,7 @@ import Testing
         await scheduler.waitForBackgroundWork()
 
         let body = try #require(notifier.messages.first?.body)
-        #expect(body.contains("Chưa dọn hết"))
+        #expect(body.contains("Not fully cleared"))
         #expect(body.contains("App caches"))
     }
 

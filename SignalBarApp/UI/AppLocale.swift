@@ -22,4 +22,21 @@ enum AppLocale: String, CaseIterable, Identifiable {
     static var systemDefault: AppLocale {
         Locale.current.language.languageCode?.identifier == "vi" ? .vi : .en
     }
+
+    /// The language picked in Settings. Same key as the
+    /// `@AppStorage("languagePreference")` there.
+    static var selected: AppLocale {
+        UserDefaults.standard.string(forKey: "languagePreference").flatMap(AppLocale.init(rawValue:)) ?? systemDefault
+    }
+
+    /// The `.lproj` bundle of the in-app language, for `String(localized:bundle:)`
+    /// (same as KeyCellar). Text built as a `String` outside SwiftUI, such as
+    /// notifications and webhook posts, never sees the `\.locale` override, and
+    /// `String(localized:)` alone reads the *system* language. There is no
+    /// `en.lproj` (English is the source language), so for English this falls
+    /// back to the main bundle, which follows the system language: callers that
+    /// need English regardless check `selected` first.
+    static var bundle: Bundle {
+        Bundle.main.path(forResource: selected.rawValue, ofType: "lproj").flatMap(Bundle.init(path:)) ?? .main
+    }
 }

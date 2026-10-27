@@ -1,6 +1,206 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@ is down" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ đang down"
+          }
+        }
+      }
+    },
+    "The health check failed" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Health check thất bại"
+          }
+        }
+      }
+    },
+    "%@ is back up" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ đã hoạt động lại"
+          }
+        }
+      }
+    },
+    "The health check passed" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Health check đã thành công"
+          }
+        }
+      }
+    },
+    "%@ is responding slowly" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ phản hồi chậm"
+          }
+        }
+      }
+    },
+    "%lldms (threshold %lldms)" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lldms (ngưỡng %lldms)"
+          }
+        }
+      }
+    },
+    "%@ is responding normally again" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ đã phản hồi bình thường trở lại"
+          }
+        }
+      }
+    },
+    "The response time is back to normal" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Response time đã ổn định"
+          }
+        }
+      }
+    },
+    "SSL certificate expires soon: %@" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SSL sắp hết hạn: %@"
+          }
+        }
+      }
+    },
+    "Domain expires soon: %@" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Domain sắp hết hạn: %@"
+          }
+        }
+      }
+    },
+    "%lld days left" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Còn %lld ngày"
+          }
+        }
+      }
+    },
+    "Scheduled cleanup finished" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dọn dẹp theo lịch đã xong"
+          }
+        }
+      }
+    },
+    "Moved %@ to the Trash from %lld locations." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đã chuyển %@ vào Thùng rác từ %lld vị trí."
+          }
+        }
+      }
+    },
+    "Not fully cleared: %@." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chưa dọn hết: %@."
+          }
+        }
+      }
+    },
+    "Your Mac is running hot" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nhiệt độ máy đang cao"
+          }
+        }
+      }
+    },
+    "%lld°C (threshold %lld°C)" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld°C (ngưỡng %lld°C)"
+          }
+        }
+      }
+    },
+    "Battery low" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pin yếu"
+          }
+        }
+      }
+    },
+    "%lld%% left — plug in the charger" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Còn %lld%% — hãy cắm sạc"
+          }
+        }
+      }
+    },
+    "%@: %@ is high" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: %2$@ đang cao"
+          }
+        }
+      }
+    },
+    "%lld%% (threshold %lld%%)" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld%% (ngưỡng %lld%%)"
+          }
+        }
+      }
+    },
     "" : {
 
     },
@@ -1313,7 +1513,6 @@
       }
     },
     "Disk" : {
-      "extractionState" : "stale",
       "localizations" : {
         "vi" : {
           "stringUnit" : {

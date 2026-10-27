@@ -14,7 +14,8 @@ enum AppScheduler {
             notifier: NotificationManager.shared,
             reportSender: EmailReportSender(dbQueue: db.dbQueue),
             statsProvider: SystemStatsService(),
-            cleanupRunner: ScheduledCleanupRunner(service: JunkCleanerService())
+            cleanupRunner: ScheduledCleanupRunner(service: JunkCleanerService()),
+            alertText: LocalizedAlertText()
         )
     }
 }

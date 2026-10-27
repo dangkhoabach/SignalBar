@@ -185,7 +185,7 @@ private actor GatedRemoteStatsProvider: RemoteStatsProviding {
 
         let notifications = await notifier.notifications
         #expect(notifications.count == 1)
-        #expect(notifications[0].title.contains("đang down"))
+        #expect(notifications[0].title.contains("is down"))
     }
 
     @Test func tickSendsNoNotificationWhenNotificationsDisabled() async throws {
@@ -243,7 +243,7 @@ private actor GatedRemoteStatsProvider: RemoteStatsProviding {
 
         let afterHot = await notifier.notifications
         #expect(afterHot.count == 1)
-        #expect(afterHot[0].title == "Nhiệt độ máy đang cao")
+        #expect(afterHot[0].title == "Your Mac is running hot")
 
         let coolScheduler = Scheduler(
             dbQueue: app.dbQueue, notifier: notifier, reportSender: RecordingReportSender(),
@@ -283,7 +283,7 @@ private actor GatedRemoteStatsProvider: RemoteStatsProviding {
         #expect(await notifier.notifications.isEmpty)
         let alerts = await webhook.alerts
         #expect(alerts.count == 1)
-        #expect(alerts[0].title.contains("đang down"))
+        #expect(alerts[0].title.contains("is down"))
     }
 
     /// And the reverse: a webhook nobody configured must not suppress or
@@ -379,8 +379,8 @@ private actor GatedRemoteStatsProvider: RemoteStatsProviding {
         let notifications = await notifier.notifications
         #expect(await provider.pollCount == 2)
         #expect(notifications.count == 1)
-        #expect(notifications[0].title == "Prod: CPU đang cao")
-        #expect(notifications[0].body == "95% (ngưỡng 80%)")
+        #expect(notifications[0].title == "Prod: CPU is high")
+        #expect(notifications[0].body == "95% (threshold 80%)")
     }
 
     @Test func droppingBackUnderTheThresholdArmsTheNextAlert() async throws {
@@ -484,7 +484,7 @@ private actor GatedRemoteStatsProvider: RemoteStatsProviding {
         await scheduler.tick()
 
         let titles = await notifier.notifications.map(\.title)
-        #expect(Set(titles) == ["Prod: CPU đang cao", "Staging: CPU đang cao"])
+        #expect(Set(titles) == ["Prod: CPU is high", "Staging: CPU is high"])
     }
 
     /// Ticks run every fifteen seconds; SSH-ing someone's server that often

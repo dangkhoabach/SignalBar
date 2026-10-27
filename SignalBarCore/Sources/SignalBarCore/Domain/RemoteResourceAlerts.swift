@@ -8,7 +8,7 @@ public enum RemoteResource: String, Sendable, Equatable, CaseIterable {
         switch self {
         case .cpu: "CPU"
         case .memory: "RAM"
-        case .disk: "Ổ đĩa"
+        case .disk: "Disk"
         }
     }
 
@@ -88,9 +88,9 @@ public enum RemoteResourceAlerts {
         Double(usage.usePercent.trimmingCharacters(in: CharacterSet(charactersIn: "% ")))
     }
 
-    /// The alert text. Whole percentages, because a server reported as
+    /// Whole percentages for the alert, because a server reported as
     /// "87.3% full" invites a precision the readings don't have.
-    public static func alertBody(_ breach: RemoteResourceBreach) -> String {
-        "\(Int(breach.percent.rounded()))% (ngưỡng \(breach.threshold)%)"
+    public static func wholePercent(_ breach: RemoteResourceBreach) -> Int {
+        Int(breach.percent.rounded())
     }
 }

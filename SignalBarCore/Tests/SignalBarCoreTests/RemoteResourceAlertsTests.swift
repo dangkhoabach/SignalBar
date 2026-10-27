@@ -100,8 +100,14 @@ import Testing
 
     // MARK: - Wording
 
-    @Test func theAlertBodyRoundsRatherThanImplyingPrecision() {
+    @Test func theAlertPercentRoundsRatherThanImplyingPrecision() {
         let breach = RemoteResourceBreach(resource: .disk, percent: 87.34, threshold: 80)
-        #expect(RemoteResourceAlerts.alertBody(breach) == "87% (ngưỡng 80%)")
+        #expect(RemoteResourceAlerts.wholePercent(breach) == 87)
+    }
+
+    @Test func theEnglishAlertNamesTheServerResourceAndThreshold() {
+        let text = EnglishAlertText().text(for: .remoteResourceHigh(server: "Prod", resource: .disk, percent: 87, thresholdPercent: 80))
+        #expect(text.title == "Prod: Disk is high")
+        #expect(text.body == "87% (threshold 80%)")
     }
 }

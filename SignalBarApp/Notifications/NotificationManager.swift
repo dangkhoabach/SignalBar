@@ -111,3 +111,49 @@ extension NotificationManager: UNUserNotificationCenterDelegate {
         completionHandler()
     }
 }
+
+/// The scheduler's alerts in the language picked in Settings, for both the
+/// notification and the webhook post. Core only knows the English text.
+struct LocalizedAlertText: AlertTextLocalizing {
+    func text(for message: AlertMessage) -> (title: String, body: String) {
+        // English is the source language and has no table of its own.
+        guard AppLocale.selected != .en else { return EnglishAlertText().text(for: message) }
+        let bundle = AppLocale.bundle
+        switch message {
+        case .targetDown(let name, let error):
+            return (String(localized: "\(name) is down", bundle: bundle),
+                    error ?? String(localized: "The health check failed", bundle: bundle))
+        case .targetBackUp(let name):
+            return (String(localized: "\(name) is back up", bundle: bundle),
+                    String(localized: "The health check passed", bundle: bundle))
+        case .targetSlow(let name, let responseMs, let thresholdMs):
+            return (String(localized: "\(name) is responding slowly", bundle: bundle),
+                    String(localized: "\(responseMs)ms (threshold \(thresholdMs)ms)", bundle: bundle))
+        case .targetResponseNormal(let name):
+            return (String(localized: "\(name) is responding normally again", bundle: bundle),
+                    String(localized: "The response time is back to normal", bundle: bundle))
+        case .sslExpiring(let name, let daysLeft):
+            return (String(localized: "SSL certificate expires soon: \(name)", bundle: bundle),
+                    String(localized: "\(daysLeft) days left", bundle: bundle))
+        case .domainExpiring(let name, let daysLeft):
+            return (String(localized: "Domain expires soon: \(name)", bundle: bundle),
+                    String(localized: "\(daysLeft) days left", bundle: bundle))
+        case .cleanupFinished(let freed, let locations, let skipped):
+            var body = String(localized: "Moved \(freed) to the Trash from \(locations) locations.", bundle: bundle)
+            if !skipped.isEmpty {
+                body += " " + String(localized: "Not fully cleared: \(skipped.joined(separator: ", ")).", bundle: bundle)
+            }
+            return (String(localized: "Scheduled cleanup finished", bundle: bundle), body)
+        case .systemHot(let celsius, let thresholdCelsius):
+            return (String(localized: "Your Mac is running hot", bundle: bundle),
+                    String(localized: "\(celsius)°C (threshold \(thresholdCelsius)°C)", bundle: bundle))
+        case .batteryLow(let percent):
+            return (String(localized: "Battery low", bundle: bundle),
+                    String(localized: "\(percent)% left — plug in the charger", bundle: bundle))
+        case .remoteResourceHigh(let server, let resource, let percent, let thresholdPercent):
+            let label = resource == .disk ? String(localized: "Disk", bundle: bundle) : resource.label
+            return (String(localized: "\(server): \(label) is high", bundle: bundle),
+                    String(localized: "\(percent)% (threshold \(thresholdPercent)%)", bundle: bundle))
+        }
+    }
+}
