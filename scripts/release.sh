@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Builds, ad-hoc signs, DMGs, and Sparkle-signs DKB Monitor entirely on this
+# Builds, ad-hoc signs, DMGs, and Sparkle-signs SignalBar entirely on this
 # machine — no CI, no GitHub Actions secrets. Same manual-release model the
 # old Tauri app used (see docs/release.md): no Apple Developer Program
 # membership, so no Developer ID signing and no notarization — same
-# ad-hoc-signed, "right-click > Open on first launch" distribution the
-# Tauri build already shipped.
+# ad-hoc-signed, "Open Anyway on first launch" distribution the Tauri
+# build already shipped.
 #
 # One-time setup (see docs/release.md):
 #   - A Sparkle EdDSA keypair already generated via `generate_keys` — its
@@ -15,21 +15,21 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-SCHEME="DKBMonitorApp"
-PROJECT="DKBMonitorNative.xcodeproj"
-APP_NAME="DKB Monitor"
-INFO_PLIST="DKBMonitorApp/Info.plist"
+SCHEME="SignalBarApp"
+PROJECT="SignalBar.xcodeproj"
+APP_NAME="SignalBar"
+INFO_PLIST="SignalBarApp/Info.plist"
 SPARKLE_VERSION="2.6.4"
 SPARKLE_TOOLS_DIR=".sparkle-tools"
 
 command -v create-dmg >/dev/null || { echo "Error: create-dmg not found. Run: brew install create-dmg" >&2; exit 1; }
 
-echo "==> Testing DKBMonitorCore"
-(cd DKBMonitorCore && swift test)
+echo "==> Testing SignalBarCore"
+(cd SignalBarCore && swift test)
 
 # The Core suite alone let a release ship with the app target's own tests
 # never run — the view models, cleanup and scanner live there.
-echo "==> Testing DKBMonitorApp"
+echo "==> Testing SignalBarApp"
 xcodebuild test -project "$PROJECT" -scheme "$SCHEME" -destination "platform=macOS" -quiet
 
 # Info.plist is the source of truth for the version.
@@ -137,7 +137,7 @@ done
 echo "    architectures: $ARCHS_BUILT"
 
 echo "==> Creating DMG"
-DMG_PATH="$OUT_DIR/DKB-Monitor-$VERSION.dmg"
+DMG_PATH="$OUT_DIR/SignalBar-$VERSION.dmg"
 rm -f "$DMG_PATH"
 create-dmg \
   --volname "$APP_NAME" \
@@ -193,5 +193,5 @@ echo "    Sparkle signature:  $DMG_PATH.sig"
 echo "    Installer SHA-256: $DMG_SHA256"
 echo ""
 echo "Reminder: this build is ad-hoc signed, not notarized (no paid Apple"
-echo "Developer Program membership) - first launch needs right-click > Open"
-echo "to bypass Gatekeeper, same as the old Tauri build."
+echo "Developer Program membership) - first launch needs System Settings >"
+echo "Privacy & Security > Open Anyway to get past Gatekeeper."

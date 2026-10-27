@@ -1,4 +1,4 @@
-# Releasing DKB Monitor (native, macOS)
+# Releasing SignalBar (native, macOS)
 
 Everything runs locally on this Mac — no CI, no GitHub Actions secrets.
 Same manual-publish model the old Tauri app used (build + sign locally,
@@ -9,9 +9,10 @@ changed (`xcodebuild`/`codesign`/Sparkle instead of `cargo tauri build`/
 No Apple Developer Program membership (the $99/year one) exists for this
 project, same as the old Tauri build — so there's no Developer ID signing
 and no notarization here. Builds are **ad-hoc signed** instead (free,
-built into Xcode/`codesign`), which means end users have to right-click →
-Open on first launch to get past Gatekeeper's "unidentified developer"
-warning — the same experience the Tauri build already had. If a paid
+built into Xcode/`codesign`), which means end users have to allow the first launch in System
+Settings → Privacy & Security → Open Anyway (on macOS 15 and later
+right-click → Open no longer gets past Gatekeeper's "unidentified
+developer" warning). If a paid
 membership is ever added later, `scripts/release.sh` would need a real
 Developer ID identity + `xcrun notarytool` step added back in.
 
@@ -19,7 +20,7 @@ Developer ID identity + `xcrun notarytool` step added back in.
 
 1. **Sparkle EdDSA keypair** — already generated (2026-08-30) under the
    Keychain's default `ed25519` account; `SUPublicEDKey` in
-   `DKBMonitorApp/Info.plist` is already the real public key. Nothing to do here unless that key is ever
+   `SignalBarApp/Info.plist` is already the real public key. Nothing to do here unless that key is ever
    rotated.
 2. **`create-dmg`** — styles the installer DMG's Finder window (icon layout,
    Applications drop link) instead of a bare `hdiutil` copy:
@@ -28,7 +29,7 @@ Developer ID identity + `xcrun notarytool` step added back in.
    ```
    No custom background image — a dark particle-network image was tried
    (`scripts/generate-dmg-background.py`) but Finder always draws icon name
-   labels in black with no way to override that, so "DKB Monitor"/
+   labels in black with no way to override that, so "SignalBar"/
    "Applications" were essentially unreadable against it. Back to Finder's
    plain default background, where the labels are legible.
 
@@ -40,7 +41,7 @@ Developer ID identity + `xcrun notarytool` step added back in.
 
 Prompts for the version (e.g. `2.0.1`; Enter keeps the current one), writes
 that exact string into both `CFBundleShortVersionString` and
-`CFBundleVersion` in `DKBMonitorApp/Info.plist`, then runs: `swift test` →
+`CFBundleVersion` in `SignalBarApp/Info.plist`, then runs: `swift test` →
 app tests → ad-hoc-signed Release build → DMG → Sparkle-sign. Output lands in `release-output/<version>/`
 (gitignored): the `.dmg` and its `.sig` (the raw EdDSA signature, ready to
 paste as-is).
@@ -65,8 +66,8 @@ Republish**, tick macOS, and upload:
 
 | Form field | File |
 |---|---|
-| Installer file | `DKB-Monitor-<version>.dmg` |
-| Sparkle signature (.sig) | `DKB-Monitor-<version>.dmg.sig` (paste its contents) |
+| Installer file | `SignalBar-<version>.dmg` |
+| Sparkle signature (.sig) | `SignalBar-<version>.dmg.sig` (paste its contents) |
 
 Leave "Updater bundle"/"Signature (.sig)" (the Tauri-format fields) empty —
 those are for the retired Tauri build only. The admin panel writes
@@ -83,10 +84,10 @@ pinning it to `false` decides "no" on the user's behalf just as silently.
 
 ## Build settings worth knowing
 
-Set on the project/target in `DKBMonitorNative.xcodeproj` (open it in Xcode to change):
+Set on the project/target in `SignalBar.xcodeproj` (open it in Xcode to change):
 
 - **Sparkle is pinned to an exact version** (`2.10.0`) in the package reference, like the
-  SSH stack in `DKBMonitorCore/Package.swift`: this is the update framework, and an open
+  SSH stack in `SignalBarCore/Package.swift`: this is the update framework, and an open
   range let a routine build move it from 2.9.6 to 2.10.0 with no review step. 2.10.0 is the
   version every test and the Release build were run against before 2.1.0. Bumping is a
   deliberate edit that comes with re-reading Sparkle's release notes.

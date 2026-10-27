@@ -1,0 +1,247 @@
+import Foundation
+import GRDB
+
+/// Scheduler bookkeeping that isn't specific to any one target: history
+/// retention cleanup, periodic-report dedupe, and system-wide (temp/battery)
+/// alert active-flags. Mirrors the free functions in the Rust `scheduler.rs`
+/// that read/write ad-hoc `app_settings` keys for the same purpose.
+public struct SchedulerStateStore: Sendable {
+    let dbQueue: DatabaseQueue
+
+    public init(dbQueue: DatabaseQueue) {
+        self.dbQueue = dbQueue
+    }
+
+    /// Deletes `check_results` older than `retentionDays`, at most once per
+    /// calendar day (guarded by a stored last-run date) — mirrors
+    /// `maybe_cleanup_history`. No-op if `retentionDays <= 0` (keep forever).
+    public func cleanupHistoryIfDue(retentionDays: Int, today: Date = Date()) throws {
+        guard retentionDays > 0 else { return }
+        try dbQueue.write { db in
+            let todayString = Self.dayFormatter.string(from: today)
+            let lastCleanup = try AppSettingsStore.get(db, key: "last_history_cleanup_date", default: "")
+            guard lastCleanup != todayString else { return }
+
+            try db.execute(sql: "DELETE FROM check_results WHERE checked_at < datetime('now', ?)", arguments: ["-\(retentionDays) day"])
+            try AppSettingsStore.set(db, key: "last_history_cleanup_date", value: todayString)
+        }
+    }
+
+    /// True the first time a system-wide condition (temp/battery) crosses its
+    /// threshold; stays true until `setAlertFlag` clears it — same
+    /// "alert on transition only" shape as the per-target alerts.
+    public func alertFlag(_ key: String) throws -> Bool {
+        try dbQueue.read { db in try AppSettingsStore.get(db, key: key, default: "0") == "1" }
+    }
+
+    public func setAlertFlag(_ key: String, _ active: Bool) throws {
+        try dbQueue.write { db in try AppSettingsStore.set(db, key: key, value: active ? "1" : "0") }
+    }
+
+    // MARK: - Report dedupe
+
+    public struct ReportPeriod: Sendable, Equatable {
+        public let isDueToday: Bool
+        /// Doubles as the dedupe key — its format changes with frequency, so
+        /// switching frequency naturally invalidates any stale guard left
+        /// over from a different cadence instead of needing separate keys.
+        public let periodIdentifier: String
+        public let label: String
+        public let days: Int
+    }
+
+    /// Mirrors `report_period`. Exact ISO-week numbering vs. chrono's isn't
+    /// load-bearing here — `periodIdentifier` only needs to change once per
+    /// period and stay stable within it, which `Calendar`'s week components
+    /// already guarantee.
+    public static func reportPeriod(frequency: String, dayOfWeek: Int, dayOfMonth: Int, now: Date = Date()) -> ReportPeriod {
+        var calendar = Calendar(identifier: .iso8601)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+
+        switch frequency {
+        case "daily":
+            return ReportPeriod(isDueToday: true, periodIdentifier: dayFormatter.string(from: now), label: "Daily", days: 1)
+        case "weekly":
+            // chrono's `num_days_from_monday`: Monday = 0 ... Sunday = 6.
+            let weekday = calendar.component(.weekday, from: now) // Sunday = 1 ... Saturday = 7
+            let daysFromMonday = (weekday + 5) % 7
+            let week = calendar.component(.weekOfYear, from: now)
+            let year = calendar.component(.yearForWeekOfYear, from: now)
+            return ReportPeriod(
+                isDueToday: daysFromMonday == dayOfWeek,
+                periodIdentifier: String(format: "%04d-W%02d", year, week),
+                label: "Weekly", days: 7
+            )
+        default:
+            let day = calendar.component(.day, from: now)
+            // Measured back to the same day of the previous month rather than
+            // a flat 30. The report is labelled "Monthly" and its header says
+            // "last N days", so a fixed 30 quietly dropped a day in a 31-day
+            // month and covered three days twice after February.
+            let previousMonth = calendar.date(byAdding: .month, value: -1, to: now) ?? now
+            let days = calendar.dateComponents([.day], from: previousMonth, to: now).day ?? 30
+            return ReportPeriod(
+                isDueToday: day == dayOfMonth,
+                periodIdentifier: monthFormatter.string(from: now),
+                label: "Monthly", days: days
+            )
+        }
+    }
+
+    public func lastReportSentPeriod() throws -> String {
+        try dbQueue.read { db in try AppSettingsStore.get(db, key: "last_report_sent_period", default: "") }
+    }
+
+    public func markReportSent(period: String) throws {
+        try dbQueue.write { db in try AppSettingsStore.set(db, key: "last_report_sent_period", value: period) }
+    }
+
+    /// When a send was last attempted, successful or not.
+    ///
+    /// `isDueToday` stays true for the whole day and `markReportSent` only
+    /// runs on success, so a relay that's down turned the 15-second tick into
+    /// a retry loop — on the order of 5,700 POSTs in a day, every one of them
+    /// swallowed silently. Recording the attempt, not just the success, is
+    /// what lets the scheduler back off.
+    ///
+    /// Stored as a Unix timestamp rather than a formatted date: this value is
+    /// only ever compared against `Date()`, never shown, and a plain number
+    /// needs no formatter (`ISO8601DateFormatter` isn't `Sendable`, so a
+    /// shared static one wouldn't compile under strict concurrency anyway).
+    public func lastReportAttempt() throws -> Date? {
+        let raw = try dbQueue.read { db in
+            try AppSettingsStore.get(db, key: "last_report_attempt_at", default: "")
+        }
+        guard let seconds = Double(raw) else { return nil }
+        return Date(timeIntervalSince1970: seconds)
+    }
+
+    public func markReportAttempted(at date: Date = Date()) throws {
+        try dbQueue.write { db in
+            try AppSettingsStore.set(db, key: "last_report_attempt_at", value: String(date.timeIntervalSince1970))
+        }
+    }
+
+    // MARK: - Scheduled cleanup
+
+    /// Reuses `reportPeriod`'s identifier vocabulary, so "already ran this
+    /// week" means exactly what it means for reports and there is only one
+    /// notion of a period in the scheduler.
+    public func lastCleanupPeriod() throws -> String {
+        try dbQueue.read { db in try AppSettingsStore.get(db, key: "last_cleanup_period", default: "") }
+    }
+
+    public func markCleanupRun(period: String) throws {
+        try dbQueue.write { db in try AppSettingsStore.set(db, key: "last_cleanup_period", value: period) }
+    }
+
+    // MARK: - Last outcomes, for the Settings page
+
+    /// What the last scheduled cleanup did. Kept so the Settings page can say
+    /// so even with notifications off: an unattended job that moves the
+    /// user's files must leave a trace they can find without one.
+    public struct CleanupRun: Sendable, Equatable {
+        public let at: Date
+        public let bytes: Int64
+        public let locations: Int
+        public let skipped: [String]
+
+        public init(at: Date, bytes: Int64, locations: Int, skipped: [String]) {
+            self.at = at
+            self.bytes = bytes
+            self.locations = locations
+            self.skipped = skipped
+        }
+    }
+
+    public func lastCleanupRun() throws -> CleanupRun? {
+        try dbQueue.read { db in
+            guard let seconds = Double(try AppSettingsStore.get(db, key: "last_cleanup_run_at", default: "")) else { return nil }
+            let skipped = try AppSettingsStore.get(db, key: "last_cleanup_run_skipped", default: "")
+            return CleanupRun(
+                at: Date(timeIntervalSince1970: seconds),
+                bytes: Int64(try AppSettingsStore.get(db, key: "last_cleanup_run_bytes", default: "0")) ?? 0,
+                locations: Int(try AppSettingsStore.get(db, key: "last_cleanup_run_locations", default: "0")) ?? 0,
+                skipped: skipped.isEmpty ? [] : skipped.components(separatedBy: "\n")
+            )
+        }
+    }
+
+    public func recordCleanupRun(_ run: CleanupRun) throws {
+        try dbQueue.write { db in
+            try AppSettingsStore.set(db, key: "last_cleanup_run_at", value: String(run.at.timeIntervalSince1970))
+            try AppSettingsStore.set(db, key: "last_cleanup_run_bytes", value: String(run.bytes))
+            try AppSettingsStore.set(db, key: "last_cleanup_run_locations", value: String(run.locations))
+            try AppSettingsStore.set(db, key: "last_cleanup_run_skipped", value: run.skipped.joined(separator: "\n"))
+        }
+    }
+
+    /// How the last report attempt ended. Closes a gap the scheduler had:
+    /// a send that keeps failing was retried with backoff, but nothing on
+    /// screen ever said so.
+    public struct ReportOutcome: Sendable, Equatable {
+        public let at: Date
+        public let label: String
+        public let sent: Bool
+
+        public init(at: Date, label: String, sent: Bool) {
+            self.at = at
+            self.label = label
+            self.sent = sent
+        }
+    }
+
+    public func lastReportOutcome() throws -> ReportOutcome? {
+        try dbQueue.read { db in
+            guard let seconds = Double(try AppSettingsStore.get(db, key: "last_report_outcome_at", default: "")) else { return nil }
+            return ReportOutcome(
+                at: Date(timeIntervalSince1970: seconds),
+                label: try AppSettingsStore.get(db, key: "last_report_outcome_label", default: ""),
+                sent: try AppSettingsStore.get(db, key: "last_report_outcome_sent", default: "0") == "1"
+            )
+        }
+    }
+
+    public func recordReportOutcome(_ outcome: ReportOutcome) throws {
+        try dbQueue.write { db in
+            try AppSettingsStore.set(db, key: "last_report_outcome_at", value: String(outcome.at.timeIntervalSince1970))
+            try AppSettingsStore.set(db, key: "last_report_outcome_label", value: outcome.label)
+            try AppSettingsStore.set(db, key: "last_report_outcome_sent", value: outcome.sent ? "1" : "0")
+        }
+    }
+
+    // MARK: - Remote server polling
+
+    /// When the remote servers were last polled for resource stats.
+    ///
+    /// Stored the same way as `lastReportAttempt` — a Unix timestamp, never
+    /// displayed — for the same reason: it is only ever compared to `Date()`,
+    /// and no formatter is `Sendable`.
+    public func lastRemoteStatsPoll() throws -> Date? {
+        let raw = try dbQueue.read { db in
+            try AppSettingsStore.get(db, key: "last_remote_stats_poll_at", default: "")
+        }
+        guard let seconds = Double(raw) else { return nil }
+        return Date(timeIntervalSince1970: seconds)
+    }
+
+    public func markRemoteStatsPolled(at date: Date = Date()) throws {
+        try dbQueue.write { db in
+            try AppSettingsStore.set(db, key: "last_remote_stats_poll_at", value: String(date.timeIntervalSince1970))
+        }
+    }
+
+    private static let dayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.timeZone = TimeZone(identifier: "UTC")
+        return f
+    }()
+
+    private static let monthFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM"
+        f.timeZone = TimeZone(identifier: "UTC")
+        return f
+    }()
+}

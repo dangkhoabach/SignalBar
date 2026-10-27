@@ -2,7 +2,7 @@
 """Generates scripts/dmg-background.png - a dark particle-network background
 matching dangkhoabach.vn's site style, used behind the DMG installer window by
 scripts/release.sh's create-dmg call. Deliberately lives under scripts/, not
-DKBMonitorApp/Resources - it's only consumed on this Mac at DMG-build time and
+SignalBarApp/Resources - it's only consumed on this Mac at DMG-build time and
 must never get bundled into the shipping .app. Re-run this only if you want to
 regenerate the look (new seed, different accent, etc.) - the PNG itself is
 what's actually committed and used, not this script, at build time.

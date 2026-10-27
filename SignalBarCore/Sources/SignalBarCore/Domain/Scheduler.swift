@@ -1,0 +1,539 @@
+import Foundation
+import GRDB
+
+/// Periodic tick loop: runs due HTTP/SSL/domain checks, sends alert
+/// notifications on state transitions, and handles report/history/system-
+/// alert bookkeeping — the native equivalent of `scheduler.rs`.
+///
+/// Uses a `Task.sleep`-based loop rather than `tokio::time::interval`'s
+/// Swift/Foundation equivalent (`Timer`/`DispatchSourceTimer`). Each
+/// iteration sleeps a fixed duration *after* finishing its work, so there's
+/// nothing to "catch up" on after the process was suspended by system sleep
+/// — this is the exact bug the Rust version had (`MissedTickBehavior::Burst`)
+/// and fixed by switching to `Delay`; this loop shape doesn't have the
+/// failure mode to begin with.
+public actor Scheduler {
+    public static let tickIntervalSecs: UInt64 = 15
+    private static let expiryCheckIntervalSecs = 86_400
+    /// Gap between report send attempts while one keeps failing. Half an hour
+    /// still lands the report well within its due day, while turning an
+    /// all-day outage into dozens of attempts rather than thousands.
+    static let reportRetryIntervalSecs: TimeInterval = 1_800
+    /// Gap between remote-server resource polls.
+    ///
+    /// Far longer than the 15-second tick because each poll is a real SSH
+    /// session against someone else's machine: five minutes is soon enough to
+    /// catch a server filling up, and rare enough that the monitoring is not
+    /// itself a load on what it watches.
+    static let remoteStatsIntervalSecs: TimeInterval = 300
+    /// Remote polls run concurrently, capped like `RemoteBulkExecutor`: an
+    /// unreachable server costs a full connect timeout, and in sequence N of
+    /// them held the tick — and every HTTP check behind it — for N timeouts.
+    static let maxConcurrentRemotePolls = 8
+
+    private let targetRepo: TargetRepository
+    private let settingsRepo: SettingsRepository
+    private let stateStore: SchedulerStateStore
+    private let notifier: NotificationSending
+    private let reportSender: ReportSending
+    private let webhookSender: AlertWebhookSending
+    private let statsProvider: SystemStatsProvider?
+    private let remoteStatsProvider: RemoteStatsProviding?
+    /// Nil in tests that don't exercise cleanup, and in any host that has no
+    /// AppKit — a nil runner means the scheduler simply never cleans, which
+    /// is the correct fallback for a file-deleting job.
+    private let cleanupRunner: CleanupRunning?
+
+    private var loopTask: Task<Void, Never>?
+    /// The scheduled cleanup in progress, if any. Kept out of `tick()`
+    /// because measuring and trashing caches can take minutes, and the tick
+    /// is what runs every HTTP check — see `maybeRunScheduledCleanup`.
+    private var cleanupTask: Task<Void, Never>?
+    /// Guards `tick()` against re-entering while a previous run is suspended
+    /// — see the comment on `tick()` itself.
+    private var tickInFlight = false
+    /// Target IDs with an HTTP check currently in flight - guards against
+    /// `checkNow`/`checkAllNow` racing the periodic `tick`'s own
+    /// `runHTTPChecks` for the same target. Both call into
+    /// `runHTTPChecks(on:)`, which awaits across `HttpChecker.check` and
+    /// `storeCheckResult`; without this, two concurrent checks for the same
+    /// target could land their `storeCheckResult` writes out of order,
+    /// scrambling the failure/slow-streak counters `AlertTransition` relies
+    /// on (missed or doubled alerts).
+    private var inFlightTargetIds: Set<Int64> = []
+
+    public init(
+        dbQueue: DatabaseQueue,
+        notifier: NotificationSending,
+        reportSender: ReportSending,
+        statsProvider: SystemStatsProvider? = nil,
+        webhookSender: AlertWebhookSending? = nil,
+        remoteStatsProvider: RemoteStatsProviding? = nil,
+        cleanupRunner: CleanupRunning? = nil
+    ) {
+        self.targetRepo = TargetRepository(dbQueue: dbQueue)
+        self.settingsRepo = SettingsRepository(dbQueue: dbQueue)
+        self.stateStore = SchedulerStateStore(dbQueue: dbQueue)
+        self.notifier = notifier
+        self.reportSender = reportSender
+        self.webhookSender = webhookSender ?? WebhookAlertSender(dbQueue: dbQueue)
+        self.statsProvider = statsProvider
+        self.remoteStatsProvider = remoteStatsProvider ?? SSHRemoteStatsProvider(dbQueue: dbQueue)
+        // No production default, unlike the providers above: cleanup deletes
+        // files, so it runs only where a host has explicitly wired it up.
+        self.cleanupRunner = cleanupRunner
+    }
+
+    public func start() {
+        guard loopTask == nil else { return }
+        loopTask = Task { [weak self] in
+            while let self, !Task.isCancelled {
+                await self.tick()
+                try? await Task.sleep(nanoseconds: Self.tickIntervalSecs * 1_000_000_000)
+            }
+        }
+    }
+
+    public func stop() {
+        loopTask?.cancel()
+        loopTask = nil
+    }
+
+    /// Waits for work that `tick()` deliberately hands off rather than
+    /// awaits — today only the scheduled cleanup. Internal, for tests.
+    func waitForBackgroundWork() async {
+        await cleanupTask?.value
+    }
+
+    /// Runs one cycle immediately — used both by the periodic loop and by the
+    /// app's `NSWorkspace.didWakeNotification` handler (Core has no AppKit
+    /// dependency, so it can't observe that notification itself).
+    public func tick() async {
+        // Actors are reentrant, and this method suspends repeatedly — on HTTP
+        // checks, on sending the report, on taking a stats snapshot. The app
+        // also calls it a second time from `NSWorkspace.didWakeNotification`,
+        // which is exactly when the periodic loop is likely to be mid-tick.
+        //
+        // Both runs would then clear the same check-then-set gates before
+        // either closed them: `lastReportSentPeriod()` before `markReportSent`,
+        // `alertFlag()` before `setAlertFlag`. The user got two report emails
+        // and a duplicate temperature alert. One guard here covers every such
+        // gate inside the cycle, rather than one flag per gate.
+        //
+        // Skipping is the right answer for a wake-up tick: its job is to stop
+        // the loop waiting out the rest of an interval, and a tick already
+        // running has that covered.
+        guard !tickInFlight else { return }
+        tickInFlight = true
+        defer { tickInFlight = false }
+
+        do {
+            try await runHTTPChecks()
+            try await runExpiryChecks()
+            try await maybeSendReport()
+            try stateStore.cleanupHistoryIfDue(retentionDays: try settingsRepo.load().historyRetentionDays)
+            await checkSystemAlerts()
+            await checkRemoteServerAlertsIfDue()
+            await maybeRunScheduledCleanup()
+        } catch {
+            // Best-effort background loop: log and keep ticking next cycle
+            // rather than letting one bad read/write kill the scheduler.
+            print("Scheduler tick error: \(error)")
+        }
+    }
+
+    // MARK: - HTTP checks
+
+    private func runHTTPChecks() async throws {
+        let due = try targetRepo.dueForHTTPCheck()
+        guard !due.isEmpty else { return }
+        try await runHTTPChecks(on: due)
+    }
+
+    /// Runs HTTP checks immediately for specific targets, bypassing the
+    /// due-schedule gate — backs the Overview's "Check Now"/"Check All Now".
+    public func checkNow(targetIds: [Int64]) async {
+        guard !targetIds.isEmpty,
+              let targets = try? targetRepo.list().filter({ targetIds.contains($0.id ?? -1) && $0.checkHTTP }),
+              !targets.isEmpty
+        else { return }
+        try? await runHTTPChecks(on: targets)
+    }
+
+    private func runHTTPChecks(on targets: [Target]) async throws {
+        let settings = try settingsRepo.load()
+
+        // Skip any target whose check is already in flight (from tick or a
+        // concurrent checkNow) rather than starting a second overlapping one.
+        let runnable = targets.filter { !inFlightTargetIds.contains($0.id ?? -1) }
+        guard !runnable.isEmpty else { return }
+        for target in runnable { inFlightTargetIds.insert(target.id ?? -1) }
+        defer { for target in runnable { inFlightTargetIds.remove(target.id ?? -1) } }
+
+        await withTaskGroup(of: (Target, HttpCheckOutcome).self) { group in
+            for target in runnable {
+                group.addTask {
+                    (target, await HttpChecker.check(target: target))
+                }
+            }
+            for await (target, outcome) in group {
+                await storeAndNotify(target: target, outcome: outcome, settings: settings)
+            }
+        }
+    }
+
+    private func storeAndNotify(target: Target, outcome: HttpCheckOutcome, settings: AppSettings) async {
+        guard let targetId = target.id,
+              let transition = try? targetRepo.storeCheckResult(targetId: targetId, outcome: outcome, responseTimeAlertThresholdMs: settings.responseTimeAlertThresholdMs)
+        else { return }
+
+        let route = "/targets/\(targetId)"
+        switch Self.alert(success: outcome.success, transition: transition, threshold: settings.failureAlertThreshold) {
+        case .down:
+            await notifyIfEnabled(title: "\(target.name) đang down", body: outcome.errorMessage ?? "Health check thất bại", route: route)
+        case .backUp:
+            await notifyIfEnabled(title: "\(target.name) đã hoạt động lại", body: "Health check đã thành công", route: route)
+        case .slow:
+            await notifyIfEnabled(
+                title: "\(target.name) phản hồi chậm",
+                body: "\(outcome.responseTimeMs)ms (ngưỡng \(settings.responseTimeAlertThresholdMs)ms)",
+                route: route
+            )
+        case .responseTimeNormal:
+            await notifyIfEnabled(title: "\(target.name) đã phản hồi bình thường trở lại", body: "Response time đã ổn định", route: route)
+        case nil:
+            break
+        }
+    }
+
+    enum Alert: Equatable {
+        case down, backUp, slow, responseTimeNormal
+    }
+
+    /// Which alert a check transition warrants, if any.
+    ///
+    /// Pure and separate from `storeAndNotify` so the branch order can be
+    /// tested directly: reproducing "slow but successful" through `tick()`
+    /// would need a server that answers slowly on demand.
+    static func alert(success: Bool, transition: TargetRepository.AlertTransition, threshold: Int) -> Alert? {
+        if !success && transition.newFailures == threshold { return .down }
+        if success && transition.previousFailures >= threshold { return .backUp }
+        if transition.newSlow == threshold { return .slow }
+        // `success` matters here even though `isSlow` is already false on any
+        // failed check: without it, a target that was slow for `threshold`
+        // checks and then failed outright reported "response time back to
+        // normal" at the exact moment it started going down. The real down
+        // alert only follows once the failure streak reaches `threshold`.
+        if success && !transition.isSlow && transition.previousSlow >= threshold { return .responseTimeNormal }
+        return nil
+    }
+
+    // MARK: - SSL / domain expiry checks
+
+    private enum ExpiryOutcome {
+        case ssl(Target, Date?)
+        case domain(Target, Date?)
+    }
+
+    private func runExpiryChecks() async throws {
+        let sslDue = try targetRepo.dueForSSLCheck(intervalSecs: Self.expiryCheckIntervalSecs)
+        let domainDue = try targetRepo.dueForDomainCheck(intervalSecs: Self.expiryCheckIntervalSecs)
+        guard !sslDue.isEmpty || !domainDue.isEmpty else { return }
+        let settings = try settingsRepo.load()
+
+        await withTaskGroup(of: ExpiryOutcome?.self) { group in
+            for target in sslDue {
+                group.addTask {
+                    guard let host = HostParsing.extractHost(fromURL: target.url) else { return nil }
+                    return .ssl(target, await ExpiryChecker.checkSSLExpiry(host: host))
+                }
+            }
+            for target in domainDue {
+                group.addTask {
+                    guard let host = HostParsing.extractHost(fromURL: target.url) else { return nil }
+                    let domain = HostParsing.extractRegistrableDomain(host)
+                    return .domain(target, await ExpiryChecker.checkDomainExpiry(domain: domain))
+                }
+            }
+            for await outcome in group {
+                switch outcome {
+                case .ssl(let target, let expiry):
+                    await storeSSLResult(target: target, expiry: expiry, thresholdDays: settings.sslAlertThresholdDays)
+                case .domain(let target, let expiry):
+                    await storeDomainResult(target: target, expiry: expiry, thresholdDays: settings.domainAlertThresholdDays)
+                case nil:
+                    break
+                }
+            }
+        }
+    }
+
+    private func storeSSLResult(target: Target, expiry: Date?, thresholdDays: Int) async {
+        guard let targetId = target.id,
+              let transition = try? targetRepo.storeSSLStatus(targetId: targetId, expiryDate: expiry, thresholdDays: thresholdDays)
+        else { return }
+        if transition.shouldAlert, let days = transition.daysRemaining {
+            await notifyIfEnabled(title: "SSL sắp hết hạn: \(target.name)", body: "Còn \(days) ngày", route: "/targets/\(targetId)")
+        }
+    }
+
+    private func storeDomainResult(target: Target, expiry: Date?, thresholdDays: Int) async {
+        guard let targetId = target.id,
+              let transition = try? targetRepo.storeDomainStatus(targetId: targetId, expiryDate: expiry, thresholdDays: thresholdDays)
+        else { return }
+        if transition.shouldAlert, let days = transition.daysRemaining {
+            await notifyIfEnabled(title: "Domain sắp hết hạn: \(target.name)", body: "Còn \(days) ngày", route: "/targets/\(targetId)")
+        }
+    }
+
+    // MARK: - Report / history / system alerts
+
+    private func maybeSendReport() async throws {
+        let settings = try settingsRepo.load()
+        // The relay only delivers to a verified address, so an unverified
+        // (or since-edited) recipient can never produce mail. Stopping here
+        // rather than letting the send fail keeps the daily attempt+backoff
+        // machinery from running all day against a request that is certain
+        // to be rejected.
+        guard settings.smtpEnabled,
+              !settings.smtpRecipientEmail.isEmpty,
+              settings.smtpVerifiedEmail == settings.smtpRecipientEmail
+        else { return }
+
+        let period = SchedulerStateStore.reportPeriod(frequency: settings.smtpFrequency, dayOfWeek: settings.smtpDayOfWeek, dayOfMonth: settings.smtpDayOfMonth)
+        guard period.isDueToday, try stateStore.lastReportSentPeriod() != period.periodIdentifier else { return }
+
+        // Back off between attempts. Only a *successful* send closes the
+        // due-today window, so without this a relay outage meant retrying on
+        // every 15-second tick for the rest of the day.
+        if let lastAttempt = try stateStore.lastReportAttempt(),
+           Date().timeIntervalSince(lastAttempt) < Self.reportRetryIntervalSecs {
+            return
+        }
+        // Recorded before the await, so the next tick sees it even if this
+        // send hangs for a while.
+        try stateStore.markReportAttempted()
+
+        let sent = await reportSender.sendReport(label: period.label, days: period.days)
+        try? stateStore.recordReportOutcome(.init(at: Date(), label: period.label, sent: sent))
+        guard sent else { return }
+        try stateStore.markReportSent(period: period.periodIdentifier)
+    }
+
+    /// Runs the user's chosen cleanup targets at most once per scheduled
+    /// period.
+    ///
+    /// Three separate things have to be true before a single file moves, and
+    /// they are kept separate on purpose: the schedule must be on, the saved
+    /// selection must still match targets this build offers, and each of
+    /// those targets must be Trash-safe. A selection saved by an older build
+    /// is re-filtered here on every run rather than trusted, so nothing an
+    /// unattended run touches depends on what was written to the database
+    /// months ago.
+    private func maybeRunScheduledCleanup() async {
+        guard cleanupTask == nil,
+              let cleanupRunner, let settings = try? settingsRepo.load(), settings.cleanupScheduleEnabled
+        else { return }
+
+        let period = SchedulerStateStore.reportPeriod(
+            frequency: settings.cleanupFrequency,
+            dayOfWeek: settings.cleanupDayOfWeek,
+            dayOfMonth: settings.cleanupDayOfMonth
+        )
+        guard period.isDueToday, (try? stateStore.lastCleanupPeriod()) != period.periodIdentifier else { return }
+
+        let selected = Set(settings.cleanupTargetPaths.split(separator: "\n").map(String.init))
+        guard !selected.isEmpty else { return }
+
+        let targets = JunkTarget.scheduledCleaningTargets(
+            from: selected, available: await cleanupRunner.availableTargets()
+        )
+        guard !targets.isEmpty else { return }
+
+        // Marked before the work, not after: a clean that crashes or is
+        // killed partway must not re-run on the next 15-second tick and start
+        // deleting again.
+        try? stateStore.markCleanupRun(period: period.periodIdentifier)
+
+        // Handed off rather than awaited. Measuring and trashing a few cache
+        // trees can take minutes, and `tick()` is what runs every HTTP check
+        // — holding it would pause domain monitoring for the whole run. The
+        // period is already marked, so a tick arriving meanwhile cannot start
+        // a second run; `cleanupTask` only guards the moment between marking
+        // and reading the mark back.
+        cleanupTask = Task { [weak self] in
+            guard let self else { return }
+            await self.runScheduledCleanup(targets, with: cleanupRunner)
+            await self.finishCleanupTask()
+        }
+    }
+
+    private func runScheduledCleanup(_ targets: [JunkTarget], with runner: CleanupRunning) async {
+        let result = await runner.clean(targets)
+        try? stateStore.recordCleanupRun(
+            .init(at: Date(), bytes: result.bytes, locations: targets.count, skipped: result.skipped)
+        )
+
+        // Always announced. An unattended job that moves gigabytes to the
+        // Trash without saying so is exactly the kind of silent behaviour the
+        // rest of this app was audited to remove. Vietnamese like every other
+        // notification this actor sends — Core has no localization, and the
+        // Settings page shows the same outcome in the user's chosen language.
+        let freed = ByteCountFormatter.string(fromByteCount: result.bytes, countStyle: .file)
+        var body = "Đã chuyển \(freed) vào Thùng rác từ \(targets.count) vị trí."
+        if !result.skipped.isEmpty {
+            body += " Chưa dọn hết: \(result.skipped.joined(separator: ", "))."
+        }
+        await notifyIfEnabled(title: "Dọn dẹp theo lịch đã xong", body: body, route: "/cleanup")
+    }
+
+    private func finishCleanupTask() {
+        cleanupTask = nil
+    }
+
+    private func checkSystemAlerts() async {
+        guard let statsProvider, let settings = try? settingsRepo.load() else { return }
+        guard settings.systemTempAlertThresholdCelsius > 0 || settings.batteryLowAlertThresholdPercent > 0 else { return }
+
+        let stats = await statsProvider.snapshotLight()
+
+        if settings.systemTempAlertThresholdCelsius > 0, let temp = stats.cpuTempCelsius {
+            let isHot = temp >= Double(settings.systemTempAlertThresholdCelsius)
+            let wasActive = (try? stateStore.alertFlag("system_temp_alert_active")) ?? false
+            if isHot && !wasActive {
+                await notifyIfEnabled(title: "Nhiệt độ máy đang cao", body: "\(Int(temp))°C (ngưỡng \(settings.systemTempAlertThresholdCelsius)°C)", route: "/system")
+                try? stateStore.setAlertFlag("system_temp_alert_active", true)
+            } else if !isHot && wasActive {
+                try? stateStore.setAlertFlag("system_temp_alert_active", false)
+            }
+        }
+
+        if settings.batteryLowAlertThresholdPercent > 0, let percent = stats.batteryPercent {
+            let charging = stats.batteryCharging ?? false
+            let isLow = !charging && percent <= Double(settings.batteryLowAlertThresholdPercent)
+            let wasActive = (try? stateStore.alertFlag("system_battery_alert_active")) ?? false
+            if isLow && !wasActive {
+                await notifyIfEnabled(title: "Pin yếu", body: "Còn \(Int(percent))% — hãy cắm sạc", route: "/system")
+                try? stateStore.setAlertFlag("system_battery_alert_active", true)
+            } else if (!isLow || charging) && wasActive {
+                try? stateStore.setAlertFlag("system_battery_alert_active", false)
+            }
+        }
+    }
+
+    /// The single funnel every alert in this type goes through.
+    ///
+    /// The two destinations are gated separately on purpose: a macOS
+    /// notification reaches whoever is at this Mac, a webhook reaches a
+    /// channel being watched when nobody is. Turning off the first should
+    /// not silence the second, which is the whole reason someone configures
+    /// a webhook.
+    ///
+    /// The webhook is awaited rather than fired and forgotten so a tick
+    /// cannot outlive itself in detached work; `WebhookAlertSender` keeps a
+    /// short timeout precisely so that wait stays bounded.
+    // MARK: - Remote server resource alerts
+
+    /// Polls the servers the user opted into, on its own slower cadence.
+    ///
+    /// Everything here is skipped unless a threshold is actually set, so the
+    /// default install opens no SSH connections it didn't already open: the
+    /// feature costs nothing until someone asks for it.
+    private func checkRemoteServerAlertsIfDue() async {
+        guard let remoteStatsProvider else { return }
+        let thresholds = (try? settingsRepo.load()).map {
+            RemoteResourceThresholds(
+                cpuPercent: $0.remoteCPUAlertThresholdPercent,
+                memoryPercent: $0.remoteMemoryAlertThresholdPercent,
+                diskPercent: $0.remoteDiskAlertThresholdPercent
+            )
+        }
+        guard let thresholds, !thresholds.allDisabled else { return }
+
+        if let last = try? stateStore.lastRemoteStatsPoll(),
+           Date().timeIntervalSince(last) < Self.remoteStatsIntervalSecs {
+            return
+        }
+        guard let servers = try? remoteStatsProvider.monitoredServers(), !servers.isEmpty else { return }
+        // Recorded before the polling, not after, so a run that hangs or
+        // throws can't turn every tick into another round of SSH attempts —
+        // the same reasoning as the report send's attempt marker.
+        try? stateStore.markRemoteStatsPolled()
+
+        let readings = await withTaskGroup(of: (Int, RemoteServerStats?).self) { group in
+            var next = 0
+            func add(_ index: Int) {
+                let server = servers[index]
+                group.addTask { (index, try? await remoteStatsProvider.stats(for: server)) }
+            }
+            while next < min(Self.maxConcurrentRemotePolls, servers.count) {
+                add(next)
+                next += 1
+            }
+            var collected: [(Int, RemoteServerStats?)] = []
+            while let done = await group.next() {
+                collected.append(done)
+                if next < servers.count {
+                    add(next)
+                    next += 1
+                }
+            }
+            // Back in the user's order, so alerts for several servers arrive
+            // in a stable sequence rather than whichever answered first.
+            return collected.sorted { $0.0 < $1.0 }
+        }
+
+        for (index, stats) in readings {
+            let server = servers[index]
+            // One unreachable server must not stop the rest from being
+            // checked. Deliberately *not* alerting on the failure itself:
+            // this Mac's own network dropping would fire one per server, and
+            // "is it up" is what domain monitoring is for.
+            guard let id = server.id, let stats else { continue }
+            await raiseRemoteAlerts(for: server, id: id, stats: stats, thresholds: thresholds)
+        }
+    }
+
+    private func raiseRemoteAlerts(
+        for server: RemoteServer, id: Int64, stats: RemoteServerStats, thresholds: RemoteResourceThresholds
+    ) async {
+        let breaching = RemoteResourceAlerts.breaches(in: stats, thresholds: thresholds)
+
+        for resource in RemoteResource.allCases {
+            let key = "remote_\(resource.alertFlagName)_alert_active_\(id)"
+            let wasActive = (try? stateStore.alertFlag(key)) ?? false
+            guard let breach = breaching.first(where: { $0.resource == resource }) else {
+                // Clears only on a reading that came back and was under the
+                // threshold, so a command that failed to run leaves the alert
+                // standing rather than looking like a recovery.
+                if wasActive, hasReading(resource, in: stats) {
+                    try? stateStore.setAlertFlag(key, false)
+                }
+                continue
+            }
+            guard !wasActive else { continue }
+
+            await notifyIfEnabled(
+                title: "\(server.name): \(resource.label) đang cao",
+                body: RemoteResourceAlerts.alertBody(breach),
+                route: "/servers/\(id)"
+            )
+            try? stateStore.setAlertFlag(key, true)
+        }
+    }
+
+    private func hasReading(_ resource: RemoteResource, in stats: RemoteServerStats) -> Bool {
+        switch resource {
+        case .cpu: stats.cpu != nil
+        case .memory: stats.memory != nil
+        case .disk: stats.disk != nil
+        }
+    }
+
+    private func notifyIfEnabled(title: String, body: String, route: String?) async {
+        if (try? settingsRepo.load().notificationsEnabled) == true {
+            await notifier.notify(title: title, body: body, route: route)
+        }
+        await webhookSender.send(title: title, body: body, route: route)
+    }
+}

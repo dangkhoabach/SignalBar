@@ -1,0 +1,188 @@
+import AppKit
+import SignalBarCore
+import Foundation
+
+/// Walks a directory tree for files above a size threshold.
+///
+/// The walk is synchronous and potentially very long (a full `~` scan visits
+/// hundreds of thousands of entries), so it runs detached off the main actor
+/// and checks a cancellation flag each iteration — the view cancels it when
+/// the user changes root or leaves the tab.
+actor LargeFileScanner {
+    /// Flipped from outside the walk so it can see a cancel.
+    ///
+    /// `Task.detached` deliberately does not inherit cancellation, so the
+    /// walk never observed the calling task's `Task.isCancelled`: "Stop" only
+    /// updated the UI while a full `~` walk ran on to completion, and
+    /// rescanning left two walks running over each other.
+    private final class CancellationFlag: @unchecked Sendable {
+        private let lock = NSLock()
+        private var cancelled = false
+
+        var isCancelled: Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            return cancelled
+        }
+
+        func cancel() {
+            lock.lock()
+            cancelled = true
+            lock.unlock()
+        }
+    }
+
+    struct Progress: Sendable {
+        var scannedFiles: Int
+        var currentFolder: String
+    }
+
+    struct Outcome: Sendable {
+        var entries: [LargeFileEntry]
+        var scannedFiles: Int
+        var matchedBytes: Int64
+        /// Set when the root itself couldn't be opened — a folder the app has
+        /// no permission for (Desktop/Documents without the TCC grant).
+        var errorMessage: String?
+    }
+
+    /// Caps the result list. The point is to surface the biggest offenders,
+    /// and a table of 50,000 rows helps nobody — the total bytes matched is
+    /// reported separately so nothing is silently hidden.
+    private static let resultLimit = 500
+
+    func scan(
+        root: String,
+        minimumBytes: Int64,
+        includeHidden: Bool,
+        onProgress: @escaping @Sendable (Progress) -> Void
+    ) async -> Outcome {
+        let flag = CancellationFlag()
+        let walk = Task.detached(priority: .utility) {
+            Self.walk(
+                root: root, minimumBytes: minimumBytes, includeHidden: includeHidden,
+                isCancelled: { flag.isCancelled }, onProgress: onProgress
+            )
+        }
+        return await withTaskCancellationHandler {
+            await walk.value
+        } onCancel: {
+            flag.cancel()
+        }
+    }
+
+    private nonisolated static func walk(
+        root: String,
+        minimumBytes: Int64,
+        includeHidden: Bool,
+        isCancelled: @escaping @Sendable () -> Bool,
+        onProgress: @escaping @Sendable (Progress) -> Void
+    ) -> Outcome {
+        let keys: [URLResourceKey] = [
+            .isRegularFileKey, .totalFileAllocatedSizeKey, .fileSizeKey,
+            .contentModificationDateKey, .isSymbolicLinkKey,
+        ]
+        // `.skipsPackageDescendants` keeps the walk out of `.app`, `.framework`
+        // and `.photoslibrary` bundles. `/Applications` is a preset root, and
+        // the biggest files under it are all bundle internals — sorted by size
+        // they landed at the top of the list, one click from being trashed,
+        // which guts a signed app that the Trash can't put back together.
+        var options: FileManager.DirectoryEnumerationOptions = [.skipsPackageDescendants]
+        if !includeHidden { options.insert(.skipsHiddenFiles) }
+        guard let enumerator = FileManager.default.enumerator(
+            at: URL(fileURLWithPath: root),
+            includingPropertiesForKeys: keys,
+            options: options,
+            errorHandler: { _, _ in true }
+        ) else {
+            return Outcome(entries: [], scannedFiles: 0, matchedBytes: 0,
+                           errorMessage: "Could not open that folder.")
+        }
+
+        var found: [LargeFileEntry] = []
+        var scanned = 0
+        var matched: Int64 = 0
+
+        for case let url as URL in enumerator {
+            if isCancelled() { break }
+
+            if ScanRoot.isExcluded(url.path) {
+                enumerator.skipDescendants()
+                continue
+            }
+            guard let values = try? url.resourceValues(forKeys: Set(keys)),
+                  values.isSymbolicLink != true
+            else { continue }
+
+            scanned += 1
+            if values.isRegularFile == true {
+                let size = Int64(values.totalFileAllocatedSize ?? values.fileSize ?? 0)
+                if size >= minimumBytes {
+                    found.append(LargeFileEntry(
+                        path: url.path,
+                        sizeBytes: size,
+                        modified: values.contentModificationDate ?? .distantPast
+                    ))
+                    matched += size
+                }
+            }
+            // Reported every few thousand entries rather than per file: a
+            // main-actor hop per file would cost more than the walk itself.
+            if scanned % 4000 == 0 {
+                onProgress(Progress(scannedFiles: scanned, currentFolder: url.deletingLastPathComponent().path))
+            }
+        }
+
+        return Outcome(
+            entries: Array(found.sorted { $0.sizeBytes > $1.sizeBytes }.prefix(resultLimit)),
+            scannedFiles: scanned,
+            matchedBytes: matched,
+            errorMessage: nil
+        )
+    }
+
+    struct TrashResult: Sendable {
+        var freedBytes: Int64
+        var trashedPaths: Set<String>
+        var failedNames: [String]
+    }
+
+    /// Moves files to the Trash — never `removeItem`. A size-ranked list
+    /// invites fast clicking, so every deletion here has to stay undoable.
+    func moveToTrash(_ entries: [LargeFileEntry]) -> TrashResult {
+        var freed: Int64 = 0
+        var trashed: Set<String> = []
+        var failed: [String] = []
+
+        for entry in entries {
+            guard !Self.isInsidePackage(entry.path) else {
+                failed.append(entry.name)
+                continue
+            }
+            do {
+                try FileManager.default.trashItem(at: URL(fileURLWithPath: entry.path), resultingItemURL: nil)
+                freed += entry.sizeBytes
+                trashed.insert(entry.path)
+            } catch {
+                failed.append(entry.name)
+            }
+        }
+        return TrashResult(freedBytes: freed, trashedPaths: trashed, failedNames: failed)
+    }
+
+    /// True when any ancestor of `path` is a package — an `.app`, a
+    /// `.framework`, a `.photoslibrary`.
+    ///
+    /// The walk already refuses to descend into packages, so nothing gathered
+    /// by a current scan reaches this. It backstops a result list that
+    /// outlived the scan that produced it, where one wrong click would break
+    /// an installed app rather than free space.
+    nonisolated static func isInsidePackage(_ path: String) -> Bool {
+        var url = URL(fileURLWithPath: path).deletingLastPathComponent()
+        while url.path != "/" {
+            if (try? url.resourceValues(forKeys: [.isPackageKey]))?.isPackage == true { return true }
+            url = url.deletingLastPathComponent()
+        }
+        return false
+    }
+}
