@@ -103,7 +103,7 @@ The app target uses automatic signing with no team, so a local build is ad-hoc s
 Tests:
 
 ```zsh
-cd SignalBarCore && swift test   # 311 tests
+cd SignalBarCore && swift test   # 312 tests
 xcodebuild test -project SignalBar.xcodeproj -scheme SignalBarApp -destination 'platform=macOS'   # 74 tests
 ```
 
