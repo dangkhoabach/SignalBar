@@ -11,14 +11,6 @@ import SignalBarCore
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Layout-snapshot mode renders the panes to PNG and exits, so it
-        // must short-circuit before the scheduler, Sparkle and the wake
-        // observer start doing real work.
-        if let directory = LayoutSnapshot.requestedDirectory {
-            Task { await LayoutSnapshot.run(directory: directory) }
-            return
-        }
-
         // Before anything else takes a dependency on it: without the
         // database there is no monitoring, no settings and no history, and
         // every one of those failures is silent on its own.
@@ -26,8 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             presentDatabaseFailure(failure)
         }
 
-        MenuBarStatsViewModel.shared.start()
-        OverlayWindowController.shared.start()
+        MenuBarStatusViewModel.shared.start()
         NotificationManager.shared.onRouteSelected = { route in
             AppNavigationState.shared.handleNotificationRoute(route)
         }

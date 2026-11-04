@@ -25,16 +25,12 @@ import SwiftUI
 struct SettingsView: View {
     @Bindable private var viewModel = SettingsViewModel.shared
     @Bindable private var overviewViewModel = OverviewViewModel.shared
-    @Bindable private var overlayModel = OverlayWindowController.shared.model
     @Bindable private var navigationState = AppNavigationState.shared
     @AppStorage("themePreference") private var themePreferenceRaw = ThemePreference.system.rawValue
     @AppStorage("languagePreference") private var languageRaw = AppLocale.systemDefault.rawValue
-    @AppStorage("showCPUPercentInMenuBar") private var showCPUPercentInMenuBar = false
     /// Set when macOS refuses notifications while the in-app toggle is on —
     /// the state in which alerts are configured but can never be delivered.
     @State private var notificationsBlocked = false
-    @State private var hotkeyMonitor: Any?
-    @State private var metalHUDEnabled = MetalHUDSetting.global.isEnabled
     @State private var loginItemEnabled = LoginItemManager.shared.isEnabled
     /// Registered, but macOS is holding it until the user approves it in
     /// System Settings — on, yet not actually launching at login.
@@ -118,8 +114,6 @@ struct SettingsView: View {
                     Text("EN").tag(AppLocale.en)
                 }
                 .pickerStyle(.segmented)
-
-                Toggle("Show CPU % in menu bar", isOn: $showCPUPercentInMenuBar)
             }
 
             Section("General") {
@@ -245,11 +239,9 @@ struct SettingsView: View {
     @ViewBuilder
     private func sections(for page: SettingsPage) -> some View {
         switch page {
-        case .overlay: overlaySections
         case .checks: checksSections
         case .email: emailSections
         case .webhook: webhookSections
-        case .cleanup: cleanupSections
         }
     }
 
@@ -257,118 +249,9 @@ struct SettingsView: View {
     /// only thresholds and has no single on/off.
     private func isOn(_ page: SettingsPage) -> Bool? {
         switch page {
-        case .overlay: viewModel.settings.overlay.enabled
         case .checks: nil
         case .email: viewModel.settings.smtpEnabled
         case .webhook: viewModel.settings.webhookEnabled
-        case .cleanup: viewModel.settings.cleanupScheduleEnabled
-        }
-    }
-
-    /// Settings › Performance Overlay, grouped the way the options are
-    /// used: where it sits, how it looks, how it runs, what it shows.
-    @ViewBuilder
-    private var overlaySections: some View {
-        Section {
-            Toggle("Show performance overlay", isOn: $viewModel.settings.overlay.enabled)
-            overlayShortcutRow
-        } header: {
-            Text("Overlay")
-        } footer: {
-            Text("A small always-on-top panel with live readings. Clicks pass through it. Games that take over the display exclusively draw above it.")
-        }
-
-        if viewModel.settings.overlay.enabled {
-            Section("Position") {
-                Picker("Corner", selection: $viewModel.settings.overlay.corner) {
-                    ForEach(OverlayCorner.allCases, id: \.self) { corner in
-                        Text(corner.label).tag(corner)
-                    }
-                }
-                Picker("Display", selection: $viewModel.settings.overlay.display) {
-                    Text("Main display").tag(OverlayDisplay.main)
-                    Text("Display with the pointer").tag(OverlayDisplay.mouse)
-                    ForEach(overlayScreenNames, id: \.self) { name in
-                        Text(verbatim: name).tag(OverlayDisplay.named(name))
-                    }
-                }
-                LabeledContent {
-                    Button(overlayModel.isUnlocked ? "Lock Position" : "Unlock to Move") {
-                        OverlayWindowController.shared.setUnlocked(!overlayModel.isUnlocked)
-                    }
-                } label: {
-                    Text("Drag to Place")
-                    Text(overlayModel.isUnlocked
-                        ? "Drag the overlay anywhere, then lock it. It snaps to the nearest corner."
-                        : "Unlock to drag the overlay with the mouse.")
-                }
-            }
-
-            Section("Appearance") {
-                Picker("Layout", selection: $viewModel.settings.overlay.layout) {
-                    Text("Vertical").tag(OverlayLayout.vertical)
-                    Text("Horizontal").tag(OverlayLayout.horizontal)
-                }
-                .pickerStyle(.segmented)
-                Picker("Size", selection: $viewModel.settings.overlay.scale) {
-                    Text("Small").tag(OverlayScale.small)
-                    Text("Medium").tag(OverlayScale.medium)
-                    Text("Large").tag(OverlayScale.large)
-                }
-                .pickerStyle(.segmented)
-                Picker("Panel Background", selection: $viewModel.settings.overlay.background) {
-                    Text("Blur").tag(OverlayBackground.translucent)
-                    Text("Solid").tag(OverlayBackground.solid)
-                    Text("Transparent").tag(OverlayBackground.none)
-                }
-                .pickerStyle(.segmented)
-                LabeledContent("Opacity") {
-                    HStack {
-                        Slider(
-                            value: Binding(
-                                get: { Double(viewModel.settings.overlay.opacityPercent) },
-                                set: { viewModel.settings.overlay.opacityPercent = Int($0.rounded()) }
-                            ),
-                            in: Double(OverlayConfiguration.opacityRange.lowerBound)...Double(OverlayConfiguration.opacityRange.upperBound),
-                            step: 5
-                        )
-                        Text(verbatim: "\(viewModel.settings.overlay.opacityPercent)%")
-                            .monospacedDigit()
-                            .frame(width: 40, alignment: .trailing)
-                    }
-                }
-                Toggle("Sparklines for CPU, GPU, RAM and network", isOn: $viewModel.settings.overlay.sparklines)
-            }
-
-            Section("Behavior") {
-                Picker("Refresh every", selection: $viewModel.settings.overlay.refreshMillis) {
-                    ForEach(OverlayConfiguration.refreshChoices, id: \.self) { millis in
-                        Text(verbatim: millis < 1000 ? "0.5 s" : "\(millis / 1000) s").tag(millis)
-                    }
-                }
-                Toggle("Refresh half as often on battery", isOn: $viewModel.settings.overlay.slowOnBattery)
-                Toggle("Show over full-screen apps", isOn: $viewModel.settings.overlay.showOverFullScreen)
-            }
-
-            Section("Readings") {
-                ForEach(overlayMetricRows, id: \.self) { metric in
-                    overlayMetricRow(metric)
-                }
-            }
-        }
-
-        Section {
-            Toggle("Show Apple's Metal HUD in games and Metal apps", isOn: Binding(
-                get: { metalHUDEnabled },
-                set: { enabled in
-                    MetalHUDSetting.global.setEnabled(enabled)
-                    metalHUDEnabled = MetalHUDSetting.global.isEnabled
-                }
-            ))
-        } header: {
-            Text("Frame Rate")
-        } footer: {
-            Text("macOS doesn't let one app count another app's frames, so the overlay can't show FPS. Apple's Metal Performance HUD can: it is drawn by Metal inside each game with real FPS, frame time and GPU time. This is a system-wide setting and applies to apps opened after turning it on.")
         }
     }
 
@@ -398,19 +281,6 @@ struct SettingsView: View {
         Section("Expiry") {
             labeledStepper("SSL alert", value: $viewModel.settings.sslAlertThresholdDays, in: 1...90, suffix: "days before")
             labeledStepper("Domain alert", value: $viewModel.settings.domainAlertThresholdDays, in: 1...90, suffix: "days before")
-        }
-
-        Section("System") {
-            labeledStepper(
-                "High temperature alert",
-                value: $viewModel.settings.systemTempAlertThresholdCelsius, in: 0...100,
-                suffix: "°C", zeroMeans: "off"
-            )
-            labeledStepper(
-                "Low battery alert",
-                value: $viewModel.settings.batteryLowAlertThresholdPercent, in: 0...100,
-                suffix: "%", zeroMeans: "off"
-            )
         }
 
         Section("Remote Servers") {
@@ -504,50 +374,6 @@ struct SettingsView: View {
         }
     }
 
-    /// Settings › Scheduled Cleanup.
-    @ViewBuilder
-    private var cleanupSections: some View {
-        Section("Scheduled Cleanup") {
-            Toggle("Clean selected locations on a schedule", isOn: $viewModel.settings.cleanupScheduleEnabled)
-            if viewModel.settings.cleanupScheduleEnabled {
-                // Said plainly at the switch, not buried: this is the one
-                // setting in the app that deletes the user's files while
-                // they are not looking.
-                Text("Everything is moved to the Trash, never deleted outright, and you get a notification when a run finishes. The Trash itself can't be emptied on a schedule.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                if let run = viewModel.lastCleanupRun {
-                    let when = run.at.formatted(.relative(presentation: .named))
-                    let moved = ByteCountFormatter.string(fromByteCount: run.bytes, countStyle: .file)
-                    if run.skipped.isEmpty {
-                        Label("Last run \(when): moved \(moved) to the Trash from \(run.locations) location(s).", systemImage: "checkmark.circle")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Label("Last run \(when): moved \(moved) to the Trash. Not fully cleared: \(run.skipped.joined(separator: ", ")).", systemImage: "exclamationmark.triangle.fill")
-                            .font(.caption)
-                            .foregroundStyle(.orange)
-                    }
-                }
-                Picker("Frequency", selection: $viewModel.settings.cleanupFrequency) {
-                    Text("Daily").tag("daily")
-                    Text("Weekly").tag("weekly")
-                    Text("Monthly").tag("monthly")
-                }
-                if viewModel.settings.cleanupFrequency == "weekly" {
-                    Picker("Day of Week", selection: $viewModel.settings.cleanupDayOfWeek) {
-                        ForEach(0..<7, id: \.self) { daysFromMonday in
-                            Text(Calendar.current.weekdaySymbols[(daysFromMonday + 1) % 7]).tag(daysFromMonday)
-                        }
-                    }
-                } else if viewModel.settings.cleanupFrequency == "monthly" {
-                    Stepper("Day of Month: \(viewModel.settings.cleanupDayOfMonth)", value: $viewModel.settings.cleanupDayOfMonth, in: 1...28)
-                }
-                cleanupTargetPicker
-            }
-        }
-    }
-
     /// Settings › Webhook Alerts.
     @ViewBuilder
     private var webhookSections: some View {
@@ -586,149 +412,6 @@ struct SettingsView: View {
                             .disabled(viewModel.settings.webhookURL.isEmpty || viewModel.webhookURLProblem != nil)
                     }
                 }
-            }
-        }
-    }
-
-    /// The overlay's global shortcut: shown, recorded or cleared here, and
-    /// registered by `OverlayWindowController` when the setting changes.
-    @ViewBuilder
-    private var overlayShortcutRow: some View {
-        LabeledContent {
-            HStack {
-                if hotkeyMonitor != nil {
-                    Text("Press a shortcut…").foregroundStyle(.secondary)
-                } else if let hotkey = viewModel.settings.overlay.hotkey {
-                    Text(verbatim: hotkey.displayString).monospaced()
-                } else {
-                    Text("Not set").foregroundStyle(.secondary)
-                }
-                Button(hotkeyMonitor == nil ? "Record" : "Cancel") {
-                    hotkeyMonitor == nil ? startRecordingHotkey() : stopRecordingHotkey()
-                }
-                if viewModel.settings.overlay.hotkey != nil, hotkeyMonitor == nil {
-                    Button("Clear") { viewModel.settings.overlay.hotkey = nil }
-                }
-            }
-        } label: {
-            Text("Show/hide shortcut")
-            if let error = overlayModel.hotkeyError {
-                Text(error).foregroundStyle(.red)
-            } else {
-                Text("Works from any app. Use Command, Control or Option, for example ⌃⌥⌘O.")
-            }
-        }
-    }
-
-    /// Takes the next key press in this window as the shortcut. Esc cancels;
-    /// a press without Command, Control or Option is refused with a beep.
-    private func startRecordingHotkey() {
-        hotkeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            if event.keyCode == 53 {
-                stopRecordingHotkey()
-                return nil
-            }
-            let hotkey = OverlayHotkey(
-                keyCode: UInt32(event.keyCode),
-                modifiers: GlobalHotkey.carbonModifiers(event.modifierFlags),
-                key: GlobalHotkey.keyName(for: event)
-            )
-            guard hotkey.isUsable else {
-                NSSound.beep()
-                return nil
-            }
-            viewModel.settings.overlay.hotkey = hotkey
-            stopRecordingHotkey()
-            return nil
-        }
-    }
-
-    private func stopRecordingHotkey() {
-        if let hotkeyMonitor { NSEvent.removeMonitor(hotkeyMonitor) }
-        hotkeyMonitor = nil
-    }
-
-    /// Shown metrics first in their display order, then the rest.
-    private var overlayMetricRows: [OverlayMetric] {
-        let shown = viewModel.settings.overlay.metrics
-        return shown + OverlayMetric.allCases.filter { !shown.contains($0) }
-    }
-
-    private func overlayMetricRow(_ metric: OverlayMetric) -> some View {
-        let shown = viewModel.settings.overlay.metrics
-        let index = shown.firstIndex(of: metric)
-        return HStack {
-            Toggle(isOn: Binding(
-                get: { index != nil },
-                set: { _ in viewModel.settings.overlay.metrics = OverlayMetric.toggling(metric, in: shown) }
-            )) {
-                Text(metric.overlayLabel)
-            }
-            .toggleStyle(.checkbox)
-            Spacer()
-            if let index {
-                Button {
-                    viewModel.settings.overlay.metrics = OverlayMetric.moving(metric, by: -1, in: shown)
-                } label: {
-                    Image(systemName: "chevron.up")
-                }
-                .disabled(index == 0)
-                .accessibilityLabel(Text("Move Up"))
-                Button {
-                    viewModel.settings.overlay.metrics = OverlayMetric.moving(metric, by: 1, in: shown)
-                } label: {
-                    Image(systemName: "chevron.down")
-                }
-                .disabled(index == shown.count - 1)
-                .accessibilityLabel(Text("Move Down"))
-            }
-        }
-        .buttonStyle(.borderless)
-    }
-
-    /// Connected screens, plus the saved one while it is unplugged so the
-    /// picker still shows what was chosen instead of an empty selection.
-    private var overlayScreenNames: [String] {
-        var names = NSScreen.screens.map(\.localizedName)
-        if case .named(let saved) = viewModel.settings.overlay.display, !names.contains(saved) {
-            names.append(saved)
-        }
-        return names
-    }
-
-    /// Only Trash-safe locations are listed. The Trash target is excluded by
-    /// `isEligibleForScheduledCleaning` rather than filtered out by name here,
-    /// so this list and what the scheduler will actually touch cannot drift
-    /// apart.
-    @ViewBuilder
-    private var cleanupTargetPicker: some View {
-        let selected = Set(viewModel.settings.cleanupTargetPaths.split(separator: "\n").map(String.init))
-        let available = JunkTarget.defaults(homeDirectory: NSHomeDirectory())
-            .filter(\.isEligibleForScheduledCleaning)
-
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Locations").font(.subheadline.weight(.medium))
-            ForEach(available) { target in
-                Toggle(isOn: Binding(
-                    get: { selected.contains(target.path) },
-                    set: { isOn in
-                        var paths = selected
-                        if isOn { paths.insert(target.path) } else { paths.remove(target.path) }
-                        viewModel.settings.cleanupTargetPaths = paths.sorted().joined(separator: "\n")
-                    }
-                )) {
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(target.name)
-                        Text(target.displayPath)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-            if selected.isEmpty {
-                Label("No location selected — nothing will be cleaned.", systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption)
-                    .foregroundStyle(.orange)
             }
         }
     }
@@ -896,27 +579,23 @@ struct SettingsView: View {
 /// The pages one level below Settings. Only features with enough options to
 /// crowd the main page get one.
 enum SettingsPage: String, CaseIterable, Identifiable, Hashable {
-    case overlay, checks, email, webhook, cleanup
+    case checks, email, webhook
 
     var id: Self { self }
 
     var title: LocalizedStringKey {
         switch self {
-        case .overlay: "Performance Overlay"
         case .checks: "Checks & Alerts"
         case .email: "Email Reports"
         case .webhook: "Webhook Alerts"
-        case .cleanup: "Scheduled Cleanup"
         }
     }
 
     var systemImage: String {
         switch self {
-        case .overlay: "rectangle.inset.topright.filled"
         case .checks: "bell.badge"
         case .email: "envelope"
         case .webhook: "link"
-        case .cleanup: "calendar.badge.clock"
         }
     }
 }

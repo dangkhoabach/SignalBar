@@ -18,7 +18,7 @@ enum WindowPresenter {
 
     /// Only the `WindowGroup` windows, recognised by the delegate
     /// `WindowAccessor` gives them. `NSApp.windows` also holds the menu bar
-    /// extra's panel, the status item windows and the overlay panel; ordering
+    /// extra's panel and the status item windows; ordering
     /// the menu bar panel front opened the dropdown on every Dock-icon reopen,
     /// outside SwiftUI's own open/close tracking, so clicking elsewhere never
     /// closed it.

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Sidebar (Domains/System/Settings) + content — Settings is a regular
+/// Sidebar (Domains/Server Manager/Settings) + content — Settings is a regular
 /// sidebar tab so the app menu (Cmd+,) and the menu bar's "Settings…" both
 /// land in the same place instead of a separate `Settings {}` window.
 ///
@@ -38,10 +38,6 @@ struct ContentView: View {
                 OverviewView()
             case .remoteServers:
                 RemoteServerListView()
-            case .system:
-                SystemView()
-            case .cleanup:
-                CleanupView()
             case .settings:
                 SettingsView()
             }

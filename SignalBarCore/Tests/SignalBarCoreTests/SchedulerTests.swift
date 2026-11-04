@@ -87,11 +87,6 @@ private actor SuspendingNotifier: NotificationSending {
     }
 }
 
-private struct StaticStatsProvider: SystemStatsProvider {
-    let value: SystemStats
-    func snapshot() async -> SystemStats { value }
-}
-
 private actor RecordingWebhookSender: AlertWebhookSending {
     private(set) var alerts: [(title: String, body: String, route: String?)] = []
     func send(title: String, body: String, route: String?) async {
@@ -226,34 +221,6 @@ private actor GatedRemoteStatsProvider: RemoteStatsProviding {
         let calls = await reportSender.calls
         #expect(calls.count == 1)
         #expect(calls[0].label == "Daily")
-    }
-
-    @Test func tickFiresSystemTempAlertOnceThenClearsWhenCooled() async throws {
-        let app = try makeDatabase()
-        let settingsRepo = SettingsRepository(dbQueue: app.dbQueue)
-        try settingsRepo.update({ var s = AppSettings.defaults; s.notificationsEnabled = true; s.systemTempAlertThresholdCelsius = 80; return s }())
-
-        let notifier = RecordingNotifier()
-        let hotScheduler = Scheduler(
-            dbQueue: app.dbQueue, notifier: notifier, reportSender: RecordingReportSender(),
-            statsProvider: StaticStatsProvider(value: SystemStats(cpuTempCelsius: 90))
-        )
-        await hotScheduler.tick()
-        await hotScheduler.tick() // still hot: must not alert again
-
-        let afterHot = await notifier.notifications
-        #expect(afterHot.count == 1)
-        #expect(afterHot[0].title == "Your Mac is running hot")
-
-        let coolScheduler = Scheduler(
-            dbQueue: app.dbQueue, notifier: notifier, reportSender: RecordingReportSender(),
-            statsProvider: StaticStatsProvider(value: SystemStats(cpuTempCelsius: 50))
-        )
-        await coolScheduler.tick() // clears the flag, no new alert
-        await hotScheduler.tick() // hot again: flag was cleared, must alert again
-
-        let afterCycle = await notifier.notifications
-        #expect(afterCycle.count == 2)
     }
 
     /// The whole reason a webhook exists: it reaches a channel that is being
@@ -582,36 +549,6 @@ private actor GatedRemoteStatsProvider: RemoteStatsProviding {
         await first.value
 
         #expect(await sender.callCount == 1)
-    }
-
-    /// What `tickInFlight` is actually for: the system-alert flags are a
-    /// read-then-write around an `await`, with nothing else guarding them.
-    /// Two reentrant ticks both read "not yet alerted" and both notified, so
-    /// a wake-from-sleep during a hot spell produced a duplicate alert.
-    @Test func aSecondTickDuringAnAlertDoesNotRaiseItTwice() async throws {
-        let app = try makeDatabase()
-        let settingsRepo = SettingsRepository(dbQueue: app.dbQueue)
-        try settingsRepo.update({
-            var s = AppSettings.defaults
-            s.notificationsEnabled = true
-            s.systemTempAlertThresholdCelsius = 80
-            return s
-        }())
-
-        let notifier = SuspendingNotifier()
-        let scheduler = Scheduler(
-            dbQueue: app.dbQueue, notifier: notifier, reportSender: RecordingReportSender(),
-            statsProvider: StaticStatsProvider(value: SystemStats(cpuTempCelsius: 95))
-        )
-
-        let first = Task { await scheduler.tick() }
-        await notifier.waitUntilNotifying()
-        await scheduler.tick()
-
-        await notifier.release()
-        await first.value
-
-        #expect(await notifier.notifications.count == 1)
     }
 
     /// A failing relay must not turn the 15-second tick into an all-day retry

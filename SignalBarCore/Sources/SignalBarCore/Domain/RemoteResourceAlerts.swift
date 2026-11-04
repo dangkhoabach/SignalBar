@@ -24,8 +24,7 @@ public struct RemoteResourceBreach: Sendable, Equatable {
 }
 
 /// The thresholds, all as whole percentages, with 0 meaning "don't alert on
-/// this" — the same convention the local temperature and battery thresholds
-/// already use.
+/// this" — the same convention the other alert thresholds use.
 public struct RemoteResourceThresholds: Sendable, Equatable {
     public var cpuPercent: Int
     public var memoryPercent: Int

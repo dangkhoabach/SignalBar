@@ -38,18 +38,9 @@ public actor Scheduler {
     private let reportSender: ReportSending
     private let webhookSender: AlertWebhookSending
     private let alertText: AlertTextLocalizing
-    private let statsProvider: SystemStatsProvider?
     private let remoteStatsProvider: RemoteStatsProviding?
-    /// Nil in tests that don't exercise cleanup, and in any host that has no
-    /// AppKit — a nil runner means the scheduler simply never cleans, which
-    /// is the correct fallback for a file-deleting job.
-    private let cleanupRunner: CleanupRunning?
 
     private var loopTask: Task<Void, Never>?
-    /// The scheduled cleanup in progress, if any. Kept out of `tick()`
-    /// because measuring and trashing caches can take minutes, and the tick
-    /// is what runs every HTTP check — see `maybeRunScheduledCleanup`.
-    private var cleanupTask: Task<Void, Never>?
     /// Guards `tick()` against re-entering while a previous run is suspended
     /// — see the comment on `tick()` itself.
     private var tickInFlight = false
@@ -67,10 +58,8 @@ public actor Scheduler {
         dbQueue: DatabaseQueue,
         notifier: NotificationSending,
         reportSender: ReportSending,
-        statsProvider: SystemStatsProvider? = nil,
         webhookSender: AlertWebhookSending? = nil,
         remoteStatsProvider: RemoteStatsProviding? = nil,
-        cleanupRunner: CleanupRunning? = nil,
         alertText: AlertTextLocalizing = EnglishAlertText()
     ) {
         self.targetRepo = TargetRepository(dbQueue: dbQueue)
@@ -79,11 +68,7 @@ public actor Scheduler {
         self.notifier = notifier
         self.reportSender = reportSender
         self.webhookSender = webhookSender ?? WebhookAlertSender(dbQueue: dbQueue)
-        self.statsProvider = statsProvider
         self.remoteStatsProvider = remoteStatsProvider ?? SSHRemoteStatsProvider(dbQueue: dbQueue)
-        // No production default, unlike the providers above: cleanup deletes
-        // files, so it runs only where a host has explicitly wired it up.
-        self.cleanupRunner = cleanupRunner
         self.alertText = alertText
     }
 
@@ -102,12 +87,6 @@ public actor Scheduler {
         loopTask = nil
     }
 
-    /// Waits for work that `tick()` deliberately hands off rather than
-    /// awaits — today only the scheduled cleanup. Internal, for tests.
-    func waitForBackgroundWork() async {
-        await cleanupTask?.value
-    }
-
     /// Runs one cycle immediately — used both by the periodic loop and by the
     /// app's `NSWorkspace.didWakeNotification` handler (Core has no AppKit
     /// dependency, so it can't observe that notification itself).
@@ -120,7 +99,7 @@ public actor Scheduler {
         // Both runs would then clear the same check-then-set gates before
         // either closed them: `lastReportSentPeriod()` before `markReportSent`,
         // `alertFlag()` before `setAlertFlag`. The user got two report emails
-        // and a duplicate temperature alert. One guard here covers every such
+        // and a duplicate alert. One guard here covers every such
         // gate inside the cycle, rather than one flag per gate.
         //
         // Skipping is the right answer for a wake-up tick: its job is to stop
@@ -135,9 +114,7 @@ public actor Scheduler {
             try await runExpiryChecks()
             try await maybeSendReport()
             try stateStore.cleanupHistoryIfDue(retentionDays: try settingsRepo.load().historyRetentionDays)
-            await checkSystemAlerts()
             await checkRemoteServerAlertsIfDue()
-            await maybeRunScheduledCleanup()
         } catch {
             // Best-effort background loop: log and keep ticking next cycle
             // rather than letting one bad read/write kill the scheduler.
@@ -320,104 +297,6 @@ public actor Scheduler {
         try? stateStore.recordReportOutcome(.init(at: Date(), label: period.label, sent: sent))
         guard sent else { return }
         try stateStore.markReportSent(period: period.periodIdentifier)
-    }
-
-    /// Runs the user's chosen cleanup targets at most once per scheduled
-    /// period.
-    ///
-    /// Three separate things have to be true before a single file moves, and
-    /// they are kept separate on purpose: the schedule must be on, the saved
-    /// selection must still match targets this build offers, and each of
-    /// those targets must be Trash-safe. A selection saved by an older build
-    /// is re-filtered here on every run rather than trusted, so nothing an
-    /// unattended run touches depends on what was written to the database
-    /// months ago.
-    private func maybeRunScheduledCleanup() async {
-        guard cleanupTask == nil,
-              let cleanupRunner, let settings = try? settingsRepo.load(), settings.cleanupScheduleEnabled
-        else { return }
-
-        let period = SchedulerStateStore.reportPeriod(
-            frequency: settings.cleanupFrequency,
-            dayOfWeek: settings.cleanupDayOfWeek,
-            dayOfMonth: settings.cleanupDayOfMonth
-        )
-        guard period.isDueToday, (try? stateStore.lastCleanupPeriod()) != period.periodIdentifier else { return }
-
-        let selected = Set(settings.cleanupTargetPaths.split(separator: "\n").map(String.init))
-        guard !selected.isEmpty else { return }
-
-        let targets = JunkTarget.scheduledCleaningTargets(
-            from: selected, available: await cleanupRunner.availableTargets()
-        )
-        guard !targets.isEmpty else { return }
-
-        // Marked before the work, not after: a clean that crashes or is
-        // killed partway must not re-run on the next 15-second tick and start
-        // deleting again.
-        try? stateStore.markCleanupRun(period: period.periodIdentifier)
-
-        // Handed off rather than awaited. Measuring and trashing a few cache
-        // trees can take minutes, and `tick()` is what runs every HTTP check
-        // — holding it would pause domain monitoring for the whole run. The
-        // period is already marked, so a tick arriving meanwhile cannot start
-        // a second run; `cleanupTask` only guards the moment between marking
-        // and reading the mark back.
-        cleanupTask = Task { [weak self] in
-            guard let self else { return }
-            await self.runScheduledCleanup(targets, with: cleanupRunner)
-            await self.finishCleanupTask()
-        }
-    }
-
-    private func runScheduledCleanup(_ targets: [JunkTarget], with runner: CleanupRunning) async {
-        let result = await runner.clean(targets)
-        try? stateStore.recordCleanupRun(
-            .init(at: Date(), bytes: result.bytes, locations: targets.count, skipped: result.skipped)
-        )
-
-        // Always announced. An unattended job that moves gigabytes to the
-        // Trash without saying so is exactly the kind of silent behaviour the
-        // rest of this app was audited to remove.
-        let freed = ByteCountFormatter.string(fromByteCount: result.bytes, countStyle: .file)
-        await notifyIfEnabled(
-            .cleanupFinished(freed: freed, locations: targets.count, skipped: result.skipped),
-            route: "/cleanup"
-        )
-    }
-
-    private func finishCleanupTask() {
-        cleanupTask = nil
-    }
-
-    private func checkSystemAlerts() async {
-        guard let statsProvider, let settings = try? settingsRepo.load() else { return }
-        guard settings.systemTempAlertThresholdCelsius > 0 || settings.batteryLowAlertThresholdPercent > 0 else { return }
-
-        let stats = await statsProvider.snapshotLight()
-
-        if settings.systemTempAlertThresholdCelsius > 0, let temp = stats.cpuTempCelsius {
-            let isHot = temp >= Double(settings.systemTempAlertThresholdCelsius)
-            let wasActive = (try? stateStore.alertFlag("system_temp_alert_active")) ?? false
-            if isHot && !wasActive {
-                await notifyIfEnabled(.systemHot(celsius: Int(temp), thresholdCelsius: settings.systemTempAlertThresholdCelsius), route: "/system")
-                try? stateStore.setAlertFlag("system_temp_alert_active", true)
-            } else if !isHot && wasActive {
-                try? stateStore.setAlertFlag("system_temp_alert_active", false)
-            }
-        }
-
-        if settings.batteryLowAlertThresholdPercent > 0, let percent = stats.batteryPercent {
-            let charging = stats.batteryCharging ?? false
-            let isLow = !charging && percent <= Double(settings.batteryLowAlertThresholdPercent)
-            let wasActive = (try? stateStore.alertFlag("system_battery_alert_active")) ?? false
-            if isLow && !wasActive {
-                await notifyIfEnabled(.batteryLow(percent: Int(percent)), route: "/system")
-                try? stateStore.setAlertFlag("system_battery_alert_active", true)
-            } else if (!isLow || charging) && wasActive {
-                try? stateStore.setAlertFlag("system_battery_alert_active", false)
-            }
-        }
     }
 
     /// The single funnel every alert in this type goes through.

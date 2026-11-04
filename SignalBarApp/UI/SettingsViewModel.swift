@@ -56,10 +56,9 @@ final class SettingsViewModel {
     var webhookURLProblem: String?
 
     /// What the scheduler last did on the user's behalf. Read whenever the
-    /// page opens, not observed: both change in the background a few times a
+    /// page opens, not observed: it changes in the background a few times a
     /// day at most, and a stale figure for the length of one visit is fine.
     var lastReportOutcome: SchedulerStateStore.ReportOutcome?
-    var lastCleanupRun: SchedulerStateStore.CleanupRun?
 
     init(repo: SettingsRepository?, sender: EmailReportSender? = nil, stateStore: SchedulerStateStore? = nil) {
         self.repo = repo
@@ -76,7 +75,6 @@ final class SettingsViewModel {
 
     func refreshLastRuns() {
         lastReportOutcome = try? stateStore?.lastReportOutcome()
-        lastCleanupRun = try? stateStore?.lastCleanupRun()
     }
 
     /// Coalesces rapid-fire changes (a Stepper tick, or typing into the

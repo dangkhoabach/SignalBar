@@ -11,10 +11,6 @@ public enum AlertMessage: Sendable, Equatable {
     case targetResponseNormal(name: String)
     case sslExpiring(name: String, daysLeft: Int)
     case domainExpiring(name: String, daysLeft: Int)
-    /// `freed` is already formatted (`ByteCountFormatter`).
-    case cleanupFinished(freed: String, locations: Int, skipped: [String])
-    case systemHot(celsius: Int, thresholdCelsius: Int)
-    case batteryLow(percent: Int)
     /// `percent` comes from `RemoteResourceAlerts.wholePercent`.
     case remoteResourceHigh(server: String, resource: RemoteResource, percent: Int, thresholdPercent: Int)
 }
@@ -43,15 +39,6 @@ public struct EnglishAlertText: AlertTextLocalizing {
             ("SSL certificate expires soon: \(name)", "\(daysLeft) days left")
         case .domainExpiring(let name, let daysLeft):
             ("Domain expires soon: \(name)", "\(daysLeft) days left")
-        case .cleanupFinished(let freed, let locations, let skipped):
-            ("Scheduled cleanup finished",
-             "Moved \(freed) to the Trash from \(locations) locations."
-                + (skipped.isEmpty ? "" : " Not fully cleared: \(skipped.joined(separator: ", ")).")
-            )
-        case .systemHot(let celsius, let thresholdCelsius):
-            ("Your Mac is running hot", "\(celsius)°C (threshold \(thresholdCelsius)°C)")
-        case .batteryLow(let percent):
-            ("Battery low", "\(percent)% left — plug in the charger")
         case .remoteResourceHigh(let server, let resource, let percent, let thresholdPercent):
             ("\(server): \(resource.label) is high", "\(percent)% (threshold \(thresholdPercent)%)")
         }

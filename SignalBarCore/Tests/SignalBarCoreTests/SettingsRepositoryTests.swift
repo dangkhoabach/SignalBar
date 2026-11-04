@@ -35,28 +35,12 @@ import Testing
             sslAlertThresholdDays: 21,
             domainAlertThresholdDays: 45,
             historyRetentionDays: 120,
-            systemTempAlertThresholdCelsius: 85,
-            batteryLowAlertThresholdPercent: 15,
             httpCheckIntervalSecs: 60,
             webhookEnabled: true,
             webhookURL: "https://hooks.slack.com/services/T0/B0/xxx",
             remoteCPUAlertThresholdPercent: 85,
             remoteMemoryAlertThresholdPercent: 90,
-            remoteDiskAlertThresholdPercent: 95,
-            cleanupScheduleEnabled: true,
-            cleanupFrequency: "monthly",
-            cleanupDayOfWeek: 4,
-            cleanupDayOfMonth: 17,
-            cleanupTargetPaths: "/tmp/a\n/tmp/b",
-            // Every overlay field differs from `OverlayConfiguration.defaults`,
-            // for the same reason as above.
-            overlay: OverlayConfiguration(
-                enabled: true, corner: .bottomLeft, offsetX: 40, offsetY: 64,
-                display: .named("LG UltraFine"), layout: .horizontal, scale: .large,
-                opacityPercent: 55, refreshMillis: 2000, metrics: [.gpu, .cpu, .power],
-                showOverFullScreen: false, sparklines: true, background: .solid,
-                slowOnBattery: false, hotkey: .suggested
-            )
+            remoteDiskAlertThresholdPercent: 95
         )
         try repo.update(settings)
         #expect(try repo.load() == settings)
@@ -123,40 +107,25 @@ import Testing
 
         #expect(try repo.load().smtpRecipientEmail == "second@example.com")
     }
-}
 
-@Suite struct OverlaySettingsTests {
-    private func makeQueue() throws -> DatabaseQueue {
-        try AppDatabase(inMemory: DatabaseQueue()).dbQueue
-    }
-
-    /// A list the user emptied must stay empty after a relaunch, not come
-    /// back as the defaults — an empty string is what "never saved" reads as.
-    @Test func anEmptiedMetricListStaysEmpty() throws {
-        let queue = try makeQueue()
-        let repo = SettingsRepository(dbQueue: queue)
-        var settings = AppSettings.defaults
-        settings.overlay.metrics = []
-        try repo.update(settings)
-        #expect(try repo.load().overlay.metrics == [])
-    }
-
-    /// Hand-edited or corrupted rows fall back or clamp instead of producing
-    /// an invisible, off-screen or tight-looping overlay.
-    @Test func invalidStoredValuesAreClampedOrDefaulted() throws {
-        let queue = try makeQueue()
-        try queue.write { db in
-            try AppSettingsStore.set(db, key: "overlay_corner", value: "middle")
-            try AppSettingsStore.set(db, key: "overlay_opacity", value: "0")
-            try AppSettingsStore.set(db, key: "overlay_refresh_ms", value: "1")
-            try AppSettingsStore.set(db, key: "overlay_offset_x", value: "-50")
-            try AppSettingsStore.set(db, key: "overlay_offset_y", value: "abc")
+    /// EasyDock imports the scheduled cleanup and the temperature and battery alerts from this
+    /// database, read-only, so saving the settings that remain must leave their keys alone.
+    @Test func savingLeavesTheKeysEasyDockImports() throws {
+        let app = try AppDatabase(inMemory: DatabaseQueue())
+        let moved = [
+            "cleanup_schedule_enabled": "1", "cleanup_frequency": "monthly", "cleanup_target_paths": "/tmp/a",
+            "last_cleanup_period": "2026-11", "system_temp_alert_threshold_celsius": "85",
+            "battery_low_alert_threshold_percent": "15",
+        ]
+        try app.dbQueue.write { db in
+            for (key, value) in moved { try AppSettingsStore.set(db, key: key, value: value) }
         }
-        let overlay = try SettingsRepository(dbQueue: queue).load().overlay
-        #expect(overlay.corner == OverlayConfiguration.defaults.corner)
-        #expect(overlay.opacityPercent == 30)
-        #expect(overlay.refreshMillis == 1000)
-        #expect(overlay.offsetX == 0)
-        #expect(overlay.offsetY == OverlayConfiguration.defaults.offsetY)
+
+        try SettingsRepository(dbQueue: app.dbQueue).update(AppSettings.defaults)
+
+        let kept = try app.dbQueue.read { db in
+            try moved.keys.reduce(into: [String: String]()) { $0[$1] = try AppSettingsStore.get(db, key: $1, default: "") }
+        }
+        #expect(kept == moved)
     }
 }

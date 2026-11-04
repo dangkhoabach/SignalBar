@@ -1,8 +1,8 @@
 # SignalBar
 
-A native macOS menu bar app that watches your websites and servers and your own Mac: uptime,
-SSL and domain expiry, live system stats, a performance overlay and remote Linux servers over
-SSH. Built to run all day in the background at near-zero idle cost.
+A native macOS menu bar app that watches your websites and servers: uptime, SSL and domain
+expiry, and remote Linux servers over SSH. Built to run all day in the background at near-zero
+idle cost.
 
 <picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/domains-dark.webp"><img src="docs/screenshots/domains-light.webp" alt="Domains, grouped by root domain"></picture>
 
@@ -14,22 +14,6 @@ SSH. Built to run all day in the background at near-zero idle cost.
   approaches.
 - **Domain expiry**: resolved through RDAP over HTTPS where the TLD supports it, falling back to
   `whois` otherwise. Some ccTLDs (`.vn`, for example) don't publish it through any method.
-- **Live system stats**: CPU per core, GPU, memory and swap, temperatures and fans (SMC),
-  battery, storage and network, in a System pane and the menu bar, with alerts for high
-  temperature and low battery.
-- **Performance overlay**: an optional always-on-top panel in a screen corner with live CPU,
-  GPU, RAM, temperatures, fans, network, battery, power and display refresh rate, like MSI
-  Afterburner's on-screen display. Clicks pass through it and it never takes focus. It stays on
-  every Space and over full-screen apps, and pauses while the display sleeps or the Mac is
-  locked. Layout, size, background, opacity, refresh rate, which readings to show and their
-  order, sparklines, drag-to-place and a global show/hide shortcut are all in Settings. It costs
-  about 0.8% of one core at a one-second refresh, measured on a Release build. macOS gives no
-  way to count another app's frames, so the overlay shows no FPS; Settings can switch on Apple's
-  Metal Performance HUD instead, which draws real FPS inside each game.
-
-  <img src=".assets/overlay-vertical.png" width="320" alt="Overlay, vertical layout"> <img src=".assets/overlay-horizontal.png" width="100%" alt="Overlay, horizontal layout">
-- **Running apps**: a Task Manager-style list of apps with CPU and memory use, sortable, with
-  Quit and Force Quit.
 - **Groups**: targets group by root domain (subdomains fold under it), with drag-and-drop
   reordering of targets and groups and inline renaming.
 - **Pause and resume**: snooze a target for 30 minutes, 1, 4 or 24 hours, or indefinitely.
@@ -39,14 +23,16 @@ SSH. Built to run all day in the background at near-zero idle cost.
   the Keychain, and every action is written to an audit log. One action can run across several
   servers at once.
 - **Remote resource alerts**: get alerted when a server's CPU, RAM or disk crosses a threshold.
-- **Cleanup**: measure and clear developer and app caches (moved to the Trash, never deleted
-  outright), find large files, and optionally run it on a schedule.
 - **Response-time percentiles**: p50 and p95 beside every latency chart, over successful checks
   only.
 - **Alerts and reports**: native notifications that open the right screen, webhooks (Slack,
   Discord or plain JSON) posted straight from this Mac, and scheduled email reports (see below).
 - **Import and export** domains and servers as JSON. Server exports never include credentials.
 - Launch at login, light and dark appearance, English and Vietnamese.
+
+The Mac's own stats, the list of running apps, Cleanup and the temperature and battery alerts
+moved to [EasyDock](https://github.com/dangkhoabach/EasyDock) in 2.2.1, which imports the
+scheduled cleanup and alert settings from SignalBar. The performance overlay was removed.
 
 ## Requirements
 
@@ -77,14 +63,11 @@ the mail. Everything else (checks, webhooks, SSH) goes straight from your Mac.
 - **`SignalBarCore`** (Swift package: Foundation, GRDB and the SSH stack, no AppKit): targets,
   the check scheduler, SSL and domain checks, alerts and reports, remote server actions, SQLite
   storage. It is tested headless.
-- **`SignalBarApp`** (SwiftUI and AppKit): the windows, `MenuBarExtra`, the overlay, SMC and GPU
-  readings through IOKit, the process list through `libproc`, notifications, login item and
-  Sparkle.
+- **`SignalBarApp`** (SwiftUI and AppKit): the windows, `MenuBarExtra`, notifications, login
+  item and Sparkle.
 - SSH runs on [Citadel](https://github.com/orlandos-nl/Citadel) and SwiftNIO. Citadel depends on
   a fork of `swift-nio-ssh` (`Wellz26/swift-nio-ssh`); `Package.swift` declares the same fork at
   an exact version so the reviewed revision is the one every build uses.
-- Temperatures and fans come from the SMC with the same technique smcFanControl and SMCKit use;
-  there is no public Apple API for them.
 
 The first version was built with Tauri and React; it was rewritten in Swift in 2026 and reads
 the same database, so the upgrade kept every target.
@@ -103,8 +86,8 @@ The app target uses automatic signing with no team, so a local build is ad-hoc s
 Tests:
 
 ```zsh
-cd SignalBarCore && swift test   # 312 tests
-xcodebuild test -project SignalBar.xcodeproj -scheme SignalBarApp -destination 'platform=macOS'   # 74 tests
+cd SignalBarCore && swift test   # 227 tests
+xcodebuild test -project SignalBar.xcodeproj -scheme SignalBarApp -destination 'platform=macOS'   # 35 tests
 ```
 
 Releases are built, signed and published by hand: see [docs/release.md](docs/release.md).

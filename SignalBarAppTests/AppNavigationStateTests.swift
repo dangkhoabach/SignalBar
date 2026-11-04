@@ -1,21 +1,12 @@
 import Testing
 @testable import SignalBar
 
-// Only the "/system" route is exercised here - the "/targets/<id>" branch
+// Only the "/servers/<id>" routes are exercised here - the "/targets/<id>" branch
 // reaches into `OverviewViewModel.shared`, which is backed by the real
 // production database file (`AppDatabaseLocation.productionPath()`); a unit
 // test must not touch that.
 @MainActor
 @Suite struct AppNavigationStateTests {
-    @Test func systemRouteSelectsSystemSidebarSection() {
-        let state = AppNavigationState.shared
-        state.sidebarSelection = .domains
-
-        state.handleNotificationRoute("/system")
-
-        #expect(state.sidebarSelection == .system)
-    }
-
     /// Unlike "/targets/<id>", this branch touches no view model, so it can
     /// be exercised here in full.
     @Test func serverRouteOpensThatServerInTheServerManager() {
@@ -49,7 +40,8 @@ import Testing
         state.sidebarSelection = .domains
         state.pendingDetailTargetID = nil
 
-        state.handleNotificationRoute("/unknown")
+        // "/system" is what the temperature and battery alerts opened before they moved to EasyDock.
+        state.handleNotificationRoute("/system")
 
         #expect(state.sidebarSelection == .domains)
         #expect(state.pendingDetailTargetID == nil)

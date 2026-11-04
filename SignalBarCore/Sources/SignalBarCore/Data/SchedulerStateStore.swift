@@ -2,9 +2,9 @@ import Foundation
 import GRDB
 
 /// Scheduler bookkeeping that isn't specific to any one target: history
-/// retention cleanup, periodic-report dedupe, and system-wide (temp/battery)
-/// alert active-flags. Mirrors the free functions in the Rust `scheduler.rs`
-/// that read/write ad-hoc `app_settings` keys for the same purpose.
+/// retention cleanup, periodic-report dedupe, and alert active-flags.
+/// Mirrors the free functions in the Rust `scheduler.rs` that read/write
+/// ad-hoc `app_settings` keys for the same purpose.
 public struct SchedulerStateStore: Sendable {
     let dbQueue: DatabaseQueue
 
@@ -27,8 +27,8 @@ public struct SchedulerStateStore: Sendable {
         }
     }
 
-    /// True the first time a system-wide condition (temp/battery) crosses its
-    /// threshold; stays true until `setAlertFlag` clears it — same
+    /// True the first time a condition (a server's CPU, memory or disk)
+    /// crosses its threshold; stays true until `setAlertFlag` clears it — same
     /// "alert on transition only" shape as the per-target alerts.
     public func alertFlag(_ key: String) throws -> Bool {
         try dbQueue.read { db in try AppSettingsStore.get(db, key: key, default: "0") == "1" }
@@ -122,59 +122,7 @@ public struct SchedulerStateStore: Sendable {
         }
     }
 
-    // MARK: - Scheduled cleanup
-
-    /// Reuses `reportPeriod`'s identifier vocabulary, so "already ran this
-    /// week" means exactly what it means for reports and there is only one
-    /// notion of a period in the scheduler.
-    public func lastCleanupPeriod() throws -> String {
-        try dbQueue.read { db in try AppSettingsStore.get(db, key: "last_cleanup_period", default: "") }
-    }
-
-    public func markCleanupRun(period: String) throws {
-        try dbQueue.write { db in try AppSettingsStore.set(db, key: "last_cleanup_period", value: period) }
-    }
-
     // MARK: - Last outcomes, for the Settings page
-
-    /// What the last scheduled cleanup did. Kept so the Settings page can say
-    /// so even with notifications off: an unattended job that moves the
-    /// user's files must leave a trace they can find without one.
-    public struct CleanupRun: Sendable, Equatable {
-        public let at: Date
-        public let bytes: Int64
-        public let locations: Int
-        public let skipped: [String]
-
-        public init(at: Date, bytes: Int64, locations: Int, skipped: [String]) {
-            self.at = at
-            self.bytes = bytes
-            self.locations = locations
-            self.skipped = skipped
-        }
-    }
-
-    public func lastCleanupRun() throws -> CleanupRun? {
-        try dbQueue.read { db in
-            guard let seconds = Double(try AppSettingsStore.get(db, key: "last_cleanup_run_at", default: "")) else { return nil }
-            let skipped = try AppSettingsStore.get(db, key: "last_cleanup_run_skipped", default: "")
-            return CleanupRun(
-                at: Date(timeIntervalSince1970: seconds),
-                bytes: Int64(try AppSettingsStore.get(db, key: "last_cleanup_run_bytes", default: "0")) ?? 0,
-                locations: Int(try AppSettingsStore.get(db, key: "last_cleanup_run_locations", default: "0")) ?? 0,
-                skipped: skipped.isEmpty ? [] : skipped.components(separatedBy: "\n")
-            )
-        }
-    }
-
-    public func recordCleanupRun(_ run: CleanupRun) throws {
-        try dbQueue.write { db in
-            try AppSettingsStore.set(db, key: "last_cleanup_run_at", value: String(run.at.timeIntervalSince1970))
-            try AppSettingsStore.set(db, key: "last_cleanup_run_bytes", value: String(run.bytes))
-            try AppSettingsStore.set(db, key: "last_cleanup_run_locations", value: String(run.locations))
-            try AppSettingsStore.set(db, key: "last_cleanup_run_skipped", value: run.skipped.joined(separator: "\n"))
-        }
-    }
 
     /// How the last report attempt ended. Closes a gap the scheduler had:
     /// a send that keeps failing was retried with backoff, but nothing on
