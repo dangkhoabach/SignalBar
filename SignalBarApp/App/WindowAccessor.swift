@@ -14,7 +14,11 @@ final class HideInsteadOfCloseDelegate: NSObject, NSWindowDelegate {
         // tile for a window with no visible content. `NSApp.hide(nil)` is
         // the same mechanism as Cmd+H: the whole app (and its windows) is
         // excluded from Stage Manager/Mission Control/Cmd+Tab while hidden,
-        // which is what "hide instead of close" actually needs here.
+        // which is what "hide instead of close" actually needs here. The
+        // window is still ordered out first: a hidden app puts back every
+        // window it hid as soon as it shows any window, so opening the menu
+        // bar extra brought the main window back with it.
+        sender.orderOut(nil)
         NSApp.hide(nil)
         NSApp.setActivationPolicy(.accessory)
         return false
