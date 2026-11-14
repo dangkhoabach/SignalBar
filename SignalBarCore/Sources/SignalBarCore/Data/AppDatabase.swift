@@ -182,6 +182,184 @@ public struct AppDatabase: Sendable {
             )
         }
 
+        // Network: subnets, the devices found in them and how they were
+        // found. Every table is new and prefixed `network_`, so nothing that
+        // existed before is touched, and "delete all Network data" is a matter
+        // of emptying these tables.
+        //
+        // A device is unique by MAC within its subnet; one known only by
+        // address (seen through a router, no MAC) is unique by that address
+        // until a MAC turns up for it. Sightings are upserted per device,
+        // source and address rather than appended per scan, and IP history
+        // is one row per stretch of time on an address, so neither grows with
+        // the number of scans.
+        migrator.registerMigration("v5_network") { db in
+            try db.execute(sql: """
+                CREATE TABLE network_subnets (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    cidr TEXT NOT NULL UNIQUE,
+                    vlan_id INTEGER,
+                    notes TEXT,
+                    scan_enabled INTEGER NOT NULL DEFAULT 1,
+                    scan_interval_secs INTEGER NOT NULL DEFAULT 900,
+                    last_scan_at TEXT,
+                    last_scan_status TEXT,
+                    last_scan_mode TEXT,
+                    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+                );
+
+                CREATE TABLE network_devices (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    subnet_id INTEGER NOT NULL REFERENCES network_subnets(id) ON DELETE CASCADE,
+                    mac TEXT,
+                    current_ip TEXT,
+                    display_name TEXT,
+                    hostname TEXT,
+                    hostname_source TEXT,
+                    vendor TEXT,
+                    device_type TEXT NOT NULL DEFAULT 'unknown',
+                    notes TEXT,
+                    is_watched INTEGER NOT NULL DEFAULT 0,
+                    is_ignored INTEGER NOT NULL DEFAULT 0,
+                    ignore_conflicts INTEGER NOT NULL DEFAULT 0,
+                    state TEXT NOT NULL DEFAULT 'unknown',
+                    missed_scans INTEGER NOT NULL DEFAULT 0,
+                    vlan_id INTEGER,
+                    switch_name TEXT,
+                    switch_port TEXT,
+                    first_seen_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    last_seen_at TEXT,
+                    last_alert_kind TEXT,
+                    last_alert_sent_at TEXT
+                );
+                CREATE UNIQUE INDEX idx_network_devices_mac ON network_devices(subnet_id, mac) WHERE mac IS NOT NULL;
+                CREATE UNIQUE INDEX idx_network_devices_ip_only ON network_devices(subnet_id, current_ip)
+                    WHERE mac IS NULL AND current_ip IS NOT NULL;
+                CREATE INDEX idx_network_devices_ip ON network_devices(current_ip);
+
+                CREATE TABLE network_ip_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    device_id INTEGER NOT NULL REFERENCES network_devices(id) ON DELETE CASCADE,
+                    ip TEXT NOT NULL,
+                    first_seen_at TEXT NOT NULL,
+                    last_seen_at TEXT NOT NULL
+                );
+                CREATE INDEX idx_network_ip_history_device ON network_ip_history(device_id, last_seen_at DESC);
+                CREATE INDEX idx_network_ip_history_ip ON network_ip_history(ip, last_seen_at DESC);
+
+                CREATE TABLE network_sightings (
+                    device_id INTEGER NOT NULL REFERENCES network_devices(id) ON DELETE CASCADE,
+                    source TEXT NOT NULL,
+                    source_id INTEGER NOT NULL DEFAULT 0,
+                    ip TEXT NOT NULL DEFAULT '',
+                    first_seen_at TEXT NOT NULL,
+                    last_seen_at TEXT NOT NULL,
+                    PRIMARY KEY (device_id, source, source_id, ip)
+                );
+
+                CREATE TABLE network_sources (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    kind TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    host TEXT NOT NULL DEFAULT '',
+                    port INTEGER NOT NULL DEFAULT 161,
+                    username TEXT,
+                    snmp_version TEXT,
+                    auth_protocol TEXT,
+                    priv_protocol TEXT,
+                    roles INTEGER NOT NULL DEFAULT 0,
+                    lease_format TEXT,
+                    lease_path TEXT,
+                    remote_server_id INTEGER REFERENCES remote_servers(id) ON DELETE CASCADE,
+                    keychain_ref TEXT NOT NULL,
+                    tls_fingerprint TEXT,
+                    poll_interval_secs INTEGER NOT NULL DEFAULT 300,
+                    enabled INTEGER NOT NULL DEFAULT 1,
+                    consecutive_failures INTEGER NOT NULL DEFAULT 0,
+                    last_poll_at TEXT,
+                    last_success_at TEXT,
+                    last_error TEXT,
+                    sys_name TEXT,
+                    sys_descr TEXT,
+                    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+                );
+
+                CREATE TABLE network_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    device_id INTEGER REFERENCES network_devices(id) ON DELETE CASCADE,
+                    subnet_id INTEGER REFERENCES network_subnets(id) ON DELETE CASCADE,
+                    source_id INTEGER REFERENCES network_sources(id) ON DELETE CASCADE,
+                    kind TEXT NOT NULL,
+                    ip TEXT,
+                    detail TEXT,
+                    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+                );
+                CREATE INDEX idx_network_events_device ON network_events(device_id, created_at DESC);
+                CREATE INDEX idx_network_events_time ON network_events(created_at DESC);
+                CREATE INDEX idx_network_events_ip ON network_events(ip, kind, created_at DESC);
+
+                CREATE TABLE network_scans (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    subnet_id INTEGER NOT NULL REFERENCES network_subnets(id) ON DELETE CASCADE,
+                    trigger TEXT NOT NULL,
+                    mode TEXT,
+                    status TEXT NOT NULL,
+                    started_at TEXT NOT NULL,
+                    finished_at TEXT,
+                    hosts_probed INTEGER NOT NULL DEFAULT 0,
+                    hosts_found INTEGER NOT NULL DEFAULT 0
+                );
+                CREATE INDEX idx_network_scans_subnet ON network_scans(subnet_id, started_at DESC);
+
+                CREATE TABLE network_dhcp_leases (
+                    source_id INTEGER NOT NULL REFERENCES network_sources(id) ON DELETE CASCADE,
+                    ip TEXT NOT NULL,
+                    mac TEXT NOT NULL,
+                    hostname TEXT,
+                    ends_at TEXT,
+                    is_active INTEGER NOT NULL,
+                    is_reserved INTEGER NOT NULL DEFAULT 0,
+                    synced_at TEXT NOT NULL,
+                    PRIMARY KEY (source_id, ip)
+                );
+                CREATE INDEX idx_network_dhcp_leases_mac ON network_dhcp_leases(mac);
+
+                CREATE TABLE network_snmp_interfaces (
+                    source_id INTEGER NOT NULL REFERENCES network_sources(id) ON DELETE CASCADE,
+                    if_index INTEGER NOT NULL,
+                    name TEXT NOT NULL,
+                    alias TEXT,
+                    oper_status INTEGER,
+                    speed_mbps INTEGER,
+                    in_octets INTEGER,
+                    out_octets INTEGER,
+                    in_bps REAL,
+                    out_bps REAL,
+                    sampled_at TEXT NOT NULL,
+                    PRIMARY KEY (source_id, if_index)
+                );
+
+                CREATE TABLE network_snmp_samples (
+                    source_id INTEGER NOT NULL REFERENCES network_sources(id) ON DELETE CASCADE,
+                    if_index INTEGER NOT NULL,
+                    in_bps REAL NOT NULL,
+                    out_bps REAL NOT NULL,
+                    sampled_at TEXT NOT NULL
+                );
+                CREATE INDEX idx_network_snmp_samples ON network_snmp_samples(source_id, if_index, sampled_at);
+
+                CREATE TABLE network_port_results (
+                    device_id INTEGER NOT NULL REFERENCES network_devices(id) ON DELETE CASCADE,
+                    port INTEGER NOT NULL,
+                    state TEXT NOT NULL,
+                    latency_ms REAL,
+                    scanned_at TEXT NOT NULL,
+                    PRIMARY KEY (device_id, port)
+                );
+                """)
+        }
+
         return migrator
     }
 }

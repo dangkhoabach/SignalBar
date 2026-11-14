@@ -7,6 +7,7 @@ struct OverviewView: View {
     @State private var navigationPath = NavigationPath()
     @State private var renamingGroup: String?
     @State private var renameText = ""
+    @State private var prefill: AppNavigationState.Prefill?
 
     var body: some View {
         NavigationStack(path: $navigationPath) {
@@ -59,8 +60,14 @@ struct OverviewView: View {
             navigationPath.append(id)
             navigationState.pendingDetailTargetID = nil
         }
-        .sheet(isPresented: $viewModel.isPresentingAddSheet) {
-            TargetFormView(mode: .add) { input in viewModel.addTarget(input) }
+        .onChange(of: navigationState.pendingNewTarget, initial: true) { _, newValue in
+            guard let newValue else { return }
+            prefill = newValue
+            navigationState.pendingNewTarget = nil
+            viewModel.isPresentingAddSheet = true
+        }
+        .sheet(isPresented: $viewModel.isPresentingAddSheet, onDismiss: { prefill = nil }) {
+            TargetFormView(mode: .add, prefill: prefill) { input in viewModel.addTarget(input) }
         }
         .sheet(item: $viewModel.editingTarget) { target in
             TargetFormView(mode: .edit(target)) { input in

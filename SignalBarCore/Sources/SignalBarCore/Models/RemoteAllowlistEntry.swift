@@ -9,6 +9,8 @@ public enum RemoteAllowlistKind: String, Codable, Sendable {
     case service
     case nginxConfigPath = "nginx_config_path"
     case logPath = "log_path"
+    /// A DHCP server's lease file, read by the Network feature.
+    case dhcpLeaseFile = "dhcp_lease_file"
 }
 
 public struct RemoteAllowlistEntry: Codable, Identifiable, Equatable, Sendable {

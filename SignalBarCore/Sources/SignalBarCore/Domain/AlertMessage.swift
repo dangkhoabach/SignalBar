@@ -13,6 +13,14 @@ public enum AlertMessage: Sendable, Equatable {
     case domainExpiring(name: String, daysLeft: Int)
     /// `percent` comes from `RemoteResourceAlerts.wholePercent`.
     case remoteResourceHigh(server: String, resource: RemoteResource, percent: Int, thresholdPercent: Int)
+    /// `address` is the IP, followed by the manufacturer when one is known.
+    case networkNewDevice(name: String, address: String)
+    case networkDeviceOffline(name: String, address: String)
+    case networkDeviceBackOnline(name: String, address: String)
+    /// `devices` names the devices taking turns on the address.
+    case networkIPConflict(address: String, devices: String)
+    case networkSourceFailing(source: String, error: String)
+    case networkSourceRecovered(source: String)
 }
 
 /// Turns an alert into the title and body of a notification and of a
@@ -41,6 +49,18 @@ public struct EnglishAlertText: AlertTextLocalizing {
             ("Domain expires soon: \(name)", "\(daysLeft) days left")
         case .remoteResourceHigh(let server, let resource, let percent, let thresholdPercent):
             ("\(server): \(resource.label) is high", "\(percent)% (threshold \(thresholdPercent)%)")
+        case .networkNewDevice(let name, let address):
+            ("New device on the network: \(name)", address)
+        case .networkDeviceOffline(let name, let address):
+            ("\(name) left the network", address)
+        case .networkDeviceBackOnline(let name, let address):
+            ("\(name) is back on the network", address)
+        case .networkIPConflict(let address, let devices):
+            ("IP conflict on \(address)", devices)
+        case .networkSourceFailing(let source, let error):
+            ("Can't read \(source)", error)
+        case .networkSourceRecovered(let source):
+            ("\(source) can be read again", "Network data from it is up to date")
         }
     }
 }

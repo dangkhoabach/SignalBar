@@ -27,6 +27,10 @@ In scope:
   reading the verification token.
 - **Webhooks and checks:** a crafted response from a monitored site or webhook that makes the
   app run code or write outside its own data.
+- **Network:** scanning outside the subnets you added or outside private address ranges,
+  writing to a router, switch or DHCP server, reading a file over SSH other than an allowlisted
+  lease file, accepting a changed router certificate without asking, or leaking the SNMP or
+  router credentials it stores in the Keychain.
 - **Updates:** installing an update that is not signed with the release key.
 
 Out of scope:

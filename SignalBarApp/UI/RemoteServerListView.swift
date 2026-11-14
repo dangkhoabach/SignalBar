@@ -6,6 +6,7 @@ struct RemoteServerListView: View {
     @Bindable private var navigationState = AppNavigationState.shared
     @State private var navigationPath = NavigationPath()
     @State private var isPresentingBulkSheet = false
+    @State private var prefill: AppNavigationState.Prefill?
 
     var body: some View {
         NavigationStack(path: $navigationPath) {
@@ -81,8 +82,14 @@ struct RemoteServerListView: View {
         .sheet(isPresented: $isPresentingBulkSheet) {
             RemoteBulkActionSheet(servers: viewModel.servers)
         }
-        .sheet(isPresented: $viewModel.isPresentingAddSheet) {
-            RemoteServerFormView(mode: .add, onSave: { viewModel.addServer($0) })
+        .onChange(of: navigationState.pendingNewServer, initial: true) { _, newValue in
+            guard let newValue else { return }
+            prefill = newValue
+            navigationState.pendingNewServer = nil
+            viewModel.isPresentingAddSheet = true
+        }
+        .sheet(isPresented: $viewModel.isPresentingAddSheet, onDismiss: { prefill = nil }) {
+            RemoteServerFormView(mode: .add, prefill: prefill, onSave: { viewModel.addServer($0) })
         }
         .sheet(item: $viewModel.editingServer) { server in
             RemoteServerFormView(

@@ -122,7 +122,7 @@ final class RemoteServerDetailViewModel {
             switch action {
             case .serviceStart(let name), .serviceStop(let name), .serviceRestart(let name):
                 self?.refreshStatus(name)
-            case .serviceStatus, .nginxTest, .nginxReload, .tailLog, .diskUsage, .memoryUsage, .uptime, .cpuUsage, .osInfo:
+            case .serviceStatus, .nginxTest, .nginxReload, .tailLog, .diskUsage, .memoryUsage, .uptime, .cpuUsage, .osInfo, .readDHCPLeases:
                 break
             }
         }

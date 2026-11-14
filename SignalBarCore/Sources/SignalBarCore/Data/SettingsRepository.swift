@@ -43,6 +43,22 @@ public struct AppSettings: Equatable, Sendable {
     public var remoteCPUAlertThresholdPercent: Int
     public var remoteMemoryAlertThresholdPercent: Int
     public var remoteDiskAlertThresholdPercent: Int
+    /// Network: scan subnets and poll sources on their schedules. Off until
+    /// the user turns it on; a scan they start by hand runs either way.
+    public var networkMonitoringEnabled: Bool = false
+    public var networkScanOnNetworkChange: Bool = true
+    public var networkPauseOnBattery: Bool = false
+    public var networkResolveNames: Bool = true
+    public var networkAlertNewDevices: Bool = true
+    /// Offline and back-online, for devices marked Watch.
+    public var networkAlertWatchedDevices: Bool = true
+    public var networkAlertConflicts: Bool = true
+    public var networkAlertSourceFailures: Bool = true
+    /// Network alerts name devices on the LAN, so they reach the webhook
+    /// only when asked to, even with the webhook on.
+    public var networkWebhookEnabled: Bool = false
+    /// Lets a Network alert turn the menu bar icon red, as a down domain does.
+    public var networkInMenuBarStatus: Bool = false
     public static let defaults = AppSettings(
         notificationsEnabled: false,
         smtpEnabled: false,
@@ -81,6 +97,9 @@ public struct SettingsRepository: Sendable {
         func int(_ key: String, _ fallback: Int) throws -> Int {
             Int(try AppSettingsStore.get(db, key: key, default: String(fallback))) ?? fallback
         }
+        func flag(_ key: String, _ fallback: Bool) throws -> Bool {
+            try AppSettingsStore.get(db, key: key, default: fallback ? "1" : "0") == "1"
+        }
         return AppSettings(
             notificationsEnabled: try AppSettingsStore.get(db, key: "notifications_enabled", default: "0") == "1",
             smtpEnabled: try AppSettingsStore.get(db, key: "smtp_enabled", default: "0") == "1",
@@ -99,7 +118,17 @@ public struct SettingsRepository: Sendable {
             webhookURL: try AppSettingsStore.get(db, key: "webhook_url", default: d.webhookURL),
             remoteCPUAlertThresholdPercent: try int("remote_cpu_alert_threshold_percent", d.remoteCPUAlertThresholdPercent),
             remoteMemoryAlertThresholdPercent: try int("remote_memory_alert_threshold_percent", d.remoteMemoryAlertThresholdPercent),
-            remoteDiskAlertThresholdPercent: try int("remote_disk_alert_threshold_percent", d.remoteDiskAlertThresholdPercent)
+            remoteDiskAlertThresholdPercent: try int("remote_disk_alert_threshold_percent", d.remoteDiskAlertThresholdPercent),
+            networkMonitoringEnabled: try flag("network_monitoring_enabled", d.networkMonitoringEnabled),
+            networkScanOnNetworkChange: try flag("network_scan_on_network_change", d.networkScanOnNetworkChange),
+            networkPauseOnBattery: try flag("network_pause_on_battery", d.networkPauseOnBattery),
+            networkResolveNames: try flag("network_resolve_names", d.networkResolveNames),
+            networkAlertNewDevices: try flag("network_alert_new_devices", d.networkAlertNewDevices),
+            networkAlertWatchedDevices: try flag("network_alert_watched_devices", d.networkAlertWatchedDevices),
+            networkAlertConflicts: try flag("network_alert_conflicts", d.networkAlertConflicts),
+            networkAlertSourceFailures: try flag("network_alert_source_failures", d.networkAlertSourceFailures),
+            networkWebhookEnabled: try flag("network_webhook_enabled", d.networkWebhookEnabled),
+            networkInMenuBarStatus: try flag("network_in_menu_bar_status", d.networkInMenuBarStatus)
         )
     }
 
@@ -123,6 +152,21 @@ public struct SettingsRepository: Sendable {
             try AppSettingsStore.set(db, key: "remote_cpu_alert_threshold_percent", value: String(settings.remoteCPUAlertThresholdPercent))
             try AppSettingsStore.set(db, key: "remote_memory_alert_threshold_percent", value: String(settings.remoteMemoryAlertThresholdPercent))
             try AppSettingsStore.set(db, key: "remote_disk_alert_threshold_percent", value: String(settings.remoteDiskAlertThresholdPercent))
+            let flags: [(String, Bool)] = [
+                ("network_monitoring_enabled", settings.networkMonitoringEnabled),
+                ("network_scan_on_network_change", settings.networkScanOnNetworkChange),
+                ("network_pause_on_battery", settings.networkPauseOnBattery),
+                ("network_resolve_names", settings.networkResolveNames),
+                ("network_alert_new_devices", settings.networkAlertNewDevices),
+                ("network_alert_watched_devices", settings.networkAlertWatchedDevices),
+                ("network_alert_conflicts", settings.networkAlertConflicts),
+                ("network_alert_source_failures", settings.networkAlertSourceFailures),
+                ("network_webhook_enabled", settings.networkWebhookEnabled),
+                ("network_in_menu_bar_status", settings.networkInMenuBarStatus),
+            ]
+            for (key, value) in flags {
+                try AppSettingsStore.set(db, key: key, value: value ? "1" : "0")
+            }
         }
     }
 }

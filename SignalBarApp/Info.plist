@@ -22,6 +22,8 @@
 	<string>2.3.0</string>
 	<key>LSUIElement</key>
 	<false/>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>SignalBar finds the devices on the networks you add under Network, and reads routers, switches and DHCP servers you set up there.</string>
 	<key>SUFeedURL</key>
 	<string>https://updates.dangkhoabach.vn/dkb-monitor/appcast.xml</string>
 	<key>SUPublicEDKey</key>

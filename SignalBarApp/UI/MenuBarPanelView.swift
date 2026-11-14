@@ -32,6 +32,10 @@ private struct MenuBarPanelContent: View {
             header
             Divider()
             domains
+            if let network = model.network {
+                Divider()
+                NetworkPanelRow(summary: network)
+            }
             Divider()
             footer
         }
@@ -105,6 +109,48 @@ private struct MenuBarPanelContent: View {
         .foregroundStyle(.secondary)
         .help(title)
         .accessibilityLabel(title)
+    }
+}
+
+/// One line for the Network feature: devices online, and what needs a look.
+/// Opens the Devices page.
+private struct NetworkPanelRow: View {
+    let summary: NetworkRepository.Summary
+    @State private var isHovered = false
+
+    var body: some View {
+        Button {
+            StatusBarController.shared.closePanel()
+            AppNavigationState.shared.sidebarSelection = .networkDevices
+            WindowPresenter.showMainWindow()
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "laptopcomputer.and.iphone").foregroundStyle(.secondary)
+                Text("Network: \(summary.online)/\(summary.devices) online")
+                Spacer(minLength: 0)
+                if summary.conflictsRecently > 0 {
+                    Label { Text(summary.conflictsRecently, format: .number) } icon: { Image(systemName: "exclamationmark.triangle.fill") }
+                        .foregroundStyle(.orange)
+                        .help("IP conflicts today")
+                }
+                if summary.watchedOffline > 0 {
+                    Label { Text(summary.watchedOffline, format: .number) } icon: { Image(systemName: "eye.slash") }
+                        .foregroundStyle(.red)
+                        .help("Watched devices offline")
+                }
+                if summary.newRecently > 0 {
+                    Text("\(summary.newRecently) new").foregroundStyle(Color.accentColor)
+                }
+            }
+            .font(.callout)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .contentShape(Rectangle())
+            .background(isHovered ? Color.primary.opacity(0.08) : .clear, in: RoundedRectangle(cornerRadius: 6))
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
+        .padding(6)
     }
 }
 

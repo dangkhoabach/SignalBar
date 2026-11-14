@@ -11,6 +11,10 @@ public enum KeychainSecretKind: String, Sendable {
     /// to its verified address. Not an SSH secret, so it is stored under its
     /// own service (see `KeychainStore.init`) rather than alongside them.
     case emailRelayToken
+    /// Network sources' secrets, under `KeychainStore.networkService`.
+    case snmpCommunity, snmpAuthPassword, snmpPrivPassword, routerPassword
+
+    public static let networkKinds: [KeychainSecretKind] = [.snmpCommunity, .snmpAuthPassword, .snmpPrivPassword, .routerPassword]
 }
 
 public enum KeychainStoreError: Error, Sendable, Equatable {
@@ -71,6 +75,7 @@ public protocol KeychainStoring: Sendable {
 public struct KeychainStore: KeychainStoring, Sendable {
     public static let remoteSSHService = "com.dangkhoabach.dkb-monitor.remote-ssh"
     public static let emailRelayService = "com.dangkhoabach.dkb-monitor.email-relay"
+    public static let networkService = "com.dangkhoabach.dkb-monitor.network"
 
     private let service: String
 

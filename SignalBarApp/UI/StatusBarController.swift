@@ -34,10 +34,11 @@ final class StatusBarController: NSObject, NSWindowDelegate {
     }
 
     /// The pulse while everything is up; a red warning triangle while a
-    /// domain is down, so a problem shows without opening the panel.
+    /// domain is down (or a Network problem, if asked for), so a problem
+    /// shows without opening the panel.
     private func updateIcon() {
         let down = withObservationTracking {
-            MenuBarStatusViewModel.shared.hasDownTargets
+            MenuBarStatusViewModel.shared.showsWarning
         } onChange: {
             Task { @MainActor [weak self] in self?.updateIcon() }
         }

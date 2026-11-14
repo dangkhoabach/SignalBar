@@ -34,13 +34,16 @@ public enum RemoteAction: Sendable, Equatable {
     case cpuUsage
     /// `uname -sr` + `/etc/os-release`'s `PRETTY_NAME`.
     case osInfo
+    /// `cat <path>` of a DHCP lease file — read-only, `path` must be in the
+    /// server's `.dhcpLeaseFile` allowlist.
+    case readDHCPLeases(path: String)
 
     /// Whether this action changes server state — governs which Keychain
     /// read (`readForMutatingAction` vs `readForStatusCheck`) is used, and
     /// the UI requires a confirm dialog before calling it.
     public var isMutating: Bool {
         switch self {
-        case .serviceStatus, .nginxTest, .tailLog, .diskUsage, .memoryUsage, .uptime, .cpuUsage, .osInfo: false
+        case .serviceStatus, .nginxTest, .tailLog, .diskUsage, .memoryUsage, .uptime, .cpuUsage, .osInfo, .readDHCPLeases: false
         case .serviceStart, .serviceStop, .serviceRestart, .nginxReload: true
         }
     }
@@ -62,13 +65,14 @@ public enum RemoteAction: Sendable, Equatable {
         case .uptime: "uptime"
         case .cpuUsage: "cpuUsage"
         case .osInfo: "osInfo"
+        case .readDHCPLeases(let path): "readDHCPLeases(\(path))"
         }
     }
 
     /// Shown in the UI's confirm dialog before a mutating action runs.
     public var confirmationMessage: String? {
         switch self {
-        case .serviceStatus, .nginxTest, .tailLog, .diskUsage, .memoryUsage, .uptime, .cpuUsage, .osInfo: nil
+        case .serviceStatus, .nginxTest, .tailLog, .diskUsage, .memoryUsage, .uptime, .cpuUsage, .osInfo, .readDHCPLeases: nil
         case .serviceStart(let name): "Start the \(name) service?"
         case .serviceStop(let name): "Stop the \(name) service? This may take the server offline."
         case .serviceRestart(let name): "Restart the \(name) service? This may cause a brief interruption."

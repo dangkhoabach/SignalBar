@@ -3025,6 +3025,2666 @@
           }
         }
       }
+    },
+    "%@ can be read again" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đã đọc lại được %@"
+          }
+        }
+      }
+    },
+    "%@ is back on the network" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ đã có mặt lại trên mạng"
+          }
+        }
+      }
+    },
+    "%@ left the network" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ đã rời mạng"
+          }
+        }
+      }
+    },
+    "%@: %lld addresses" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@: %lld địa chỉ"
+          }
+        }
+      }
+    },
+    "%lld new" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld mới"
+          }
+        }
+      }
+    },
+    "%lld online of %lld" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld trực tuyến trên %lld"
+          }
+        }
+      }
+    },
+    "%lld open, %lld closed or filtered · %@" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld mở, %lld đóng hoặc bị chặn · %@"
+          }
+        }
+      }
+    },
+    "(stale)" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(cũ)"
+          }
+        }
+      }
+    },
+    "6 hours" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "6 giờ"
+          }
+        }
+      }
+    },
+    "A plain TCP connection to each port, only when you ask. Nothing is probed beyond whether the port accepts a connection." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chỉ thử kết nối TCP tới từng cổng, và chỉ khi bạn yêu cầu. Không dò gì thêm ngoài việc cổng có nhận kết nối hay không."
+          }
+        }
+      }
+    },
+    "A subnet this Mac is on is scanned directly and finds every device, even ones that block ping. Others are pinged through the router; add the router over SNMP to see their MAC addresses." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mạng con mà máy Mac này đang ở được quét trực tiếp và thấy mọi thiết bị, kể cả thiết bị chặn ping. Mạng con khác được ping qua router; thêm router qua SNMP để thấy địa chỉ MAC của thiết bị."
+          }
+        }
+      }
+    },
+    "ARP from this Mac" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ARP từ máy Mac này"
+          }
+        }
+      }
+    },
+    "ARP table: the devices of every VLAN it routes" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bảng ARP: thiết bị của mọi VLAN mà nó định tuyến"
+          }
+        }
+      }
+    },
+    "Access" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Truy cập"
+          }
+        }
+      }
+    },
+    "Access point" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Điểm truy cập"
+          }
+        }
+      }
+    },
+    "Actions" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thao tác"
+          }
+        }
+      }
+    },
+    "Active lease" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lease đang dùng"
+          }
+        }
+      }
+    },
+    "Activity" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hoạt động"
+          }
+        }
+      }
+    },
+    "Add %@ (this Mac's network)" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thêm %@ (mạng của máy Mac này)"
+          }
+        }
+      }
+    },
+    "Add Subnet…" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thêm mạng con…"
+          }
+        }
+      }
+    },
+    "Add the DHCP server in the Server Manager first." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hãy thêm máy chủ DHCP vào Quản lý máy chủ trước."
+          }
+        }
+      }
+    },
+    "Add the subnets you manage. SignalBar finds the devices in them from this Mac, and from routers, switches and DHCP servers you add under Networks." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thêm các mạng con bạn quản lý. SignalBar tìm thiết bị trong đó từ máy Mac này, và từ router, switch, máy chủ DHCP bạn thêm ở mục Mạng & nguồn."
+          }
+        }
+      }
+    },
+    "Add to Server Manager…" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thêm vào Quản lý máy chủ…"
+          }
+        }
+      }
+    },
+    "Address" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Địa chỉ"
+          }
+        }
+      }
+    },
+    "Address changed" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đổi địa chỉ"
+          }
+        }
+      }
+    },
+    "Address history" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lịch sử địa chỉ"
+          }
+        }
+      }
+    },
+    "Alerts" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cảnh báo"
+          }
+        }
+      }
+    },
+    "Alerts need notifications to be on. A device's first scan is its starting point: only devices that appear after it count as new." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cảnh báo cần bật thông báo. Lần quét đầu tiên là điểm xuất phát: chỉ thiết bị xuất hiện sau đó mới được tính là mới."
+          }
+        }
+      }
+    },
+    "All" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tất cả"
+          }
+        }
+      }
+    },
+    "All networks" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mọi mạng"
+          }
+        }
+      }
+    },
+    "Also send them to the webhook" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gửi cả qua webhook"
+          }
+        }
+      }
+    },
+    "Assigned" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đã cấp"
+          }
+        }
+      }
+    },
+    "Authentication password" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mật khẩu xác thực"
+          }
+        }
+      }
+    },
+    "Back online" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trực tuyến trở lại"
+          }
+        }
+      }
+    },
+    "Bonjour (mDNS)" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bonjour (mDNS)"
+          }
+        }
+      }
+    },
+    "CSV" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CSV"
+          }
+        }
+      }
+    },
+    "Camera" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Camera"
+          }
+        }
+      }
+    },
+    "Can't read %@" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không đọc được %@"
+          }
+        }
+      }
+    },
+    "Cancelled" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đã hủy"
+          }
+        }
+      }
+    },
+    "Choose…" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chọn…"
+          }
+        }
+      }
+    },
+    "Common ports" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cổng phổ biến"
+          }
+        }
+      }
+    },
+    "Community" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Community"
+          }
+        }
+      }
+    },
+    "Computer" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Máy tính"
+          }
+        }
+      }
+    },
+    "Conflict" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Xung đột"
+          }
+        }
+      }
+    },
+    "Conflicts" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Xung đột"
+          }
+        }
+      }
+    },
+    "Connected: %@" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đã kết nối: %@"
+          }
+        }
+      }
+    },
+    "Connected: %@ active leases" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đã kết nối: %@ lease đang dùng"
+          }
+        }
+      }
+    },
+    "Core switch, Main router…" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Switch lõi, Router chính…"
+          }
+        }
+      }
+    },
+    "DHCP" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DHCP"
+          }
+        }
+      }
+    },
+    "DHCP Leases from a File…" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lease DHCP từ tệp…"
+          }
+        }
+      }
+    },
+    "DHCP Server over SSH…" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Máy chủ DHCP qua SSH…"
+          }
+        }
+      }
+    },
+    "DHCP lease" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lease DHCP"
+          }
+        }
+      }
+    },
+    "DHCP reservation" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đặt trước DHCP"
+          }
+        }
+      }
+    },
+    "DHCP server over SSH" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Máy chủ DHCP qua SSH"
+          }
+        }
+      }
+    },
+    "Delete %@?" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Xóa %@?"
+          }
+        }
+      }
+    },
+    "Delete All Network Data" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Xóa toàn bộ dữ liệu Mạng"
+          }
+        }
+      }
+    },
+    "Delete All Network Data…" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Xóa toàn bộ dữ liệu Mạng…"
+          }
+        }
+      }
+    },
+    "Delete Device…" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Xóa thiết bị…"
+          }
+        }
+      }
+    },
+    "Delete all Network data?" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Xóa toàn bộ dữ liệu Mạng?"
+          }
+        }
+      }
+    },
+    "Delete the selected devices?" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Xóa các thiết bị đã chọn?"
+          }
+        }
+      }
+    },
+    "Delete this device?" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Xóa thiết bị này?"
+          }
+        }
+      }
+    },
+    "Delete…" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Xóa…"
+          }
+        }
+      }
+    },
+    "Device" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thiết bị"
+          }
+        }
+      }
+    },
+    "Device not found" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không tìm thấy thiết bị"
+          }
+        }
+      }
+    },
+    "Devices" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thiết bị"
+          }
+        }
+      }
+    },
+    "Direction" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chiều"
+          }
+        }
+      }
+    },
+    "Each subnet and source keeps its own interval. Scans you start by hand run either way." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mỗi mạng con và nguồn có chu kỳ riêng. Lần quét bạn tự bấm vẫn chạy dù tắt mục này."
+          }
+        }
+      }
+    },
+    "Entered by hand" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nhập tay"
+          }
+        }
+      }
+    },
+    "Every" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mỗi"
+          }
+        }
+      }
+    },
+    "Every device found in it, with its history, is deleted too." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mọi thiết bị tìm thấy trong đó, cùng lịch sử, cũng bị xóa."
+          }
+        }
+      }
+    },
+    "Every subnet, device, address history and source goes, with the sources' stored passwords. Domains and servers are not touched. This can't be undone." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mọi mạng con, thiết bị, lịch sử địa chỉ và nguồn sẽ bị xóa, cùng mật khẩu đã lưu của các nguồn. Domain và máy chủ không bị ảnh hưởng. Không thể hoàn tác."
+          }
+        }
+      }
+    },
+    "Expired lease" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lease đã hết hạn"
+          }
+        }
+      }
+    },
+    "Export CSV…" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Xuất CSV…"
+          }
+        }
+      }
+    },
+    "Filter" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lọc"
+          }
+        }
+      }
+    },
+    "Find Its Subnets" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tìm các mạng con của nó"
+          }
+        }
+      }
+    },
+    "First seen" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thấy lần đầu"
+          }
+        }
+      }
+    },
+    "For a DHCP server SignalBar can't reach, or a list of reservations: export it to a file and import it from this source's menu." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dành cho máy chủ DHCP mà SignalBar không truy cập được, hoặc một danh sách đặt trước: xuất ra tệp rồi nhập từ menu của nguồn này."
+          }
+        }
+      }
+    },
+    "Format" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Định dạng"
+          }
+        }
+      }
+    },
+    "Free" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trống"
+          }
+        }
+      }
+    },
+    "Free means nothing answered on this Mac's own network at the last scan. A device that is switched off looks the same, so check before handing out an address by hand." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trống nghĩa là không có gì trả lời trên mạng của máy Mac này ở lần quét gần nhất. Thiết bị đang tắt cũng trông như vậy, nên hãy kiểm tra trước khi tự cấp địa chỉ."
+          }
+        }
+      }
+    },
+    "Hide from the List" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ẩn khỏi danh sách"
+          }
+        }
+      }
+    },
+    "Hide from the device list" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ẩn khỏi danh sách thiết bị"
+          }
+        }
+      }
+    },
+    "Hostname" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hostname"
+          }
+        }
+      }
+    },
+    "IP" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "IP"
+          }
+        }
+      }
+    },
+    "IP Addresses" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Địa chỉ IP"
+          }
+        }
+      }
+    },
+    "IP address" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Địa chỉ IP"
+          }
+        }
+      }
+    },
+    "IP conflict" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Xung đột IP"
+          }
+        }
+      }
+    },
+    "IP conflict on %@" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Xung đột IP tại %@"
+          }
+        }
+      }
+    },
+    "IP conflicts" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Xung đột IP"
+          }
+        }
+      }
+    },
+    "IP conflicts today" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Xung đột IP hôm nay"
+          }
+        }
+      }
+    },
+    "ISC dhcpd (pfSense)" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ISC dhcpd (pfSense)"
+          }
+        }
+      }
+    },
+    "Import File…" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nhập tệp…"
+          }
+        }
+      }
+    },
+    "Imported %lld leases." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đã nhập %lld lease."
+          }
+        }
+      }
+    },
+    "Imported leases" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lease đã nhập"
+          }
+        }
+      }
+    },
+    "In" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vào"
+          }
+        }
+      }
+    },
+    "In use" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đang dùng"
+          }
+        }
+      }
+    },
+    "Interfaces" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cổng giao tiếp"
+          }
+        }
+      }
+    },
+    "Interfaces: status and traffic" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cổng giao tiếp: trạng thái và lưu lượng"
+          }
+        }
+      }
+    },
+    "It was deleted or merged into another device." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thiết bị đã bị xóa hoặc đã gộp vào thiết bị khác."
+          }
+        }
+      }
+    },
+    "Its address is shared on purpose (VRRP, cluster): no conflict alerts" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Địa chỉ được dùng chung có chủ đích (VRRP, cluster): không cảnh báo xung đột"
+          }
+        }
+      }
+    },
+    "Its history goes too. If it is still on the network, the next scan finds it again as a new device." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lịch sử của nó cũng bị xóa. Nếu thiết bị vẫn còn trên mạng, lần quét sau sẽ tìm thấy lại như một thiết bị mới."
+          }
+        }
+      }
+    },
+    "Its stored password or community is removed from the Keychain. Devices it found stay in the list." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mật khẩu hoặc community đã lưu sẽ bị xóa khỏi Keychain. Các thiết bị nó đã tìm thấy vẫn ở lại trong danh sách."
+          }
+        }
+      }
+    },
+    "Kea" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kea"
+          }
+        }
+      }
+    },
+    "Last error" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lỗi gần nhất"
+          }
+        }
+      }
+    },
+    "Last scan %@" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lần quét gần nhất %@"
+          }
+        }
+      }
+    },
+    "Last seen" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thấy gần nhất"
+          }
+        }
+      }
+    },
+    "Lease file" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tệp lease"
+          }
+        }
+      }
+    },
+    "List" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Danh sách"
+          }
+        }
+      }
+    },
+    "Local Network access" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Truy cập Mạng cục bộ"
+          }
+        }
+      }
+    },
+    "Local Network access is off" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Truy cập Mạng cục bộ đang tắt"
+          }
+        }
+      }
+    },
+    "Local Network access is off: allow it…" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Truy cập Mạng cục bộ đang tắt: cho phép…"
+          }
+        }
+      }
+    },
+    "Local network" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mạng cục bộ"
+          }
+        }
+      }
+    },
+    "Look up device names (DNS, Bonjour)" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tra tên thiết bị (DNS, Bonjour)"
+          }
+        }
+      }
+    },
+    "MAC" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MAC"
+          }
+        }
+      }
+    },
+    "MAC address" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Địa chỉ MAC"
+          }
+        }
+      }
+    },
+    "MAC table: which VLAN and port each device is on" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bảng MAC: mỗi thiết bị ở VLAN và cổng nào"
+          }
+        }
+      }
+    },
+    "Manufacturer" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hãng sản xuất"
+          }
+        }
+      }
+    },
+    "Map" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bản đồ"
+          }
+        }
+      }
+    },
+    "Merge" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gộp"
+          }
+        }
+      }
+    },
+    "Merge into %@?" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gộp vào %@?"
+          }
+        }
+      }
+    },
+    "Merge into…" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gộp vào…"
+          }
+        }
+      }
+    },
+    "Merged with another device" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đã gộp với thiết bị khác"
+          }
+        }
+      }
+    },
+    "MikroTik Router (DHCP)…" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Router MikroTik (DHCP)…"
+          }
+        }
+      }
+    },
+    "MikroTik router" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Router MikroTik"
+          }
+        }
+      }
+    },
+    "Monitor as a Domain…" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Theo dõi như một domain…"
+          }
+        }
+      }
+    },
+    "More ports" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nhiều cổng hơn"
+          }
+        }
+      }
+    },
+    "Network" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mạng"
+          }
+        }
+      }
+    },
+    "Network alerts carry device names and MAC addresses from your network to the webhook's service." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cảnh báo Mạng mang tên thiết bị và địa chỉ MAC trong mạng của bạn tới dịch vụ của webhook."
+          }
+        }
+      }
+    },
+    "Network data from it is up to date" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dữ liệu mạng từ nguồn này đã được cập nhật"
+          }
+        }
+      }
+    },
+    "Network: %lld/%lld online" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mạng: %lld/%lld trực tuyến"
+          }
+        }
+      }
+    },
+    "Networks" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mạng & nguồn"
+          }
+        }
+      }
+    },
+    "Never on the network" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chưa từng có mặt trên mạng"
+          }
+        }
+      }
+    },
+    "New" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mới"
+          }
+        }
+      }
+    },
+    "New device on the network: %@" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thiết bị mới trên mạng: %@"
+          }
+        }
+      }
+    },
+    "New devices" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thiết bị mới"
+          }
+        }
+      }
+    },
+    "New today" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mới hôm nay"
+          }
+        }
+      }
+    },
+    "No address recorded yet." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chưa ghi nhận địa chỉ nào."
+          }
+        }
+      }
+    },
+    "No address to scan." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không có địa chỉ để quét."
+          }
+        }
+      }
+    },
+    "No devices yet" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chưa có thiết bị"
+          }
+        }
+      }
+    },
+    "No file imported yet" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chưa nhập tệp nào"
+          }
+        }
+      }
+    },
+    "No networks yet" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chưa có mạng nào"
+          }
+        }
+      }
+    },
+    "No new subnets found on %@." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không tìm thấy mạng con mới trên %@."
+          }
+        }
+      }
+    },
+    "No route from this Mac" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Máy Mac này không có đường tới"
+          }
+        }
+      }
+    },
+    "No sources yet. A router read over SNMP shows the devices of every VLAN it routes, with their MAC addresses; a DHCP server shows who was given which address." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chưa có nguồn nào. Router đọc qua SNMP cho thấy thiết bị của mọi VLAN nó định tuyến, kèm địa chỉ MAC; máy chủ DHCP cho thấy ai được cấp địa chỉ nào."
+          }
+        }
+      }
+    },
+    "No subnets yet. Add the ones you manage; only those are ever scanned." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chưa có mạng con. Hãy thêm những mạng bạn quản lý; chỉ các mạng đó mới được quét."
+          }
+        }
+      }
+    },
+    "Not enough readings yet." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chưa đủ dữ liệu."
+          }
+        }
+      }
+    },
+    "Not read yet" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chưa đọc"
+          }
+        }
+      }
+    },
+    "Not scanned from this Mac" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không quét từ máy Mac này"
+          }
+        }
+      }
+    },
+    "Not scanned yet" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chưa quét"
+          }
+        }
+      }
+    },
+    "Not seen" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chưa thấy"
+          }
+        }
+      }
+    },
+    "Notes" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ghi chú"
+          }
+        }
+      }
+    },
+    "Nothing yet." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chưa có gì."
+          }
+        }
+      }
+    },
+    "Office LAN, Cameras, Guest Wi-Fi…" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LAN văn phòng, Camera, Wi-Fi khách…"
+          }
+        }
+      }
+    },
+    "Offline" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ngoại tuyến"
+          }
+        }
+      }
+    },
+    "Online" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trực tuyến"
+          }
+        }
+      }
+    },
+    "Open Privacy Settings…" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mở cài đặt Quyền riêng tư…"
+          }
+        }
+      }
+    },
+    "Open ports" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cổng đang mở"
+          }
+        }
+      }
+    },
+    "Optional" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không bắt buộc"
+          }
+        }
+      }
+    },
+    "Other" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Khác"
+          }
+        }
+      }
+    },
+    "Out" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ra"
+          }
+        }
+      }
+    },
+    "Pause while on battery" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tạm dừng khi dùng pin"
+          }
+        }
+      }
+    },
+    "Phone" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Điện thoại"
+          }
+        }
+      }
+    },
+    "Ping" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ping"
+          }
+        }
+      }
+    },
+    "Port closed" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cổng đã đóng"
+          }
+        }
+      }
+    },
+    "Port opened" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cổng đã mở"
+          }
+        }
+      }
+    },
+    "Ports, e.g. 22, 8000-8010" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cổng, ví dụ 22, 8000-8010"
+          }
+        }
+      }
+    },
+    "Printer" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Máy in"
+          }
+        }
+      }
+    },
+    "Privacy" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mã hóa"
+          }
+        }
+      }
+    },
+    "Privacy password" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mật khẩu mã hóa"
+          }
+        }
+      }
+    },
+    "Private address, set by the device itself" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Địa chỉ riêng tư, do chính thiết bị đặt"
+          }
+        }
+      }
+    },
+    "Private address: the device hides its hardware address, and may change it" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Địa chỉ riêng tư: thiết bị ẩn địa chỉ phần cứng và có thể đổi nó"
+          }
+        }
+      }
+    },
+    "Rates are averaged between two readings. Click an interface for its last 24 hours." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tốc độ là trung bình giữa hai lần đọc. Bấm vào một cổng để xem 24 giờ qua."
+          }
+        }
+      }
+    },
+    "Read" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đã đọc"
+          }
+        }
+      }
+    },
+    "Read Now" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đọc ngay"
+          }
+        }
+      }
+    },
+    "Read every" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đọc mỗi"
+          }
+        }
+      }
+    },
+    "Read on a schedule" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đọc theo lịch"
+          }
+        }
+      }
+    },
+    "Read only: SignalBar never changes anything on the device. Uses standard MIB-2 tables, so most routers and managed switches work." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chỉ đọc: SignalBar không bao giờ thay đổi gì trên thiết bị. Dùng các bảng MIB-2 chuẩn nên hầu hết router và switch quản lý được đều dùng được."
+          }
+        }
+      }
+    },
+    "Reads the lease file over SSH with a server from the Server Manager, using its stored key. The file is added to that server's allowlist; nothing else can be read." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đọc tệp lease qua SSH bằng một máy chủ trong Quản lý máy chủ, dùng khóa đã lưu của nó. Tệp này được thêm vào danh sách cho phép của máy chủ đó; không đọc được gì khác."
+          }
+        }
+      }
+    },
+    "Reserved" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đặt trước"
+          }
+        }
+      }
+    },
+    "Reverse DNS" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reverse DNS"
+          }
+        }
+      }
+    },
+    "Router" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Router"
+          }
+        }
+      }
+    },
+    "Router ARP table (SNMP)" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bảng ARP của router (SNMP)"
+          }
+        }
+      }
+    },
+    "Router or Switch (SNMP)…" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Router hoặc switch (SNMP)…"
+          }
+        }
+      }
+    },
+    "RouterOS 7's REST API over HTTPS. The router's certificate is trusted the first time and must not change afterwards." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "REST API của RouterOS 7 qua HTTPS. Chứng chỉ của router được tin cậy ở lần đầu và không được thay đổi sau đó."
+          }
+        }
+      }
+    },
+    "Routers, switches and DHCP" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Router, switch và DHCP"
+          }
+        }
+      }
+    },
+    "Routers, switches or DHCP servers that can't be read" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Router, switch hoặc máy chủ DHCP không đọc được"
+          }
+        }
+      }
+    },
+    "SNMP device" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thiết bị SNMP"
+          }
+        }
+      }
+    },
+    "Scan" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quét"
+          }
+        }
+      }
+    },
+    "Scan All" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quét tất cả"
+          }
+        }
+      }
+    },
+    "Scan Now" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quét ngay"
+          }
+        }
+      }
+    },
+    "Scan a subnet, or add a router, switch or DHCP server under Networks." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hãy quét một mạng con, hoặc thêm router, switch, máy chủ DHCP ở mục Mạng & nguồn."
+          }
+        }
+      }
+    },
+    "Scan again when this Mac joins another network" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quét lại khi máy Mac này vào mạng khác"
+          }
+        }
+      }
+    },
+    "Scan and read sources automatically" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tự động quét và đọc các nguồn"
+          }
+        }
+      }
+    },
+    "Scan every subnet this Mac scans" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quét mọi mạng con mà máy Mac này quét"
+          }
+        }
+      }
+    },
+    "Scan from this Mac" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quét từ máy Mac này"
+          }
+        }
+      }
+    },
+    "Scanned" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đã quét"
+          }
+        }
+      }
+    },
+    "Scanning" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quét"
+          }
+        }
+      }
+    },
+    "Scanning…" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đang quét…"
+          }
+        }
+      }
+    },
+    "Search IP, MAC, name" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tìm IP, MAC, tên"
+          }
+        }
+      }
+    },
+    "Seen by" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Được thấy bởi"
+          }
+        }
+      }
+    },
+    "Seen on the network" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đã thấy trên mạng"
+          }
+        }
+      }
+    },
+    "Show" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hiện"
+          }
+        }
+      }
+    },
+    "Show Details" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Xem chi tiết"
+          }
+        }
+      }
+    },
+    "Show in the List" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hiện trong danh sách"
+          }
+        }
+      }
+    },
+    "Show interfaces that are down" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hiện các cổng đang down"
+          }
+        }
+      }
+    },
+    "Smart device" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thiết bị thông minh"
+          }
+        }
+      }
+    },
+    "Source" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nguồn"
+          }
+        }
+      }
+    },
+    "Source can be read again" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đã đọc lại được nguồn"
+          }
+        }
+      }
+    },
+    "Source can't be read" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không đọc được nguồn"
+          }
+        }
+      }
+    },
+    "Stale" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cũ"
+          }
+        }
+      }
+    },
+    "State" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trạng thái"
+          }
+        }
+      }
+    },
+    "Stop Watching" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ngừng theo dõi"
+          }
+        }
+      }
+    },
+    "Stored; leave empty to keep it" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đã lưu; để trống để giữ nguyên"
+          }
+        }
+      }
+    },
+    "Subnet" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mạng con"
+          }
+        }
+      }
+    },
+    "Subnets" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mạng con"
+          }
+        }
+      }
+    },
+    "Subnets, devices, history and sources are kept on this Mac only. Passwords and communities are in the Keychain." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mạng con, thiết bị, lịch sử và nguồn chỉ lưu trên máy Mac này. Mật khẩu và community nằm trong Keychain."
+          }
+        }
+      }
+    },
+    "Subnet…" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mạng con…"
+          }
+        }
+      }
+    },
+    "Suggested" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gợi ý"
+          }
+        }
+      }
+    },
+    "Switch" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Switch"
+          }
+        }
+      }
+    },
+    "Switch MAC table (SNMP)" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bảng MAC của switch (SNMP)"
+          }
+        }
+      }
+    },
+    "Switch port" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cổng switch"
+          }
+        }
+      }
+    },
+    "TCP" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TCP"
+          }
+        }
+      }
+    },
+    "TV" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TV"
+          }
+        }
+      }
+    },
+    "Tablet" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Máy tính bảng"
+          }
+        }
+      }
+    },
+    "Test Connection" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kiểm tra kết nối"
+          }
+        }
+      }
+    },
+    "The VLAN ID is a label for you. It doesn't let this Mac reach a VLAN it isn't on." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VLAN ID chỉ là nhãn để bạn ghi nhớ. Nó không giúp máy Mac này truy cập một VLAN mà nó không ở trong."
+          }
+        }
+      }
+    },
+    "The lease file must be an absolute path without spaces or \"..\"." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tệp lease phải là đường dẫn tuyệt đối, không có khoảng trắng hay \"..\"."
+          }
+        }
+      }
+    },
+    "Their history goes too. A device that is still on the network will be found again by the next scan." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lịch sử của chúng cũng bị xóa. Thiết bị còn trên mạng sẽ được tìm thấy lại ở lần quét sau."
+          }
+        }
+      }
+    },
+    "This Mac" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Máy Mac này"
+          }
+        }
+      }
+    },
+    "This Mac can't see this subnet's link, so an address nobody reports is shown as unknown rather than free." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Máy Mac này không nhìn thấy đường truyền của mạng con này, nên địa chỉ không ai báo được hiển thị là chưa rõ thay vì trống."
+          }
+        }
+      }
+    },
+    "This Mac is on it" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Máy Mac này đang ở trong mạng này"
+          }
+        }
+      }
+    },
+    "This device's history, addresses and notes move to the other one, and this one is removed. Use it when a phone that changes its private address shows up as a new device." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lịch sử, địa chỉ và ghi chú của thiết bị này chuyển sang thiết bị kia, và thiết bị này bị xóa. Dùng khi một điện thoại đổi địa chỉ riêng tư và hiện ra như thiết bị mới."
+          }
+        }
+      }
+    },
+    "Took over the address" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chiếm địa chỉ"
+          }
+        }
+      }
+    },
+    "Trust Its Current Certificate" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tin cậy chứng chỉ hiện tại của nó"
+          }
+        }
+      }
+    },
+    "Trusted certificate" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chứng chỉ đã tin cậy"
+          }
+        }
+      }
+    },
+    "Turn on the ARP table for routers and layer-3 switches, the MAC table for switches." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bật bảng ARP cho router và switch layer 3, bảng MAC cho switch."
+          }
+        }
+      }
+    },
+    "Turn scanning off for a subnet known only through a router or DHCP server, or one whose switches limit ARP traffic: a scan sends one ARP request per address, several times." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tắt quét với mạng con chỉ biết qua router hoặc máy chủ DHCP, hoặc mạng có switch giới hạn lưu lượng ARP: mỗi lần quét gửi vài yêu cầu ARP cho mỗi địa chỉ."
+          }
+        }
+      }
+    },
+    "Turn the menu bar icon red for them" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chuyển biểu tượng thanh menu sang đỏ"
+          }
+        }
+      }
+    },
+    "Type" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loại"
+          }
+        }
+      }
+    },
+    "Unknown" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chưa rõ"
+          }
+        }
+      }
+    },
+    "Unknown: seen only through a router" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chưa rõ: chỉ thấy qua router"
+          }
+        }
+      }
+    },
+    "Until %@" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đến %@"
+          }
+        }
+      }
+    },
+    "User" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Người dùng"
+          }
+        }
+      }
+    },
+    "VLAN ID" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VLAN ID"
+          }
+        }
+      }
+    },
+    "Version" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Phiên bản"
+          }
+        }
+      }
+    },
+    "View" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kiểu xem"
+          }
+        }
+      }
+    },
+    "Watch" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Theo dõi"
+          }
+        }
+      }
+    },
+    "Watch: alert when it leaves the network or comes back" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Theo dõi: cảnh báo khi thiết bị rời mạng hoặc quay lại"
+          }
+        }
+      }
+    },
+    "Watched" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đang theo dõi"
+          }
+        }
+      }
+    },
+    "Watched devices leaving and coming back" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thiết bị được theo dõi rời mạng và quay lại"
+          }
+        }
+      }
+    },
+    "Watched devices offline" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thiết bị được theo dõi đang ngoại tuyến"
+          }
+        }
+      }
+    },
+    "Went offline" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ngoại tuyến"
+          }
+        }
+      }
+    },
+    "Yours" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Của bạn"
+          }
+        }
+      }
+    },
+    "bps" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "bps"
+          }
+        }
+      }
+    },
+    "directly" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "trực tiếp"
+          }
+        }
+      }
+    },
+    "dnsmasq (OpenWrt, Pi-hole)" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "dnsmasq (OpenWrt, Pi-hole)"
+          }
+        }
+      }
+    },
+    "macOS asks once whether SignalBar may reach devices on your network. If it was turned off, scans of the Mac's own network find nothing until it is turned back on." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS hỏi một lần xem SignalBar có được truy cập thiết bị trong mạng của bạn không. Nếu quyền này bị tắt, quét mạng của chính máy Mac sẽ không thấy gì cho tới khi bật lại."
+          }
+        }
+      }
+    },
+    "through the router" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "qua router"
+          }
+        }
+      }
+    },
+    "v2c sends the community in clear text. Prefer v3 where the device supports it." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "v2c gửi community ở dạng không mã hóa. Hãy dùng v3 nếu thiết bị hỗ trợ."
+          }
+        }
+      }
+    },
+    "Hidden" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đã ẩn"
+          }
+        }
+      }
+    },
+    "Ports" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cổng"
+          }
+        }
+      }
+    },
+    "Turn On" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bật"
+          }
+        }
+      }
+    },
+    "Automatic scans are off: the list changes only when you scan." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quét tự động đang tắt: danh sách chỉ thay đổi khi bạn bấm quét."
+          }
+        }
+      }
+    },
+    "Local Network access is off, so scans of this Mac's network find nothing." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Truy cập Mạng cục bộ đang tắt nên quét mạng của máy Mac này không thấy gì."
+          }
+        }
+      }
+    },
+    "Allow…" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cho phép…"
+          }
+        }
+      }
+    },
+    "macOS doesn't give apps the MAC addresses of other devices. Add the router over SNMP, or a DHCP server, to see them." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS không cho app biết địa chỉ MAC của thiết bị khác. Thêm router qua SNMP, hoặc một máy chủ DHCP, để thấy chúng."
+          }
+        }
+      }
     }
   },
   "version" : "1.1"

@@ -23,6 +23,13 @@ idle cost.
   the Keychain, and every action is written to an audit log. One action can run across several
   servers at once.
 - **Remote resource alerts**: get alerted when a server's CPU, RAM or disk crosses a threshold.
+- **Network**: which device holds which IP address, across the subnets and VLANs you manage.
+  Scans the Mac's own subnet directly (devices that block ping included), pings routed subnets,
+  reads routers and switches over SNMP (v2c, or v3 with SHA-2 and AES) for the ARP and MAC
+  tables of every VLAN, and DHCP leases from MikroTik, from dnsmasq, ISC dhcpd or Kea over SSH,
+  or from a file. A device list with IP history, an address map per subnet, interface traffic,
+  on-demand TCP port checks, and alerts for new devices, watched devices leaving or coming back,
+  and IP conflicts. See [Network](#network) below.
 - **Response-time percentiles**: p50 and p95 beside every latency chart, over successful checks
   only.
 - **Alerts and reports**: native notifications that open the right screen, webhooks (Slack,
@@ -60,11 +67,33 @@ one-time code, rate-limits every caller, and the token that proves the verificat
 macOS Keychain. The recipient address and your domain names are sent to that server to build
 the mail. Everything else (checks, webhooks, SSH) goes straight from your Mac.
 
+### Network
+
+Network is read only: SignalBar never changes anything on a router, switch or DHCP server, and
+sends nothing about your network anywhere unless you turn on Network alerts for the webhook.
+Only subnets you add are scanned, and only private address ranges can be added.
+
+- **Local Network permission.** macOS asks once whether SignalBar may reach devices on your
+  network. Until it is allowed, scans of the Mac's own subnet find nothing and say so. Because
+  the app is not signed with a Developer ID, macOS may ask again after an update.
+- **What a scan sends.** On the Mac's own subnet, a few empty UDP datagrams per address (each
+  makes macOS send an ARP request) and one ping; on other subnets, a ping and, for silent
+  addresses, a TCP connection attempt to a few common ports. Sends are paced at 200 a second.
+  On switches that limit ARP traffic per port, turn scanning off for that subnet and read the
+  router over SNMP instead.
+- **MAC addresses.** macOS doesn't give apps the MAC addresses of other devices, so devices
+  found by scanning are listed by IP address. Add the router over SNMP, or a DHCP source, to
+  see their MAC addresses and manufacturers.
+- **Credentials** for SNMP and routers are kept in the Keychain. A DHCP server read over SSH
+  uses a server from the Server Manager; its lease file is added to that server's allowlist.
+- Manufacturer names come from the IEEE registry bundled with the app
+  (`scripts/update-oui.sh`), never from an online lookup.
+
 ## How it works
 
 - **`SignalBarCore`** (Swift package: Foundation, GRDB and the SSH stack, no AppKit): targets,
-  the check scheduler, SSL and domain checks, alerts and reports, remote server actions, SQLite
-  storage. It is tested headless.
+  the check scheduler, SSL and domain checks, alerts and reports, remote server actions, the
+  Network scanner, SNMP client and DHCP readers, SQLite storage. It is tested headless.
 - **`SignalBarApp`** (SwiftUI and AppKit): the windows, the menu bar panel, notifications, login
   item and Sparkle.
 - SSH runs on [Citadel](https://github.com/orlandos-nl/Citadel) and SwiftNIO. Citadel depends on
@@ -88,8 +117,8 @@ The app target uses automatic signing with no team, so a local build is ad-hoc s
 Tests:
 
 ```zsh
-cd SignalBarCore && swift test   # 227 tests
-xcodebuild test -project SignalBar.xcodeproj -scheme SignalBarApp -destination 'platform=macOS'   # 35 tests
+cd SignalBarCore && swift test   # 295 tests
+xcodebuild test -project SignalBar.xcodeproj -scheme SignalBarApp -destination 'platform=macOS'   # 50 tests
 ```
 
 Releases are built, signed and published by hand: see [docs/release.md](docs/release.md).

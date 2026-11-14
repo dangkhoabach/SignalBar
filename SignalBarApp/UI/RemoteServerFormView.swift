@@ -28,8 +28,11 @@ struct RemoteServerFormView: View {
     @State private var passphrase: String = ""
     @State private var password: String = ""
 
+    /// `prefill` starts an Add sheet with a name and host, as a Network
+    /// device's "Add to Server Manager" does.
     init(
         mode: Mode,
+        prefill: AppNavigationState.Prefill? = nil,
         onSave: @escaping (NewRemoteServerInput) -> Void = { _ in },
         onUpdate: @escaping (RemoteServer, SSHAuthCredential?) -> Void = { _, _ in }
     ) {
@@ -37,8 +40,8 @@ struct RemoteServerFormView: View {
         self.onSave = onSave
         self.onUpdate = onUpdate
         let server: RemoteServer? = if case .edit(let existing) = mode { existing } else { nil }
-        _name = State(initialValue: server?.name ?? "")
-        _host = State(initialValue: server?.host ?? "")
+        _name = State(initialValue: server?.name ?? prefill?.name ?? "")
+        _host = State(initialValue: server?.host ?? prefill?.address ?? "")
         _portText = State(initialValue: String(server?.port ?? 22))
         _username = State(initialValue: server?.username ?? "")
         _groupTag = State(initialValue: server?.groupTag ?? "")

@@ -25,13 +25,15 @@ struct TargetFormView: View {
     @State private var customPath: String
     @State private var expectedBodyContains: String
 
-    init(mode: Mode, onSave: @escaping (NewTargetInput) -> Void) {
+    /// `prefill` starts an Add sheet with a name and URL, as a Network
+    /// device's "Monitor as a Domain" does.
+    init(mode: Mode, prefill: AppNavigationState.Prefill? = nil, onSave: @escaping (NewTargetInput) -> Void) {
         self.mode = mode
         self.onSave = onSave
         let target: Target? = if case .edit(let existing) = mode { existing } else { nil }
         SettingsViewModel.shared.loadIfNeeded()
-        _name = State(initialValue: target?.name ?? "")
-        _url = State(initialValue: target?.url ?? "")
+        _name = State(initialValue: target?.name ?? prefill?.name ?? "")
+        _url = State(initialValue: target?.url ?? prefill?.address ?? "")
         _groupTag = State(initialValue: target?.groupTag ?? "")
         _checkIntervalSecs = State(initialValue: target?.checkIntervalSecs ?? SettingsViewModel.shared.settings.httpCheckIntervalSecs)
         _checkHTTP = State(initialValue: target?.checkHTTP ?? true)

@@ -158,8 +158,13 @@ public struct RemoteCommandExecutor: Sendable {
     /// the Logs tab and then forgotten, and the audit row still records that
     /// the read happened, against which path, and whether it worked.
     static func loggableExcerpt(of result: SSHCommandResult, for action: RemoteAction) -> String? {
-        if case .tailLog = action {
+        switch action {
+        case .tailLog, .readDHCPLeases:
+            // Lease files list every device's MAC and hostname: the same
+            // reasoning as log lines, so they are not copied into the log.
             return result.succeeded ? nil : String(result.stderr.prefix(500))
+        default:
+            break
         }
         return String((result.succeeded ? result.stdout : result.stderr).prefix(500))
     }
@@ -183,6 +188,11 @@ public struct RemoteCommandExecutor: Sendable {
         case .tailLog(let path, _):
             guard Self.isValidLogPath(path) else { throw RemoteCommandExecutorError.invalidAllowlistValue(path) }
             guard allowlist.contains(where: { $0.kind == .logPath && $0.value == path }) else {
+                throw RemoteCommandExecutorError.notAllowlisted(path)
+            }
+        case .readDHCPLeases(let path):
+            guard Self.isValidLogPath(path) else { throw RemoteCommandExecutorError.invalidAllowlistValue(path) }
+            guard allowlist.contains(where: { $0.kind == .dhcpLeaseFile && $0.value == path }) else {
                 throw RemoteCommandExecutorError.notAllowlisted(path)
             }
         case .diskUsage, .memoryUsage, .uptime, .cpuUsage, .osInfo:
@@ -214,6 +224,9 @@ public struct RemoteCommandExecutor: Sendable {
         // compares against cumulative time since boot, not a live rate.
         case .cpuUsage: #"top -bn2 -d 0.5 | grep "Cpu(s)" | tail -1"#
         case .osInfo: "uname -sr; grep PRETTY_NAME /etc/os-release 2>/dev/null"
+        // No `sudo`, as for logs: lease files are world-readable on the
+        // usual servers (dnsmasq, ISC dhcpd, Kea).
+        case .readDHCPLeases(let path): "cat \(path)"
         }
     }
 

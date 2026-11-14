@@ -1,0 +1,18 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "NSLocalNetworkUsageDescription" : {
+      "comment" : "Shown by macOS when SignalBar first reaches a device on the local network.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SignalBar tìm các thiết bị trong những mạng bạn thêm ở mục Mạng, và đọc router, switch, máy chủ DHCP bạn thiết lập ở đó."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

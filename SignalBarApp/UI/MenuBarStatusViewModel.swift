@@ -19,10 +19,14 @@ final class MenuBarStatusViewModel {
     // Matches `NotificationManager`'s singleton shape: one instance for the
     // app's lifetime, started once from `AppDelegate.applicationDidFinishLaunching`.
     static let shared = MenuBarStatusViewModel(
-        targetRepo: AppDatabase.shared.map { TargetRepository(dbQueue: $0.dbQueue) }
+        targetRepo: AppDatabase.shared.map { TargetRepository(dbQueue: $0.dbQueue) },
+        networkRepo: AppDatabase.shared.map { NetworkRepository(dbQueue: $0.dbQueue) },
+        settingsRepo: AppDatabase.shared.map { SettingsRepository(dbQueue: $0.dbQueue) }
     )
 
     private let targetRepo: TargetRepository?
+    private let networkRepo: NetworkRepository?
+    private let settingsRepo: SettingsRepository?
     private var loopTask: Task<Void, Never>?
 
     private var domainsUp: Int?
@@ -30,8 +34,15 @@ final class MenuBarStatusViewModel {
     /// Enabled domains whose latest check failed, in the main window's order.
     private(set) var downTargets: [TargetOverview] = []
 
-    init(targetRepo: TargetRepository?) {
+    /// The Network summary line; `nil` until there is a device to count.
+    private(set) var network: NetworkRepository.Summary?
+    /// Whether Network problems may turn the icon red (Settings › Network).
+    private(set) var networkInStatus = false
+
+    init(targetRepo: TargetRepository?, networkRepo: NetworkRepository? = nil, settingsRepo: SettingsRepository? = nil) {
         self.targetRepo = targetRepo
+        self.networkRepo = networkRepo
+        self.settingsRepo = settingsRepo
     }
 
     func start() {
@@ -58,7 +69,23 @@ final class MenuBarStatusViewModel {
             let down = Self.down(in: overview)
             if down != downTargets { downTargets = down }
         }
+        if let networkRepo, let summary = try? networkRepo.summary(since: Date().addingTimeInterval(-NetworkViewModel.recentWindow)) {
+            let shown = summary.devices > 0 ? summary : nil
+            if shown != network { network = shown }
+        }
+        let inStatus = (try? settingsRepo?.load().networkInMenuBarStatus) ?? false
+        if inStatus != networkInStatus { networkInStatus = inStatus }
     }
+
+    /// A Network problem worth the red icon: a watched device that left, or
+    /// an IP conflict today. Only when the user asked for Network in the icon.
+    var hasNetworkProblem: Bool {
+        guard networkInStatus, let network else { return false }
+        return network.watchedOffline > 0 || network.conflictsRecently > 0
+    }
+
+    /// Drives the icon: a domain down, or a Network problem when asked for.
+    var showsWarning: Bool { hasDownTargets || hasNetworkProblem }
 
     /// The domains to list as down: enabled, not paused, and failing at
     /// their latest check.

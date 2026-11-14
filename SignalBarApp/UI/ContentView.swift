@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Sidebar (Domains/Server Manager/Settings) + content — Settings is a regular
+/// Sidebar (Domains/Server Manager, the Network pages, Settings) + content — Settings is a regular
 /// sidebar tab so the app menu (Cmd+,) and the menu bar's "Settings…" both
 /// land in the same place instead of a separate `Settings {}` window.
 ///
@@ -35,6 +35,19 @@ struct ContentView: View {
                 } header: {
                     Text("Monitoring")
                 }
+                Section {
+                    ForEach([SidebarSection.networkDevices, .networkAddresses, .networks]) { section in
+                        Label {
+                            Text(section.title)
+                        } icon: {
+                            Image(systemName: section.systemImage)
+                                .foregroundStyle(section == navigationState.sidebarSelection ? Color.primary : Color.secondary)
+                        }
+                        .tag(section)
+                    }
+                } header: {
+                    Text("Network")
+                }
             }
             // Settings is pinned under the list, as in the author's other apps.
             .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -50,6 +63,12 @@ struct ContentView: View {
                 OverviewView()
             case .remoteServers:
                 RemoteServerListView()
+            case .networkDevices:
+                NetworkDevicesView()
+            case .networkAddresses:
+                NetworkAddressesView()
+            case .networks:
+                NetworksView()
             case .settings:
                 SettingsView()
             }

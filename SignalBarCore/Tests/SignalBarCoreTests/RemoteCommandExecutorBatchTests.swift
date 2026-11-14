@@ -147,3 +147,41 @@ private final class Counter: @unchecked Sendable {
     var value: Int { lock.withLock { count } }
     func increment() { lock.withLock { count += 1 } }
 }
+
+/// The DHCP lease read the Network feature does over SSH: one fixed,
+/// read-only command on an allowlisted path, with the file's contents kept
+/// out of the audit log.
+@Suite struct RemoteDHCPLeaseReadTests {
+    @Test func readsOnlyAnAllowlistedLeaseFileAndKeepsItsContentsOutOfTheLog() async throws {
+        let app = try AppDatabase(inMemory: DatabaseQueue())
+        let repo = RemoteServerRepository(dbQueue: app.dbQueue, keychain: InMemoryKeychainStore())
+        let server = try repo.add(NewRemoteServerInput(
+            name: "Gateway", host: "127.0.0.1", port: 22, username: "deploy", credential: .password("s3cr3t")
+        ))
+        let leases = "1800003600 a4:83:e7:01:02:03 192.168.1.20 office-laptop *"
+        let session = RecordingSSHSession(results: [.success(SSHCommandResult(exitCode: 0, stdout: leases, stderr: ""))])
+        let executor = RemoteCommandExecutor(repo: repo) { _, _ in session }
+
+        await #expect(throws: RemoteCommandExecutorError.notAllowlisted("/var/lib/misc/dnsmasq.leases")) {
+            try await executor.execute(.readDHCPLeases(path: "/var/lib/misc/dnsmasq.leases"), on: server)
+        }
+        // A log path doesn't open the lease read: the kinds are kept apart.
+        try repo.addAllowlistEntry(serverId: server.id!, kind: .logPath, value: "/var/lib/misc/dnsmasq.leases")
+        await #expect(throws: RemoteCommandExecutorError.notAllowlisted("/var/lib/misc/dnsmasq.leases")) {
+            try await executor.execute(.readDHCPLeases(path: "/var/lib/misc/dnsmasq.leases"), on: server)
+        }
+
+        try repo.addAllowlistEntry(serverId: server.id!, kind: .dhcpLeaseFile, value: "/var/lib/misc/dnsmasq.leases")
+        let result = try await executor.execute(.readDHCPLeases(path: "/var/lib/misc/dnsmasq.leases"), on: server)
+        #expect(result.stdout == leases)
+        #expect(session.log.contains("run:cat /var/lib/misc/dnsmasq.leases"))
+        let logged = try repo.recentLog(serverId: server.id!)
+        #expect(logged.first?.action == "readDHCPLeases(/var/lib/misc/dnsmasq.leases)")
+        #expect(logged.first?.outputExcerpt == nil)
+
+        try repo.addAllowlistEntry(serverId: server.id!, kind: .dhcpLeaseFile, value: "/tmp/a;reboot")
+        await #expect(throws: RemoteCommandExecutorError.invalidAllowlistValue("/tmp/a;reboot")) {
+            try await executor.execute(.readDHCPLeases(path: "/tmp/a;reboot"), on: server)
+        }
+    }
+}

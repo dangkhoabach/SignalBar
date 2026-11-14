@@ -39,4 +39,13 @@ enum AppLocale: String, CaseIterable, Identifiable {
     static var bundle: Bundle {
         Bundle.main.path(forResource: selected.rawValue, ofType: "lproj").flatMap(Bundle.init(path:)) ?? .main
     }
+
+    /// A string built in code (a status line, an error), in the in-app
+    /// language. Unlike `bundle`, this also gives English when the system
+    /// language is another one: the resource's locale picks the table.
+    static func string(_ resource: LocalizedStringResource) -> String {
+        var resource = resource
+        resource.locale = selected.locale
+        return String(localized: resource)
+    }
 }

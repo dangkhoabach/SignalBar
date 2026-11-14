@@ -142,6 +142,19 @@ struct LocalizedAlertText: AlertTextLocalizing {
             let label = resource == .disk ? String(localized: "Disk", bundle: bundle) : resource.label
             return (String(localized: "\(server): \(label) is high", bundle: bundle),
                     String(localized: "\(percent)% (threshold \(thresholdPercent)%)", bundle: bundle))
+        case .networkNewDevice(let name, let address):
+            return (String(localized: "New device on the network: \(name)", bundle: bundle), address)
+        case .networkDeviceOffline(let name, let address):
+            return (String(localized: "\(name) left the network", bundle: bundle), address)
+        case .networkDeviceBackOnline(let name, let address):
+            return (String(localized: "\(name) is back on the network", bundle: bundle), address)
+        case .networkIPConflict(let address, let devices):
+            return (String(localized: "IP conflict on \(address)", bundle: bundle), devices)
+        case .networkSourceFailing(let source, let error):
+            return (String(localized: "Can't read \(source)", bundle: bundle), error)
+        case .networkSourceRecovered(let source):
+            return (String(localized: "\(source) can be read again", bundle: bundle),
+                    String(localized: "Network data from it is up to date", bundle: bundle))
         }
     }
 }

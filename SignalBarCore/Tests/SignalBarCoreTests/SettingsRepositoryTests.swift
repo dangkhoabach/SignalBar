@@ -40,7 +40,18 @@ import Testing
             webhookURL: "https://hooks.slack.com/services/T0/B0/xxx",
             remoteCPUAlertThresholdPercent: 85,
             remoteMemoryAlertThresholdPercent: 90,
-            remoteDiskAlertThresholdPercent: 95
+            remoteDiskAlertThresholdPercent: 95,
+            // Each the opposite of its default, for the same reason.
+            networkMonitoringEnabled: true,
+            networkScanOnNetworkChange: false,
+            networkPauseOnBattery: true,
+            networkResolveNames: false,
+            networkAlertNewDevices: false,
+            networkAlertWatchedDevices: false,
+            networkAlertConflicts: false,
+            networkAlertSourceFailures: false,
+            networkWebhookEnabled: true,
+            networkInMenuBarStatus: true
         )
         try repo.update(settings)
         #expect(try repo.load() == settings)

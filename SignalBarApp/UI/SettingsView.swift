@@ -37,6 +37,7 @@ struct SettingsView: View {
     @State private var loginItemNeedsApproval = false
     @State private var loginItemError: String?
     @State private var isPresentingClearAllConfirm = false
+    @State private var isPresentingNetworkWipeConfirm = false
     /// Mirrors Sparkle's own preference for display only — the write goes
     /// straight back to Sparkle, and `.task` re-reads it, so this never
     /// becomes a second source of truth.
@@ -242,6 +243,7 @@ struct SettingsView: View {
         case .checks: checksSections
         case .email: emailSections
         case .webhook: webhookSections
+        case .network: networkSections
         }
     }
 
@@ -252,6 +254,7 @@ struct SettingsView: View {
         case .checks: nil
         case .email: viewModel.settings.smtpEnabled
         case .webhook: viewModel.settings.webhookEnabled
+        case .network: viewModel.settings.networkMonitoringEnabled
         }
     }
 
@@ -413,6 +416,76 @@ struct SettingsView: View {
                     }
                 }
             }
+        }
+    }
+
+    /// Settings › Network.
+    @ViewBuilder
+    private var networkSections: some View {
+        Section {
+            Toggle("Scan and read sources automatically", isOn: Binding(
+                get: { viewModel.settings.networkMonitoringEnabled },
+                set: { isOn in
+                    viewModel.settings.networkMonitoringEnabled = isOn
+                    // Run the first round now rather than at the next tick,
+                    // once the debounced save has landed.
+                    guard isOn else { return }
+                    Task {
+                        try? await Task.sleep(nanoseconds: 1_000_000_000)
+                        await AppNetworkMonitor.shared?.tick()
+                    }
+                }
+            ))
+            Toggle("Scan again when this Mac joins another network", isOn: $viewModel.settings.networkScanOnNetworkChange)
+            Toggle("Pause while on battery", isOn: $viewModel.settings.networkPauseOnBattery)
+            Toggle("Look up device names (DNS, Bonjour)", isOn: $viewModel.settings.networkResolveNames)
+        } header: {
+            Text("Scanning")
+        } footer: {
+            Text("Each subnet and source keeps its own interval. Scans you start by hand run either way.")
+        }
+
+        Section {
+            Toggle("New devices", isOn: $viewModel.settings.networkAlertNewDevices)
+            Toggle("Watched devices leaving and coming back", isOn: $viewModel.settings.networkAlertWatchedDevices)
+            Toggle("IP conflicts", isOn: $viewModel.settings.networkAlertConflicts)
+            Toggle("Routers, switches or DHCP servers that can't be read", isOn: $viewModel.settings.networkAlertSourceFailures)
+            Toggle("Also send them to the webhook", isOn: $viewModel.settings.networkWebhookEnabled)
+            if viewModel.settings.networkWebhookEnabled {
+                Text("Network alerts carry device names and MAC addresses from your network to the webhook's service.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Toggle("Turn the menu bar icon red for them", isOn: $viewModel.settings.networkInMenuBarStatus)
+        } header: {
+            Text("Alerts")
+        } footer: {
+            Text("Alerts need notifications to be on. A device's first scan is its starting point: only devices that appear after it count as new.")
+        }
+
+        Section("Local Network access") {
+            Text("macOS asks once whether SignalBar may reach devices on your network. If it was turned off, scans of the Mac's own network find nothing until it is turned back on.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            HStack {
+                Spacer()
+                Button("Open Privacy Settings…") { NetworkPermission.openSettings() }
+            }
+        }
+
+        Section("Data") {
+            Text("Subnets, devices, history and sources are kept on this Mac only. Passwords and communities are in the Keychain.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            HStack {
+                Spacer()
+                Button("Delete All Network Data…", role: .destructive) { isPresentingNetworkWipeConfirm = true }
+            }
+        }
+        .confirmationDialog("Delete all Network data?", isPresented: $isPresentingNetworkWipeConfirm, titleVisibility: .visible) {
+            Button("Delete All Network Data", role: .destructive) { NetworkViewModel.shared.deleteAllNetworkData() }
+        } message: {
+            Text("Every subnet, device, address history and source goes, with the sources' stored passwords. Domains and servers are not touched. This can't be undone.")
         }
     }
 
@@ -579,7 +652,7 @@ struct SettingsView: View {
 /// The pages one level below Settings. Only features with enough options to
 /// crowd the main page get one.
 enum SettingsPage: String, CaseIterable, Identifiable, Hashable {
-    case checks, email, webhook
+    case checks, email, webhook, network
 
     var id: Self { self }
 
@@ -588,6 +661,7 @@ enum SettingsPage: String, CaseIterable, Identifiable, Hashable {
         case .checks: "Checks & Alerts"
         case .email: "Email Reports"
         case .webhook: "Webhook Alerts"
+        case .network: "Network"
         }
     }
 
@@ -596,6 +670,7 @@ enum SettingsPage: String, CaseIterable, Identifiable, Hashable {
         case .checks: "bell.badge"
         case .email: "envelope"
         case .webhook: "link"
+        case .network: "laptopcomputer.and.iphone"
         }
     }
 }

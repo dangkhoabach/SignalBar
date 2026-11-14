@@ -22,6 +22,21 @@ final class AppNavigationState {
     /// the remote resource alerts' `/servers/<id>` route.
     var pendingDetailServerID: Int64?
 
+    /// The Network pages' detail pushes, for notification routes
+    /// `/network/devices/<id>` and `/network/sources/<id>`.
+    var pendingDeviceID: Int64?
+    var pendingSourceID: Int64?
+
+    /// A device page's "Monitor as a Domain" / "Add to Server Manager":
+    /// the Add sheet of that page, filled in.
+    struct Prefill: Equatable {
+        let name: String
+        let address: String
+    }
+
+    var pendingNewTarget: Prefill?
+    var pendingNewServer: Prefill?
+
     /// Which Settings sub-page is open. Kept here rather than in the view so
     /// the page survives switching sidebar tabs and back.
     var settingsPath: [SettingsPage] = []
@@ -36,6 +51,22 @@ final class AppNavigationState {
         } else if route.hasPrefix("/servers/"), let id = Int64(route.dropFirst("/servers/".count)) {
             sidebarSelection = .remoteServers
             pendingDetailServerID = id
+        } else if route.hasPrefix("/network/devices/"), let id = Int64(route.dropFirst("/network/devices/".count)) {
+            sidebarSelection = .networkDevices
+            pendingDeviceID = id
+        } else if route.hasPrefix("/network/sources/"), let id = Int64(route.dropFirst("/network/sources/".count)) {
+            sidebarSelection = .networks
+            pendingSourceID = id
         }
+    }
+
+    func openNewTarget(name: String, url: String) {
+        pendingNewTarget = Prefill(name: name, address: url)
+        sidebarSelection = .domains
+    }
+
+    func openNewServer(name: String, host: String) {
+        pendingNewServer = Prefill(name: name, address: host)
+        sidebarSelection = .remoteServers
     }
 }

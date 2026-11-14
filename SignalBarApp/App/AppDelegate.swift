@@ -24,6 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             AppNavigationState.shared.handleNotificationRoute(route)
         }
         Task { await AppScheduler.shared?.start() }
+        Task { await AppNetworkMonitor.shared?.start() }
         _ = AppUpdater.shared // starts Sparkle's check-on-launch loop
 
         // Scheduler.tick's own loop just sleeps a fixed interval between
@@ -37,6 +38,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
         ) { _ in
             Task { await AppScheduler.shared?.tick() }
+            Task { await AppNetworkMonitor.shared?.tick() }
         }
     }
 

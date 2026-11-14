@@ -7,6 +7,16 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1E9EA9066B9B911332171B8E /* NetworkViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 589E38E9F0E761328B83F45C /* NetworkViewModelTests.swift */; };
+		D505AE9A42C2A8EA4E648C44 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 15BF2CCC5948FD217A5FF8C4 /* InfoPlist.xcstrings */; };
+		C6E8CFC47D991E83532AA91D /* NetworkForms.swift in Sources */ = {isa = PBXBuildFile; fileRef = 350CFE71D6B026167273FC59 /* NetworkForms.swift */; };
+		89079F94F768348E3BC4605C /* NetworksView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA4EFEBA5E178AC3705AA68A /* NetworksView.swift */; };
+		4C7DE8602C053526CC12DB9E /* NetworkAddressesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AE77ED1F6C15C5EFAB22B0A /* NetworkAddressesView.swift */; };
+		DBC081B7FAA30D34ADA23782 /* NetworkDeviceDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A6E313D128D2AB5CCC48C34 /* NetworkDeviceDetailView.swift */; };
+		CFB4C9B921F9553BA5082AE2 /* NetworkDevicesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C7F8F52B5062B540B8C035E /* NetworkDevicesView.swift */; };
+		ED356E4027AA804DEC3B8BE1 /* NetworkLabels.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2ED1B73C7543401CBE56763 /* NetworkLabels.swift */; };
+		2C8B4A0AC989A986F47BAF27 /* NetworkViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C524A81BB51C75DA707F82B /* NetworkViewModel.swift */; };
+		F69006CEF9529CA810834FBB /* AppNetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33B285100B815A291FBC79FB /* AppNetworkMonitor.swift */; };
 		08440F9E88FEABE03AB06414 /* AppLocale.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D8ED1A9E96C2CA2F766EECC /* AppLocale.swift */; };
 		09046A7D81FDDF3675BC3BB3 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5DAF18BEBBE30CFCFD75BC6 /* AppDelegate.swift */; };
 		A27FE44625F67F25B0E6F4A4 /* AboutWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30E7CDF636178F01BD2A37B7 /* AboutWindow.swift */; };
@@ -73,6 +83,16 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		589E38E9F0E761328B83F45C /* NetworkViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkViewModelTests.swift; sourceTree = "<group>"; };
+		15BF2CCC5948FD217A5FF8C4 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
+		350CFE71D6B026167273FC59 /* NetworkForms.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkForms.swift; sourceTree = "<group>"; };
+		AA4EFEBA5E178AC3705AA68A /* NetworksView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworksView.swift; sourceTree = "<group>"; };
+		0AE77ED1F6C15C5EFAB22B0A /* NetworkAddressesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkAddressesView.swift; sourceTree = "<group>"; };
+		5A6E313D128D2AB5CCC48C34 /* NetworkDeviceDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkDeviceDetailView.swift; sourceTree = "<group>"; };
+		3C7F8F52B5062B540B8C035E /* NetworkDevicesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkDevicesView.swift; sourceTree = "<group>"; };
+		F2ED1B73C7543401CBE56763 /* NetworkLabels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkLabels.swift; sourceTree = "<group>"; };
+		5C524A81BB51C75DA707F82B /* NetworkViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkViewModel.swift; sourceTree = "<group>"; };
+		33B285100B815A291FBC79FB /* AppNetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppNetworkMonitor.swift; sourceTree = "<group>"; };
 		039EE264149A3E33C3D82C6D /* TagGroupingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagGroupingTests.swift; sourceTree = "<group>"; };
 		04550A58B53089F87627CCB2 /* TargetDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TargetDetailView.swift; sourceTree = "<group>"; };
 		0D0A49CB84E4A7EF42983425 /* RemoteBulkActionViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteBulkActionViewModel.swift; sourceTree = "<group>"; };
@@ -181,6 +201,13 @@
 		3641020335D2663A355C3460 /* UI */ = {
 			isa = PBXGroup;
 			children = (
+				350CFE71D6B026167273FC59 /* NetworkForms.swift */,
+				AA4EFEBA5E178AC3705AA68A /* NetworksView.swift */,
+				0AE77ED1F6C15C5EFAB22B0A /* NetworkAddressesView.swift */,
+				5A6E313D128D2AB5CCC48C34 /* NetworkDeviceDetailView.swift */,
+				3C7F8F52B5062B540B8C035E /* NetworkDevicesView.swift */,
+				F2ED1B73C7543401CBE56763 /* NetworkLabels.swift */,
+				5C524A81BB51C75DA707F82B /* NetworkViewModel.swift */,
 				2D8ED1A9E96C2CA2F766EECC /* AppLocale.swift */,
 				DBDE6F2550A231B81856A359 /* ContentView.swift */,
 				D7E4F3E620755225C5C26640 /* JSONDocumentPanel.swift */,
@@ -216,6 +243,7 @@
 		3BD99648790D14E9A5BB875A /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				15BF2CCC5948FD217A5FF8C4 /* InfoPlist.xcstrings */,
 				EE26A5986D4261393D37FD33 /* Assets.xcassets */,
 				FC3214287A5FAC92770E67C4 /* Localizable.xcstrings */,
 			);
@@ -240,6 +268,7 @@
 		742C3C2098986BD47EA3A790 /* SignalBarAppTests */ = {
 			isa = PBXGroup;
 			children = (
+				589E38E9F0E761328B83F45C /* NetworkViewModelTests.swift */,
 				9C43712C7D49D12621F6F1E1 /* AppNavigationStateTests.swift */,
 				A1B2C3D4E5F60718293A4B5D /* WindowPresenterTests.swift */,
 				F1525299D861D2DB83C181DA /* AboutWindowTests.swift */,
@@ -273,6 +302,7 @@
 		F4555027006C10F4E2E94D93 /* App */ = {
 			isa = PBXGroup;
 			children = (
+				33B285100B815A291FBC79FB /* AppNetworkMonitor.swift */,
 				209B14451FCAF4EA327B6F93 /* AppDatabase+Shared.swift */,
 				F5DAF18BEBBE30CFCFD75BC6 /* AppDelegate.swift */,
 				30E7CDF636178F01BD2A37B7 /* AboutWindow.swift */,
@@ -375,6 +405,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D505AE9A42C2A8EA4E648C44 /* InfoPlist.xcstrings in Resources */,
 				7F4A8A917B15C7D8A0DA588F /* Assets.xcassets in Resources */,
 				7FC8EBB31BACCD96B0EAFBE3 /* Localizable.xcstrings in Resources */,
 			);
@@ -387,6 +418,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1E9EA9066B9B911332171B8E /* NetworkViewModelTests.swift in Sources */,
 				37EA04A5AFF34D097634A2CA /* AppNavigationStateTests.swift in Sources */,
 				A1B2C3D4E5F60718293A4B5C /* WindowPresenterTests.swift in Sources */,
 				BBABF62F2711373A3F1766F5 /* AboutWindowTests.swift in Sources */,
@@ -403,6 +435,14 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C6E8CFC47D991E83532AA91D /* NetworkForms.swift in Sources */,
+				89079F94F768348E3BC4605C /* NetworksView.swift in Sources */,
+				4C7DE8602C053526CC12DB9E /* NetworkAddressesView.swift in Sources */,
+				DBC081B7FAA30D34ADA23782 /* NetworkDeviceDetailView.swift in Sources */,
+				CFB4C9B921F9553BA5082AE2 /* NetworkDevicesView.swift in Sources */,
+				ED356E4027AA804DEC3B8BE1 /* NetworkLabels.swift in Sources */,
+				2C8B4A0AC989A986F47BAF27 /* NetworkViewModel.swift in Sources */,
+				F69006CEF9529CA810834FBB /* AppNetworkMonitor.swift in Sources */,
 				61197CFA27B025C748BDCDBA /* AppDatabase+Shared.swift in Sources */,
 				F836CE66F9D9C8F4B182244C /* AppDatabaseLocation.swift in Sources */,
 				09046A7D81FDDF3675BC3BB3 /* AppDelegate.swift in Sources */,
