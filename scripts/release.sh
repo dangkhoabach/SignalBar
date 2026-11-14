@@ -88,7 +88,8 @@ on_exit() {
 }
 trap on_exit EXIT
 
-/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" -c "Set :CFBundleVersion $VERSION" "$INFO_PLIST"
+# The release date is shown in the About window.
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" -c "Set :CFBundleVersion $VERSION" -c "Set :AppReleaseDate $(date +%F)" "$INFO_PLIST"
 echo "==> Releasing version $VERSION"
 
 OUT_DIR="release-output/$VERSION"

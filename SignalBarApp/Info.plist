@@ -18,6 +18,8 @@
 	<string>2.2.2</string>
 	<key>CFBundleVersion</key>
 	<string>2.2.2</string>
+	<key>AppReleaseDate</key>
+	<string>2026-11-04</string>
 	<key>LSUIElement</key>
 	<false/>
 	<key>SUFeedURL</key>

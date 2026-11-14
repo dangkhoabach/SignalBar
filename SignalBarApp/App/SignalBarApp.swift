@@ -31,7 +31,7 @@ struct SignalBarApp: App {
     }
 
     var body: some Scene {
-        WindowGroup {
+        WindowGroup(id: WindowPresenter.mainWindowID) {
             ContentView()
                 .background(WindowAccessor(delegate: windowDelegate))
                 .preferredColorScheme(themePreference.colorScheme)
@@ -40,9 +40,11 @@ struct SignalBarApp: App {
                 .onChange(of: themePreferenceRaw) { _, _ in applyAppearance() }
         }
         .commands {
+            CommandGroup(replacing: .appInfo) {
+                Button("About SignalBar") { AboutWindow.show() }
+            }
             // Standard Sparkle placement: right under "About SignalBar" in
-            // the app menu — matches MediaCatch's app menu (and this
-            // app's own menu bar extra, see MenuBarContentView).
+            // the app menu, as in the menu bar panel's footer.
             CommandGroup(after: .appInfo) {
                 Button("Check for Updates…") {
                     AppUpdater.checkForUpdates()
@@ -52,7 +54,7 @@ struct SignalBarApp: App {
             // Replaces the default "Settings…" menu item (still Cmd+,) so it
             // opens the Settings sidebar tab in the main window instead of a
             // separate `Settings {}` scene — same destination as the menu
-            // bar extra's "Settings…" item below.
+            // bar panel's Settings button.
             CommandGroup(replacing: .appSettings) {
                 // Deferred to the next run loop tick: firing straight from
                 // the menu item's action handler mutates
@@ -61,30 +63,15 @@ struct SignalBarApp: App {
                 // sidebar `List`'s selection/click handling stuck — the
                 // symptom was the whole sidebar becoming unresponsive right
                 // after using Settings… from the app menu (Cmd+,), but not
-                // from the menu bar extra (that menu closes via a different
-                // path that doesn't hit this).
+                // from the menu bar panel (that closes via a different path
+                // that doesn't hit this).
                 Button("Settings…") {
                     DispatchQueue.main.async { WindowPresenter.showSettings() }
                 }
                 .keyboardShortcut(",", modifiers: .command)
             }
+            // One main window: no File › New Window.
+            CommandGroup(replacing: .newItem) {}
         }
-
-        // `waveform.path.ecg`: official SF Symbol, same "activity pulse"
-        // concept as the Rust version's hand-drawn tray glyph — chosen over
-        // a custom-traced PDF vector for best-in-class Apple platform
-        // integration (crisp at any size/weight, auto-template-tinted for
-        // light/dark menu bars, tracks future SF Symbols refinements).
-        MenuBarExtra {
-            MenuBarContentView()
-                .environment(\.locale, appLocale.locale)
-        } label: {
-            MenuBarIconView()
-        }
-        // `.window`, not the default menu style: a standard menu can only
-        // host menu items, so the dropdown was limited to plain text rows.
-        // The windowed style hosts a real view, which is what lets
-        // `MenuBarContentView` colour the domains summary by state.
-        .menuBarExtraStyle(.window)
     }
 }

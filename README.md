@@ -28,6 +28,8 @@ idle cost.
 - **Alerts and reports**: native notifications that open the right screen, webhooks (Slack,
   Discord or plain JSON) posted straight from this Mac, and scheduled email reports (see below).
 - **Import and export** domains and servers as JSON. Server exports never include credentials.
+- **Menu bar panel**: how many domains are up, the ones that are down with the reason, one click
+  to open each; the icon turns into a red triangle while one is down.
 - Launch at login, light and dark appearance, English and Vietnamese.
 
 The Mac's own stats, the list of running apps, Cleanup and the temperature and battery alerts
@@ -63,7 +65,7 @@ the mail. Everything else (checks, webhooks, SSH) goes straight from your Mac.
 - **`SignalBarCore`** (Swift package: Foundation, GRDB and the SSH stack, no AppKit): targets,
   the check scheduler, SSL and domain checks, alerts and reports, remote server actions, SQLite
   storage. It is tested headless.
-- **`SignalBarApp`** (SwiftUI and AppKit): the windows, `MenuBarExtra`, notifications, login
+- **`SignalBarApp`** (SwiftUI and AppKit): the windows, the menu bar panel, notifications, login
   item and Sparkle.
 - SSH runs on [Citadel](https://github.com/orlandos-nl/Citadel) and SwiftNIO. Citadel depends on
   a fork of `swift-nio-ssh` (`Wellz26/swift-nio-ssh`); `Package.swift` declares the same fork at

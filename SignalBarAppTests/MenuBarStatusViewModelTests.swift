@@ -36,4 +36,29 @@ import Testing
 
         #expect(model.hasDownTargets)
     }
+
+    /// The panel lists the domain that is down, by name, and not the one
+    /// that is up or the one that is paused.
+    @Test func listsOnlyTheDomainsThatAreDown() throws {
+        let repo = try makeRepo()
+        func add(_ name: String, success: Bool) throws -> Target {
+            let target = try repo.add(NewTargetInput(name: name, url: "https://\(name.lowercased()).example.com"))
+            _ = try repo.storeCheckResult(
+                targetId: target.id!,
+                outcome: HttpCheckOutcome(success: success, statusCode: success ? 200 : 500, responseTimeMs: 10, errorMessage: success ? nil : "boom"),
+                responseTimeAlertThresholdMs: 2000
+            )
+            return target
+        }
+        _ = try add("Up", success: true)
+        _ = try add("Down", success: false)
+        let paused = try add("Paused", success: false)
+        try repo.pause(id: paused.id!, until: nil)
+
+        let model = MenuBarStatusViewModel(targetRepo: repo)
+        model.refresh()
+
+        #expect(model.downTargets.map(\.target.name) == ["Down"])
+        #expect(model.hasTargets)
+    }
 }

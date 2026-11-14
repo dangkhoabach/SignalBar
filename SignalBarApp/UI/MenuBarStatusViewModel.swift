@@ -3,9 +3,10 @@ import Foundation
 import Observation
 import SwiftUI
 
-/// Drives the `MenuBarExtra` icon and header: the domains up/total summary
-/// from the database, refreshed every 5s via a `Task.sleep` loop (same
-/// burst-avoiding shape as the Scheduler) rather than a `Timer`.
+/// Drives the menu bar icon and panel: the domains up/total summary and the
+/// domains that are down, from the database, refreshed every 5s via a
+/// `Task.sleep` loop (same burst-avoiding shape as the Scheduler) rather
+/// than a `Timer`.
 ///
 /// Exposes a `LocalizedStringKey` label (not a pre-formatted `String`) so
 /// Xcode's String Catalog extraction can localize it — a `String` handed to
@@ -26,6 +27,8 @@ final class MenuBarStatusViewModel {
 
     private var domainsUp: Int?
     private var domainsTotal: Int?
+    /// Enabled domains whose latest check failed, in the main window's order.
+    private(set) var downTargets: [TargetOverview] = []
 
     init(targetRepo: TargetRepository?) {
         self.targetRepo = targetRepo
@@ -51,14 +54,29 @@ final class MenuBarStatusViewModel {
             domainsUp = summary.up
             domainsTotal = summary.total
         }
+        if let targetRepo, let overview = try? targetRepo.overview() {
+            let down = Self.down(in: overview)
+            if down != downTargets { downTargets = down }
+        }
     }
+
+    /// The domains to list as down: enabled, not paused, and failing at
+    /// their latest check.
+    nonisolated static func down(in overview: [TargetOverview], now: Date = Date()) -> [TargetOverview] {
+        overview.filter { item in
+            let paused = item.target.pausedIndefinitely || (item.target.pausedUntil.map { $0 > now } ?? false)
+            return item.target.enabled && !paused && item.latestCheck?.success == false
+        }
+    }
+
+    var hasTargets: Bool { (domainsTotal ?? 0) > 0 }
 
     var domainsLabel: LocalizedStringKey {
         guard let domainsUp, let domainsTotal else { return "Domains: —" }
         return "Domains: \(domainsUp)/\(domainsTotal) up"
     }
 
-    /// Drives the menu bar icon's down-state (see `MenuBarIconView`) — the
+    /// Drives the menu bar icon's down-state (see `StatusBarController`) — the
     /// icon otherwise looks identical whether every domain is up or several
     /// are down, so glancing at the menu bar alone never surfaced a problem;
     /// this required opening the menu every time to find out.

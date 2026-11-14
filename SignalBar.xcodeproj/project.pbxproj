@@ -9,7 +9,8 @@
 /* Begin PBXBuildFile section */
 		08440F9E88FEABE03AB06414 /* AppLocale.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D8ED1A9E96C2CA2F766EECC /* AppLocale.swift */; };
 		09046A7D81FDDF3675BC3BB3 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5DAF18BEBBE30CFCFD75BC6 /* AppDelegate.swift */; };
-		0ADBF17C142F21D0B580A338 /* MenuBarContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 796303AE5BC0A8680F7A7AD2 /* MenuBarContentView.swift */; };
+		A27FE44625F67F25B0E6F4A4 /* AboutWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30E7CDF636178F01BD2A37B7 /* AboutWindow.swift */; };
+		0ADBF17C142F21D0B580A338 /* MenuBarPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 796303AE5BC0A8680F7A7AD2 /* MenuBarPanelView.swift */; };
 		11E223E71F2F0679B7811E4F /* AppNavigationState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4685B257D160AAF8E156E92B /* AppNavigationState.swift */; };
 		1281368A31298563406BFB8D /* TagGroupingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 039EE264149A3E33C3D82C6D /* TagGroupingTests.swift */; };
 		14C59CA01DEA576ACC3B40B2 /* TargetRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E476A25294A1892C9C82193 /* TargetRowView.swift */; };
@@ -19,6 +20,7 @@
 		3577E6A3B86ABAA8BCB246CD /* SettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17A5A225E7C6244424B1FF45 /* SettingsViewModel.swift */; };
 		37EA04A5AFF34D097634A2CA /* AppNavigationStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C43712C7D49D12621F6F1E1 /* AppNavigationStateTests.swift */; };
 		A1B2C3D4E5F60718293A4B5C /* WindowPresenterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5D /* WindowPresenterTests.swift */; };
+		BBABF62F2711373A3F1766F5 /* AboutWindowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1525299D861D2DB83C181DA /* AboutWindowTests.swift */; };
 		3AC0EE9AAE82B30484AA248B /* ThemePreference.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EE610BCEB5D3ECE52EAADD9 /* ThemePreference.swift */; };
 		3B1F3ABD52088998A3A9D4C4 /* OverviewViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99F05C7188B0B39A5442CBE1 /* OverviewViewModelTests.swift */; };
 		40BFF0FC5B0B20BFA0F7251F /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBDE6F2550A231B81856A359 /* ContentView.swift */; };
@@ -42,6 +44,7 @@
 		93A6FA64EB3F7120C26CD5CD /* SignalBarApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 424E64768FD96625D854A19D /* SignalBarApp.swift */; };
 		A03278802D874BEEB9887AC4 /* MenuBarStatusViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 779C4A014045979B63FA91DA /* MenuBarStatusViewModelTests.swift */; };
 		A3C2300CA2BCE0D1D3661BCB /* MenuBarStatusViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B6EE485D77E9BC10FD3BCD5 /* MenuBarStatusViewModel.swift */; };
+		64EACA07C33E4FE29692618D /* StatusBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FDBFF940EDA7B843F958FA4 /* StatusBarController.swift */; };
 		AA32B1E5C47D69361CBE93BA /* NativeSearchField.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7A606C42E3956DEACC3E084 /* NativeSearchField.swift */; };
 		AF57ECF683CC15051C975BB4 /* LoginItemManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9A1A866451C0422F4E916B0 /* LoginItemManager.swift */; };
 		AF981DD9472E4B8E77B85EB9 /* OverviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C8E1116107258128CC786DC /* OverviewView.swift */; };
@@ -93,11 +96,12 @@
 		591DC001460B63631EA108CF /* SignalBarApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SignalBarApp.entitlements; sourceTree = "<group>"; };
 		61B17ADF979B81B8404CC052 /* RemoteServerListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteServerListView.swift; sourceTree = "<group>"; };
 		6B6EE485D77E9BC10FD3BCD5 /* MenuBarStatusViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarStatusViewModel.swift; sourceTree = "<group>"; };
+		8FDBFF940EDA7B843F958FA4 /* StatusBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBarController.swift; sourceTree = "<group>"; };
 		6BEB015066C385D4E34782B0 /* RemoteServerDetailViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteServerDetailViewModel.swift; sourceTree = "<group>"; };
 		6E476A25294A1892C9C82193 /* TargetRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TargetRowView.swift; sourceTree = "<group>"; };
 		761CEDFBB5A8AC397844CFAD /* SignalBarCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = SignalBarCore; path = SignalBarCore; sourceTree = SOURCE_ROOT; };
 		779C4A014045979B63FA91DA /* MenuBarStatusViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarStatusViewModelTests.swift; sourceTree = "<group>"; };
-		796303AE5BC0A8680F7A7AD2 /* MenuBarContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarContentView.swift; sourceTree = "<group>"; };
+		796303AE5BC0A8680F7A7AD2 /* MenuBarPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarPanelView.swift; sourceTree = "<group>"; };
 		7B3FF77549087DD2916880DF /* SettingsViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewModelTests.swift; sourceTree = "<group>"; };
 		8A11BC45725485F419CF2825 /* TagGrouping.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagGrouping.swift; sourceTree = "<group>"; };
 		8AC9F0573094EA0FDAF709A4 /* TargetStatus+Color.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TargetStatus+Color.swift"; sourceTree = "<group>"; };
@@ -105,6 +109,7 @@
 		99F05C7188B0B39A5442CBE1 /* OverviewViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverviewViewModelTests.swift; sourceTree = "<group>"; };
 		9C43712C7D49D12621F6F1E1 /* AppNavigationStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppNavigationStateTests.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F60718293A4B5D /* WindowPresenterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowPresenterTests.swift; sourceTree = "<group>"; };
+		F1525299D861D2DB83C181DA /* AboutWindowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutWindowTests.swift; sourceTree = "<group>"; };
 		A7A606C42E3956DEACC3E084 /* NativeSearchField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeSearchField.swift; sourceTree = "<group>"; };
 		A9A1A866451C0422F4E916B0 /* LoginItemManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginItemManager.swift; sourceTree = "<group>"; };
 		AA924832D4BC4CAF46E7927B /* RemoteServerFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteServerFormView.swift; sourceTree = "<group>"; };
@@ -119,6 +124,7 @@
 		E6D8573E598127E948F3F6BC /* SignalBarAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SignalBarAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		EE26A5986D4261393D37FD33 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F5DAF18BEBBE30CFCFD75BC6 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		30E7CDF636178F01BD2A37B7 /* AboutWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutWindow.swift; sourceTree = "<group>"; };
 		F6F2B4268E57D6E7A74AD128 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		FC3214287A5FAC92770E67C4 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -176,8 +182,9 @@
 				2D8ED1A9E96C2CA2F766EECC /* AppLocale.swift */,
 				DBDE6F2550A231B81856A359 /* ContentView.swift */,
 				D7E4F3E620755225C5C26640 /* JSONDocumentPanel.swift */,
-				796303AE5BC0A8680F7A7AD2 /* MenuBarContentView.swift */,
+				796303AE5BC0A8680F7A7AD2 /* MenuBarPanelView.swift */,
 				6B6EE485D77E9BC10FD3BCD5 /* MenuBarStatusViewModel.swift */,
+				8FDBFF940EDA7B843F958FA4 /* StatusBarController.swift */,
 				A7A606C42E3956DEACC3E084 /* NativeSearchField.swift */,
 				3C8E1116107258128CC786DC /* OverviewView.swift */,
 				3F6F86663D2DD69C510B87DA /* OverviewViewModel.swift */,
@@ -232,6 +239,7 @@
 			children = (
 				9C43712C7D49D12621F6F1E1 /* AppNavigationStateTests.swift */,
 				A1B2C3D4E5F60718293A4B5D /* WindowPresenterTests.swift */,
+				F1525299D861D2DB83C181DA /* AboutWindowTests.swift */,
 				779C4A014045979B63FA91DA /* MenuBarStatusViewModelTests.swift */,
 				99F05C7188B0B39A5442CBE1 /* OverviewViewModelTests.swift */,
 				B1292A8B34C8A721D191E781 /* RemoteServerListViewModelTests.swift */,
@@ -264,6 +272,7 @@
 			children = (
 				209B14451FCAF4EA327B6F93 /* AppDatabase+Shared.swift */,
 				F5DAF18BEBBE30CFCFD75BC6 /* AppDelegate.swift */,
+				30E7CDF636178F01BD2A37B7 /* AboutWindow.swift */,
 				4685B257D160AAF8E156E92B /* AppNavigationState.swift */,
 				29B5EFE18A8742106D54555B /* AppScheduler.swift */,
 				29D84B16BB9FE4C997FFED7B /* AppUpdater.swift */,
@@ -377,6 +386,7 @@
 			files = (
 				37EA04A5AFF34D097634A2CA /* AppNavigationStateTests.swift in Sources */,
 				A1B2C3D4E5F60718293A4B5C /* WindowPresenterTests.swift in Sources */,
+				BBABF62F2711373A3F1766F5 /* AboutWindowTests.swift in Sources */,
 				A03278802D874BEEB9887AC4 /* MenuBarStatusViewModelTests.swift in Sources */,
 				3B1F3ABD52088998A3A9D4C4 /* OverviewViewModelTests.swift in Sources */,
 				59B99441FA9538276E1A5ED5 /* RemoteServerListViewModelTests.swift in Sources */,
@@ -393,6 +403,7 @@
 				61197CFA27B025C748BDCDBA /* AppDatabase+Shared.swift in Sources */,
 				F836CE66F9D9C8F4B182244C /* AppDatabaseLocation.swift in Sources */,
 				09046A7D81FDDF3675BC3BB3 /* AppDelegate.swift in Sources */,
+				A27FE44625F67F25B0E6F4A4 /* AboutWindow.swift in Sources */,
 				08440F9E88FEABE03AB06414 /* AppLocale.swift in Sources */,
 				11E223E71F2F0679B7811E4F /* AppNavigationState.swift in Sources */,
 				FEE4CBFEC00E638330BA8515 /* AppScheduler.swift in Sources */,
@@ -401,8 +412,9 @@
 				93A6FA64EB3F7120C26CD5CD /* SignalBarApp.swift in Sources */,
 				931EFE7806E89090355DF64E /* JSONDocumentPanel.swift in Sources */,
 				AF57ECF683CC15051C975BB4 /* LoginItemManager.swift in Sources */,
-				0ADBF17C142F21D0B580A338 /* MenuBarContentView.swift in Sources */,
+				0ADBF17C142F21D0B580A338 /* MenuBarPanelView.swift in Sources */,
 				A3C2300CA2BCE0D1D3661BCB /* MenuBarStatusViewModel.swift in Sources */,
+				64EACA07C33E4FE29692618D /* StatusBarController.swift in Sources */,
 				AA32B1E5C47D69361CBE93BA /* NativeSearchField.swift in Sources */,
 				24FC25C3AC775A17B56036F5 /* NotificationManager.swift in Sources */,
 				AF981DD9472E4B8E77B85EB9 /* OverviewView.swift in Sources */,

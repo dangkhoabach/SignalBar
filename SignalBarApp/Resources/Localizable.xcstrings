@@ -2935,6 +2935,96 @@
     },
     "you@example.com" : {
 
+    },
+    "About SignalBar" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Giới thiệu SignalBar"
+          }
+        }
+      }
+    },
+    "Your websites and servers, watched from the menu bar." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Theo dõi website và máy chủ ngay trên thanh menu."
+          }
+        }
+      }
+    },
+    "Version %@" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Phiên bản %@"
+          }
+        }
+      }
+    },
+    "Released %@" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Phát hành %@"
+          }
+        }
+      }
+    },
+    "Website" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trang web"
+          }
+        }
+      }
+    },
+    "Quit SignalBar" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thoát SignalBar"
+          }
+        }
+      }
+    },
+    "Every domain is up." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mọi domain đều đang chạy."
+          }
+        }
+      }
+    },
+    "No domains yet." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chưa có domain nào."
+          }
+        }
+      }
+    },
+    "And %lld more" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Và %lld domain khác"
+          }
+        }
+      }
     }
   },
   "version" : "1.1"

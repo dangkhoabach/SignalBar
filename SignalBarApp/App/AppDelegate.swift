@@ -19,6 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         MenuBarStatusViewModel.shared.start()
+        StatusBarController.shared.start()
         NotificationManager.shared.onRouteSelected = { route in
             AppNavigationState.shared.handleNotificationRoute(route)
         }
