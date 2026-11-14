@@ -18,19 +18,31 @@ struct ContentView: View {
 
     var body: some View {
         NavigationSplitView {
-            List(SidebarSection.allCases, selection: Binding(
+            List(selection: Binding(
                 get: { navigationState.sidebarSelection },
                 set: { if let newValue = $0 { navigationState.sidebarSelection = newValue } }
-            )) { section in
-                Label {
-                    Text(section.title)
-                } icon: {
-                    Image(systemName: section.systemImage)
-                        .foregroundStyle(section == navigationState.sidebarSelection ? Color.primary : Color.secondary)
+            )) {
+                Section {
+                    ForEach([SidebarSection.domains, .remoteServers]) { section in
+                        Label {
+                            Text(section.title)
+                        } icon: {
+                            Image(systemName: section.systemImage)
+                                .foregroundStyle(section == navigationState.sidebarSelection ? Color.primary : Color.secondary)
+                        }
+                        .tag(section)
+                    }
+                } header: {
+                    Text("Monitoring")
                 }
-                .tag(section)
             }
-            .navigationSplitViewColumnWidth(min: 160, ideal: 180)
+            // Settings is pinned under the list, as in the author's other apps.
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                SidebarSettingsRow(isSelected: navigationState.sidebarSelection == .settings) {
+                    navigationState.sidebarSelection = .settings
+                }
+            }
+            .navigationSplitViewColumnWidth(min: 200, ideal: 220)
             .focused($sidebarFocused)
         } detail: {
             switch navigationState.sidebarSelection {

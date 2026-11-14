@@ -54,6 +54,7 @@
 		D4587BADE842F378B776820D /* WindowPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5E1C376C79D159C74BDC9FA /* WindowPresenter.swift */; };
 		DCF7A328E0F39BEB7D679467 /* RemoteServerListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EFA1711A5E3BE28A9DA947E /* RemoteServerListViewModel.swift */; };
 		DD497DD6792746B2E1BF2440 /* SidebarSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B794D99ACEAE0E64E8340A36 /* SidebarSection.swift */; };
+		1885AA0BE071B9E2EFE5A65C /* SidebarSettingsRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AC29FC6F73964910C012296 /* SidebarSettingsRow.swift */; };
 		EBBF362442CF99A4E1B8DDD8 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = C1E5ADB5A02659CEFD7F7FEC /* Sparkle */; };
 		EDD8A269DB193FCC3A835BAD /* RemoteBulkActionViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D0A49CB84E4A7EF42983425 /* RemoteBulkActionViewModel.swift */; };
 		F836CE66F9D9C8F4B182244C /* AppDatabaseLocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 142BB317FE0D507C922D3C7C /* AppDatabaseLocation.swift */; };
@@ -115,6 +116,7 @@
 		AA924832D4BC4CAF46E7927B /* RemoteServerFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteServerFormView.swift; sourceTree = "<group>"; };
 		B1292A8B34C8A721D191E781 /* RemoteServerListViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteServerListViewModelTests.swift; sourceTree = "<group>"; };
 		B794D99ACEAE0E64E8340A36 /* SidebarSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarSection.swift; sourceTree = "<group>"; };
+		3AC29FC6F73964910C012296 /* SidebarSettingsRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarSettingsRow.swift; sourceTree = "<group>"; };
 		B7BE95472F29E17E4674D52F /* RemoteBulkActionSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteBulkActionSheet.swift; sourceTree = "<group>"; };
 		B803EBECF2A767DA9A084C97 /* TargetDetailViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TargetDetailViewModelTests.swift; sourceTree = "<group>"; };
 		B8EB0D002FD7902B0EAE363E /* TargetFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TargetFormView.swift; sourceTree = "<group>"; };
@@ -198,6 +200,7 @@
 				5493A485F9C5702408534D88 /* SettingsView.swift */,
 				17A5A225E7C6244424B1FF45 /* SettingsViewModel.swift */,
 				B794D99ACEAE0E64E8340A36 /* SidebarSection.swift */,
+				3AC29FC6F73964910C012296 /* SidebarSettingsRow.swift */,
 				8A11BC45725485F419CF2825 /* TagGrouping.swift */,
 				04550A58B53089F87627CCB2 /* TargetDetailView.swift */,
 				90AD55C48975CCB33D9F143F /* TargetDetailViewModel.swift */,
@@ -429,6 +432,7 @@
 				88725D19DFB852E73843A827 /* SettingsView.swift in Sources */,
 				3577E6A3B86ABAA8BCB246CD /* SettingsViewModel.swift in Sources */,
 				DD497DD6792746B2E1BF2440 /* SidebarSection.swift in Sources */,
+				1885AA0BE071B9E2EFE5A65C /* SidebarSettingsRow.swift in Sources */,
 				2C0043F6A9F18EB60B40B9E8 /* TagGrouping.swift in Sources */,
 				50B78F664757D6986514B171 /* TargetDetailView.swift in Sources */,
 				2B3DA0AC424862386DE083ED /* TargetDetailViewModel.swift in Sources */,
