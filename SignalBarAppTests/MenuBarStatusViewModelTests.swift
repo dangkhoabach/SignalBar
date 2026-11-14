@@ -1,4 +1,5 @@
 import GRDB
+import SwiftUI
 import Testing
 @testable import SignalBarCore
 @testable import SignalBar
@@ -20,7 +21,13 @@ import Testing
 
         let up = 0, total = 0
         #expect(!model.hasDownTargets)
-        #expect(model.domainsLabel == "Domains: \(up)/\(total) up")
+        // Compared through their descriptions, which spell out the key and
+        // every argument: `==` on two keys holding the number 0 can come out
+        // false depending on what the process has bridged before (it did once
+        // the test host stopped opening the real database), while 1 or 1000
+        // never do.
+        let expected: LocalizedStringKey = "Domains: \(up)/\(total) up"
+        #expect(String(describing: model.domainsLabel) == String(describing: expected))
     }
 
     @Test func hasDownTargetsIsTrueWhenATargetIsDown() throws {
