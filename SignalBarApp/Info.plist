@@ -22,6 +22,10 @@
 	<string>2.3.0</string>
 	<key>LSUIElement</key>
 	<false/>
+	<key>NSLocationUsageDescription</key>
+	<string>macOS shows the name of the Wi-Fi network only to apps with Location access. SignalBar uses it for nothing else.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>macOS shows the name of the Wi-Fi network only to apps with Location access. SignalBar uses it for nothing else.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>SignalBar finds the devices on the networks you add under Network, and reads routers, switches and DHCP servers you set up there.</string>
 	<key>SUFeedURL</key>

@@ -155,6 +155,9 @@ struct LocalizedAlertText: AlertTextLocalizing {
         case .networkSourceRecovered(let source):
             return (String(localized: "\(source) can be read again", bundle: bundle),
                     String(localized: "Network data from it is up to date", bundle: bundle))
+        case .publicIPChanged(let old, let new, let holder):
+            return (String(localized: "Public IP changed to \(new)", bundle: bundle),
+                    [String(localized: "Was \(old)", bundle: bundle), holder].compactMap { $0 }.joined(separator: " · "))
         }
     }
 }

@@ -51,7 +51,10 @@ import Testing
             networkAlertConflicts: false,
             networkAlertSourceFailures: false,
             networkWebhookEnabled: true,
-            networkInMenuBarStatus: true
+            networkInMenuBarStatus: true,
+            connectionPublicLookupEnabled: false,
+            connectionAlertPublicIPChange: true,
+            connectionPublicIPInMenuBar: true
         )
         try repo.update(settings)
         #expect(try repo.load() == settings)

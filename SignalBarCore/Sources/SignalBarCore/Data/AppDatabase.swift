@@ -360,6 +360,22 @@ public struct AppDatabase: Sendable {
                 """)
         }
 
+        migrator.registerMigration("v6_connection") { db in
+            try db.execute(sql: """
+                CREATE TABLE public_ip_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    family TEXT NOT NULL,
+                    ip TEXT NOT NULL,
+                    asn INTEGER,
+                    holder TEXT,
+                    country TEXT,
+                    first_seen_at TEXT NOT NULL,
+                    last_seen_at TEXT NOT NULL
+                );
+                CREATE INDEX idx_public_ip_history ON public_ip_history(family, last_seen_at);
+                """)
+        }
+
         return migrator
     }
 }

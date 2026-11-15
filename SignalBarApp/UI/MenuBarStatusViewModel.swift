@@ -38,6 +38,8 @@ final class MenuBarStatusViewModel {
     private(set) var network: NetworkRepository.Summary?
     /// Whether Network problems may turn the icon red (Settings › Network).
     private(set) var networkInStatus = false
+    /// Whether the panel shows the public IP (Settings › Network).
+    private(set) var showsPublicIP = false
 
     init(targetRepo: TargetRepository?, networkRepo: NetworkRepository? = nil, settingsRepo: SettingsRepository? = nil) {
         self.targetRepo = targetRepo
@@ -73,8 +75,11 @@ final class MenuBarStatusViewModel {
             let shown = summary.devices > 0 ? summary : nil
             if shown != network { network = shown }
         }
-        let inStatus = (try? settingsRepo?.load().networkInMenuBarStatus) ?? false
+        let settings = try? settingsRepo?.load()
+        let inStatus = settings?.networkInMenuBarStatus ?? false
         if inStatus != networkInStatus { networkInStatus = inStatus }
+        let showsIP = (settings?.connectionPublicLookupEnabled ?? false) && (settings?.connectionPublicIPInMenuBar ?? false)
+        if showsIP != showsPublicIP { showsPublicIP = showsIP }
     }
 
     /// A Network problem worth the red icon: a watched device that left, or

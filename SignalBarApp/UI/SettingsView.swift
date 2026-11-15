@@ -423,6 +423,27 @@ struct SettingsView: View {
     @ViewBuilder
     private var networkSections: some View {
         Section {
+            Toggle("Look up the public IP address", isOn: Binding(
+                get: { viewModel.settings.connectionPublicLookupEnabled },
+                set: { isOn in
+                    viewModel.settings.connectionPublicLookupEnabled = isOn
+                    Task {
+                        try? await Task.sleep(nanoseconds: 1_000_000_000)
+                        ConnectionViewModel.shared.refresh()
+                    }
+                }
+            ))
+            Toggle("Notify when it changes", isOn: $viewModel.settings.connectionAlertPublicIPChange)
+                .disabled(!viewModel.settings.connectionPublicLookupEnabled)
+            Toggle("Show it in the menu bar panel", isOn: $viewModel.settings.connectionPublicIPInMenuBar)
+                .disabled(!viewModel.settings.connectionPublicLookupEnabled)
+        } header: {
+            Text("Connection")
+        } footer: {
+            Text("The lookup asks Cloudflare (1.1.1.1) for the address, OpenDNS when Cloudflare can't be reached, RIPEstat for the provider's name, and Akamai which DNS resolver answers for this Mac. Nothing else about this Mac is sent.")
+        }
+
+        Section {
             Toggle("Scan and read sources automatically", isOn: Binding(
                 get: { viewModel.settings.networkMonitoringEnabled },
                 set: { isOn in

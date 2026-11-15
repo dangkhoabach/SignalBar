@@ -21,6 +21,8 @@ public enum AlertMessage: Sendable, Equatable {
     case networkIPConflict(address: String, devices: String)
     case networkSourceFailing(source: String, error: String)
     case networkSourceRecovered(source: String)
+    /// `holder` names the network the new address belongs to, when known.
+    case publicIPChanged(old: String, new: String, holder: String?)
 }
 
 /// Turns an alert into the title and body of a notification and of a
@@ -61,6 +63,8 @@ public struct EnglishAlertText: AlertTextLocalizing {
             ("Can't read \(source)", error)
         case .networkSourceRecovered(let source):
             ("\(source) can be read again", "Network data from it is up to date")
+        case .publicIPChanged(let old, let new, let holder):
+            ("Public IP changed to \(new)", ["Was \(old)", holder].compactMap { $0 }.joined(separator: " · "))
         }
     }
 }

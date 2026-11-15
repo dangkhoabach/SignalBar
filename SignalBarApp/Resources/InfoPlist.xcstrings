@@ -12,6 +12,30 @@
           }
         }
       }
+    },
+    "NSLocationUsageDescription" : {
+      "comment" : "Shown by macOS when the user asks SignalBar to show the Wi-Fi network's name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS chỉ cho ứng dụng có quyền Vị trí xem tên mạng Wi‑Fi. SignalBar không dùng quyền này vào việc gì khác."
+          }
+        }
+      }
+    },
+    "NSLocationWhenInUseUsageDescription" : {
+      "comment" : "Shown by macOS when the user asks SignalBar to show the Wi-Fi network's name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS chỉ cho ứng dụng có quyền Vị trí xem tên mạng Wi‑Fi. SignalBar không dùng quyền này vào việc gì khác."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

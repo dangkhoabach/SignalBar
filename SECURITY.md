@@ -31,6 +31,9 @@ In scope:
   writing to a router, switch or DHCP server, reading a file over SSH other than an allowlisted
   lease file, accepting a changed router certificate without asking, or leaking the SNMP or
   router credentials it stores in the Keychain.
+- **Connection:** sending anything to the public address lookups (Cloudflare, OpenDNS,
+  RIPEstat, Akamai) beyond what is needed to find the address and its network, making those
+  lookups while they are turned off, or reading the Mac's location.
 - **Updates:** installing an update that is not signed with the release key.
 
 Out of scope:

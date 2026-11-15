@@ -59,6 +59,11 @@ public struct AppSettings: Equatable, Sendable {
     public var networkWebhookEnabled: Bool = false
     /// Lets a Network alert turn the menu bar icon red, as a down domain does.
     public var networkInMenuBarStatus: Bool = false
+    /// Connection: ask Cloudflare (and RIPEstat, for the network's owner)
+    /// what this Mac's public address is. Off, none of those services is asked.
+    public var connectionPublicLookupEnabled: Bool = true
+    public var connectionAlertPublicIPChange: Bool = false
+    public var connectionPublicIPInMenuBar: Bool = false
     public static let defaults = AppSettings(
         notificationsEnabled: false,
         smtpEnabled: false,
@@ -128,7 +133,10 @@ public struct SettingsRepository: Sendable {
             networkAlertConflicts: try flag("network_alert_conflicts", d.networkAlertConflicts),
             networkAlertSourceFailures: try flag("network_alert_source_failures", d.networkAlertSourceFailures),
             networkWebhookEnabled: try flag("network_webhook_enabled", d.networkWebhookEnabled),
-            networkInMenuBarStatus: try flag("network_in_menu_bar_status", d.networkInMenuBarStatus)
+            networkInMenuBarStatus: try flag("network_in_menu_bar_status", d.networkInMenuBarStatus),
+            connectionPublicLookupEnabled: try flag("connection_public_lookup_enabled", d.connectionPublicLookupEnabled),
+            connectionAlertPublicIPChange: try flag("connection_alert_public_ip_change", d.connectionAlertPublicIPChange),
+            connectionPublicIPInMenuBar: try flag("connection_public_ip_in_menu_bar", d.connectionPublicIPInMenuBar)
         )
     }
 
@@ -163,6 +171,9 @@ public struct SettingsRepository: Sendable {
                 ("network_alert_source_failures", settings.networkAlertSourceFailures),
                 ("network_webhook_enabled", settings.networkWebhookEnabled),
                 ("network_in_menu_bar_status", settings.networkInMenuBarStatus),
+                ("connection_public_lookup_enabled", settings.connectionPublicLookupEnabled),
+                ("connection_alert_public_ip_change", settings.connectionAlertPublicIPChange),
+                ("connection_public_ip_in_menu_bar", settings.connectionPublicIPInMenuBar),
             ]
             for (key, value) in flags {
                 try AppSettingsStore.set(db, key: key, value: value ? "1" : "0")

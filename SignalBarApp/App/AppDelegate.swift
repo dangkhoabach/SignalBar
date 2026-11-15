@@ -25,6 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         Task { await AppScheduler.shared?.start() }
         Task { await AppNetworkMonitor.shared?.start() }
+        ConnectionViewModel.shared.start()
         _ = AppUpdater.shared // starts Sparkle's check-on-launch loop
 
         // Scheduler.tick's own loop just sleeps a fixed interval between

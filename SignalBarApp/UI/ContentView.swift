@@ -36,7 +36,7 @@ struct ContentView: View {
                     Text("Monitoring")
                 }
                 Section {
-                    ForEach([SidebarSection.networkDevices, .networkAddresses, .networks]) { section in
+                    ForEach([SidebarSection.connection, .networkDevices, .networkAddresses, .networks]) { section in
                         Label {
                             Text(section.title)
                         } icon: {
@@ -63,6 +63,8 @@ struct ContentView: View {
                 OverviewView()
             case .remoteServers:
                 RemoteServerListView()
+            case .connection:
+                ConnectionView()
             case .networkDevices:
                 NetworkDevicesView()
             case .networkAddresses:

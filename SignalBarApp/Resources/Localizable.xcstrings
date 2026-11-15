@@ -11,6 +11,926 @@
         }
       }
     },
+    "%@ – %@" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ – %@"
+          }
+        }
+      }
+    },
+    "A new address is recorded when it changes; a notification can be turned on in Settings › Network." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mỗi khi địa chỉ đổi sẽ ghi thêm một dòng; có thể bật thông báo trong Cài đặt › Mạng."
+          }
+        }
+      }
+    },
+    "A private Wi-Fi address: this Mac shows this network a made-up hardware address" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Địa chỉ Wi‑Fi riêng tư: máy Mac này dùng một địa chỉ phần cứng giả với mạng này"
+          }
+        }
+      }
+    },
+    "Auto-config (PAC)" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tự cấu hình (PAC)"
+          }
+        }
+      }
+    },
+    "Auto-discovery" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tự dò proxy"
+          }
+        }
+      }
+    },
+    "Bypassed for" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không qua proxy"
+          }
+        }
+      }
+    },
+    "Carrier-grade NAT: the provider shares one address" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CGNAT: nhà mạng dùng chung một địa chỉ cho nhiều khách"
+          }
+        }
+      }
+    },
+    "Cellular" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Di động"
+          }
+        }
+      }
+    },
+    "Channel" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kênh"
+          }
+        }
+      }
+    },
+    "Checking the connection…" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đang kiểm tra kết nối…"
+          }
+        }
+      }
+    },
+    "Clear History" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Xóa lịch sử"
+          }
+        }
+      }
+    },
+    "Clear History…" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Xóa lịch sử…"
+          }
+        }
+      }
+    },
+    "Clear the public IP history?" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Xóa lịch sử IP public?"
+          }
+        }
+      }
+    },
+    "Cloudflare edge" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Điểm Cloudflare"
+          }
+        }
+      }
+    },
+    "Connected to the internet" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đã kết nối internet"
+          }
+        }
+      }
+    },
+    "Connected, but the internet can't be reached" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Có kết nối mạng nhưng không ra được internet"
+          }
+        }
+      }
+    },
+    "Connection" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kết nối"
+          }
+        }
+      }
+    },
+    "Connection Quality" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chất lượng kết nối"
+          }
+        }
+      }
+    },
+    "Copied" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đã copy"
+          }
+        }
+      }
+    },
+    "Copy" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy"
+          }
+        }
+      }
+    },
+    "Copy the public IP" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy IP public"
+          }
+        }
+      }
+    },
+    "Couldn't reach Cloudflare or OpenDNS to find the public address." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không liên lạc được Cloudflare hay OpenDNS để lấy IP public."
+          }
+        }
+      }
+    },
+    "Country" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quốc gia"
+          }
+        }
+      }
+    },
+    "DHCP server" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Máy chủ DHCP"
+          }
+        }
+      }
+    },
+    "DNS" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DNS"
+          }
+        }
+      }
+    },
+    "Didn't answer a lookup sent straight to it" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không trả lời truy vấn gửi thẳng tới nó"
+          }
+        }
+      }
+    },
+    "Domain" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tên miền"
+          }
+        }
+      }
+    },
+    "Double NAT: another router is in front of yours" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NAT hai lớp: có một router khác đứng trước router của bạn"
+          }
+        }
+      }
+    },
+    "Ethernet" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ethernet"
+          }
+        }
+      }
+    },
+    "Everything goes through the VPN" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toàn bộ lưu lượng đi qua VPN"
+          }
+        }
+      }
+    },
+    "Excellent" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rất tốt"
+          }
+        }
+      }
+    },
+    "Fair" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trung bình"
+          }
+        }
+      }
+    },
+    "Good" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tốt"
+          }
+        }
+      }
+    },
+    "HTTP proxy" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Proxy HTTP"
+          }
+        }
+      }
+    },
+    "HTTPS proxy" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Proxy HTTPS"
+          }
+        }
+      }
+    },
+    "IPv4" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "IPv4"
+          }
+        }
+      }
+    },
+    "IPv4 only" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chỉ IPv4"
+          }
+        }
+      }
+    },
+    "IPv6" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "IPv6"
+          }
+        }
+      }
+    },
+    "IPv6 (temporary)" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "IPv6 (tạm thời)"
+          }
+        }
+      }
+    },
+    "IPv6 router" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Router IPv6"
+          }
+        }
+      }
+    },
+    "Interface" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Interface"
+          }
+        }
+      }
+    },
+    "Internet" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Internet"
+          }
+        }
+      }
+    },
+    "Jitter %@ · Loss %@%%" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jitter %@ · Mất gói %@%%"
+          }
+        }
+      }
+    },
+    "Latency is normal all the way out." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Độ trễ bình thường trên mọi chặng."
+          }
+        }
+      }
+    },
+    "Lease" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lease"
+          }
+        }
+      }
+    },
+    "Leaves through" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ra internet qua"
+          }
+        }
+      }
+    },
+    "Link speed" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tốc độ link"
+          }
+        }
+      }
+    },
+    "Link-local only" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chỉ có link-local"
+          }
+        }
+      }
+    },
+    "Look up the public IP address" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tra cứu địa chỉ IP public"
+          }
+        }
+      }
+    },
+    "Looking up the public address is off. Turn it on in Settings › Network to see it here." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tra cứu IP public đang tắt. Bật trong Cài đặt › Mạng để xem ở đây."
+          }
+        }
+      }
+    },
+    "Low Data Mode" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chế độ dữ liệu thấp"
+          }
+        }
+      }
+    },
+    "MTU" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MTU"
+          }
+        }
+      }
+    },
+    "Measured every few seconds while this page is open; the last 10 minutes are kept." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đo vài giây một lần khi trang này đang mở; giữ 10 phút gần nhất."
+          }
+        }
+      }
+    },
+    "Metered" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tính phí theo dung lượng"
+          }
+        }
+      }
+    },
+    "NAT" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NAT"
+          }
+        }
+      }
+    },
+    "Needs Location access" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cần quyền Vị trí"
+          }
+        }
+      }
+    },
+    "Network offers" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mạng cấp"
+          }
+        }
+      }
+    },
+    "No addresses recorded yet." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chưa ghi nhận địa chỉ nào."
+          }
+        }
+      }
+    },
+    "No network interface is connected." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không có interface mạng nào đang kết nối."
+          }
+        }
+      }
+    },
+    "None found" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không có"
+          }
+        }
+      }
+    },
+    "Not connected" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chưa kết nối mạng"
+          }
+        }
+      }
+    },
+    "Not in use" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không dùng"
+          }
+        }
+      }
+    },
+    "Nothing is recorded while the public address lookup is off." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không ghi nhận gì khi tra cứu IP public đang tắt."
+          }
+        }
+      }
+    },
+    "Notify when it changes" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thông báo khi IP đổi"
+          }
+        }
+      }
+    },
+    "One NAT: the router has a public address" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NAT một lớp: router có địa chỉ public"
+          }
+        }
+      }
+    },
+    "Only some networks go through the VPN" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chỉ một số mạng đi qua VPN"
+          }
+        }
+      }
+    },
+    "Open (not encrypted)" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mở (không mã hóa)"
+          }
+        }
+      }
+    },
+    "Open Settings…" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mở Cài đặt…"
+          }
+        }
+      }
+    },
+    "Poor" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yếu"
+          }
+        }
+      }
+    },
+    "Private" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Riêng tư"
+          }
+        }
+      }
+    },
+    "Provider" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nhà mạng"
+          }
+        }
+      }
+    },
+    "Proxy" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Proxy"
+          }
+        }
+      }
+    },
+    "Public IP" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "IP public"
+          }
+        }
+      }
+    },
+    "Public IP History" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lịch sử IP public"
+          }
+        }
+      }
+    },
+    "Public IP changed to %@" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "IP public đã đổi thành %@"
+          }
+        }
+      }
+    },
+    "Public IPv4" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "IPv4 public"
+          }
+        }
+      }
+    },
+    "Public IPv6" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "IPv6 public"
+          }
+        }
+      }
+    },
+    "Read everything again" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đọc lại tất cả"
+          }
+        }
+      }
+    },
+    "SOCKS proxy" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Proxy SOCKS"
+          }
+        }
+      }
+    },
+    "Security" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bảo mật"
+          }
+        }
+      }
+    },
+    "Set by" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thiết lập bởi"
+          }
+        }
+      }
+    },
+    "Show Network Name…" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hiện tên mạng…"
+          }
+        }
+      }
+    },
+    "Show it in the menu bar panel" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hiện trong bảng menu bar"
+          }
+        }
+      }
+    },
+    "Signal" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tín hiệu"
+          }
+        }
+      }
+    },
+    "Since" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Từ lúc"
+          }
+        }
+      }
+    },
+    "Slow at the provider: the router answers quickly, the provider's network doesn't." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chậm ở nhà mạng: router trả lời nhanh, mạng của nhà mạng thì không."
+          }
+        }
+      }
+    },
+    "Slow before the router: the Wi-Fi or the local network is the problem." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chậm trước router: lỗi ở Wi‑Fi hoặc mạng nội bộ."
+          }
+        }
+      }
+    },
+    "Slow past the provider: the local network and the provider answer quickly." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chậm sau nhà mạng: mạng nội bộ và nhà mạng đều trả lời nhanh."
+          }
+        }
+      }
+    },
+    "Split DNS" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DNS theo tên miền"
+          }
+        }
+      }
+    },
+    "Standard" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chuẩn"
+          }
+        }
+      }
+    },
+    "Subnet mask" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subnet mask"
+          }
+        }
+      }
+    },
+    "The VPN" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VPN"
+          }
+        }
+      }
+    },
     "The health check failed" : {
       "localizations" : {
         "vi" : {
@@ -67,6 +987,56 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ đã phản hồi bình thường trở lại"
+          }
+        }
+      }
+    },
+    "The hop after your router is %@, a private address. Port forwarding must be set on both." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chặng sau router của bạn là %@, một địa chỉ nội bộ. Muốn mở port phải cấu hình trên cả hai router."
+          }
+        }
+      }
+    },
+    "The hop after your router is %@. Connections from the internet can't reach this network; ask the provider for a public IP." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chặng sau router của bạn là %@. Từ internet không kết nối vào mạng này được; hãy xin nhà mạng một IP public."
+          }
+        }
+      }
+    },
+    "The lookup asks Cloudflare (1.1.1.1) for the address, OpenDNS when Cloudflare can't be reached, RIPEstat for the provider's name, and Akamai which DNS resolver answers for this Mac. Nothing else about this Mac is sent." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Khi tra cứu, SignalBar hỏi Cloudflare (1.1.1.1) địa chỉ IP, hỏi OpenDNS nếu không tới được Cloudflare, hỏi RIPEstat tên nhà mạng và hỏi Akamai DNS resolver nào đang trả lời cho máy Mac này. Không gửi thông tin nào khác về máy."
+          }
+        }
+      }
+    },
+    "The network (DHCP)" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mạng (DHCP)"
+          }
+        }
+      }
+    },
+    "The resolver that finally asks the internet for you" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resolver thực sự đi hỏi internet thay cho bạn"
           }
         }
       }
@@ -140,6 +1110,156 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : " (%lld)"
+          }
+        }
+      }
+    },
+    "Time to answer a lookup sent straight to it" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thời gian trả lời một truy vấn gửi thẳng tới nó"
+          }
+        }
+      }
+    },
+    "Traffic" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lưu lượng"
+          }
+        }
+      }
+    },
+    "Traffic on %@" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lưu lượng trên %@"
+          }
+        }
+      }
+    },
+    "Transmit rate" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tốc độ truyền"
+          }
+        }
+      }
+    },
+    "Typed in System Settings" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nhập tay trong Cài đặt hệ thống"
+          }
+        }
+      }
+    },
+    "Unknown while all traffic goes through a VPN" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không xác định khi toàn bộ lưu lượng đi qua VPN"
+          }
+        }
+      }
+    },
+    "Unknown: the hops past the router didn't answer" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không xác định: các chặng sau router không trả lời"
+          }
+        }
+      }
+    },
+    "Updated %@" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cập nhật %@"
+          }
+        }
+      }
+    },
+    "VPN" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VPN"
+          }
+        }
+      }
+    },
+    "VPN & Proxy" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VPN & Proxy"
+          }
+        }
+      }
+    },
+    "WARP" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "WARP"
+          }
+        }
+      }
+    },
+    "Was %@" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trước đó là %@"
+          }
+        }
+      }
+    },
+    "Wi-Fi" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wi‑Fi"
+          }
+        }
+      }
+    },
+    "macOS shows the Wi-Fi network's name only to apps with Location access" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS chỉ cho ứng dụng có quyền Vị trí xem tên mạng Wi‑Fi"
+          }
+        }
+      }
+    },
+    "noise" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "nhiễu"
           }
         }
       }

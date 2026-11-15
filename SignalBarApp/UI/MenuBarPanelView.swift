@@ -36,6 +36,10 @@ private struct MenuBarPanelContent: View {
                 Divider()
                 NetworkPanelRow(summary: network)
             }
+            if model.showsPublicIP, let ip = ConnectionViewModel.shared.primaryPublicIP {
+                Divider()
+                PublicIPPanelRow(ip: ip, holder: (ConnectionViewModel.shared.status.publicIPv4 ?? ConnectionViewModel.shared.status.publicIPv6)?.holder)
+            }
             Divider()
             footer
         }
@@ -150,6 +154,46 @@ private struct NetworkPanelRow: View {
         }
         .buttonStyle(.plain)
         .onHover { isHovered = $0 }
+        .padding(6)
+    }
+}
+
+/// The public IP; clicking copies it.
+private struct PublicIPPanelRow: View {
+    let ip: String
+    let holder: String?
+    @State private var isHovered = false
+    @State private var copied = false
+
+    var body: some View {
+        Button {
+            ConnectionViewModel.copy(ip)
+            copied = true
+            Task {
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+                copied = false
+            }
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "globe").foregroundStyle(.secondary)
+                Text("Public IP")
+                Text(verbatim: ip).monospacedDigit().lineLimit(1).truncationMode(.middle)
+                Spacer(minLength: 0)
+                if copied {
+                    Text("Copied").foregroundStyle(.secondary)
+                } else if let holder {
+                    Text(verbatim: holder).foregroundStyle(.secondary).lineLimit(1)
+                }
+            }
+            .font(.callout)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .contentShape(Rectangle())
+            .background(isHovered ? Color.primary.opacity(0.08) : .clear, in: RoundedRectangle(cornerRadius: 6))
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
+        .help("Copy the public IP")
         .padding(6)
     }
 }

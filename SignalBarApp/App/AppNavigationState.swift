@@ -54,6 +54,8 @@ final class AppNavigationState {
         } else if route.hasPrefix("/network/devices/"), let id = Int64(route.dropFirst("/network/devices/".count)) {
             sidebarSelection = .networkDevices
             pendingDeviceID = id
+        } else if route == "/network/connection" {
+            sidebarSelection = .connection
         } else if route.hasPrefix("/network/sources/"), let id = Int64(route.dropFirst("/network/sources/".count)) {
             sidebarSelection = .networks
             pendingSourceID = id

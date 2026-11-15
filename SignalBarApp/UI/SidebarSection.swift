@@ -6,7 +6,7 @@ import SwiftUI
 /// `Settings {}` scene/window, per the user's request for a single unified
 /// Settings surface.
 enum SidebarSection: String, CaseIterable, Identifiable, Hashable {
-    case domains, remoteServers, networkDevices, networkAddresses, networks, settings
+    case domains, remoteServers, connection, networkDevices, networkAddresses, networks, settings
 
     var id: Self { self }
 
@@ -17,6 +17,7 @@ enum SidebarSection: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .domains: "Domains"
         case .remoteServers: "Server Manager"
+        case .connection: "Connection"
         case .networkDevices: "Devices"
         case .networkAddresses: "IP Addresses"
         case .networks: "Networks"
@@ -28,6 +29,7 @@ enum SidebarSection: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .domains: "network"
         case .remoteServers: "server.rack"
+        case .connection: "globe.asia.australia"
         case .networkDevices: "laptopcomputer.and.iphone"
         case .networkAddresses: "number"
         case .networks: "point.3.filled.connected.trianglepath.dotted"
