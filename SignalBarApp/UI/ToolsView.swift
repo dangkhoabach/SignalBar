@@ -244,22 +244,17 @@ private struct TraceToolView: View {
                 Divider()
                 Table(model.trace.hops) {
                     TableColumn("#") { Text(verbatim: "\($0.ttl)").monospacedDigit() }.width(32)
-                    TableColumn("Host") { hop in hostCell(hop) }.width(min: 200, ideal: 340)
-                    TableColumn("Network") { hop in
-                        Text(verbatim: hop.addresses.compactMap { model.hopNetworks[$0] }.first ?? "").foregroundStyle(.secondary).lineLimit(1)
-                    }
-                    .width(min: 80, ideal: 180)
+                    TableColumn("Host") { hop in hostCell(hop) }.width(min: 220, ideal: 330)
                     TableColumn("Loss") { hop in
                         Text(verbatim: String(format: "%.0f%%", hop.lossPercent)).monospacedDigit()
                             .foregroundStyle(hop.lossPercent >= 100 ? Color.secondary : hop.lossPercent > 0 ? .orange : .primary)
                     }
-                    .width(55)
-                    TableColumn("Sent") { Text(verbatim: "\($0.sent)").monospacedDigit() }.width(45)
-                    TableColumn("Last") { Text(verbatim: ms($0.last)).monospacedDigit() }.width(65)
-                    TableColumn("Avg") { Text(verbatim: ms($0.average)).monospacedDigit() }.width(65)
-                    TableColumn("Best") { Text(verbatim: ms($0.best)).monospacedDigit() }.width(65)
-                    TableColumn("Worst") { Text(verbatim: ms($0.worst)).monospacedDigit() }.width(65)
-                    TableColumn("Std. dev.") { Text(verbatim: ms($0.standardDeviation)).monospacedDigit() }.width(70)
+                    .width(50)
+                    TableColumn("Last") { Text(verbatim: ms($0.last)).monospacedDigit() }.width(56)
+                    TableColumn("Avg") { Text(verbatim: ms($0.average)).monospacedDigit() }.width(56)
+                    TableColumn("Best") { Text(verbatim: ms($0.best)).monospacedDigit() }.width(56)
+                    TableColumn("Worst") { Text(verbatim: ms($0.worst)).monospacedDigit() }.width(56)
+                    TableColumn("Std. dev.") { Text(verbatim: ms($0.standardDeviation)).monospacedDigit() }.width(60)
                 }
             } else {
                 hint
@@ -267,6 +262,8 @@ private struct TraceToolView: View {
         }
     }
 
+    /// The name on the first line (the address when there is none), then
+    /// the address and the network it belongs to.
     @ViewBuilder
     private func hostCell(_ hop: TraceHop) -> some View {
         if hop.addresses.isEmpty {
@@ -277,13 +274,15 @@ private struct TraceToolView: View {
                 ForEach(hop.addresses, id: \.self) { address in
                     HStack(spacing: 6) {
                         Text(verbatim: model.hopNames[address] ?? address.description).lineLimit(1)
-                        if model.hopNames[address] != nil {
-                            Text(verbatim: address.description).foregroundStyle(.secondary).monospacedDigit().lineLimit(1)
-                        }
                         if hop.unreachable { Text("unreachable").foregroundStyle(.orange) }
+                    }
+                    let details = [model.hopNames[address] == nil ? nil : address.description, model.hopNetworks[address]].compactMap { $0 }
+                    if !details.isEmpty {
+                        Text(verbatim: details.joined(separator: " · ")).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                     }
                 }
             }
+            .padding(.vertical, 1)
         }
     }
 
