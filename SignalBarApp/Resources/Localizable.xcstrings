@@ -1,6 +1,16 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "#" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "#"
+          }
+        }
+      }
+    },
     "%@ is down" : {
       "localizations" : {
         "vi" : {
@@ -21,6 +31,26 @@
         }
       }
     },
+    "%lld open · %lld of %lld checked" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld cổng mở · đã kiểm %lld/%lld"
+          }
+        }
+      }
+    },
+    "%lld times" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld lần"
+          }
+        }
+      }
+    },
     "A new address is recorded when it changes; a notification can be turned on in Settings › Network." : {
       "localizations" : {
         "vi" : {
@@ -31,12 +61,52 @@
         }
       }
     },
+    "A plain TCP connection to each port, nothing more. Only check hosts you are allowed to test." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chỉ mở một kết nối TCP tới từng cổng, không gì thêm. Chỉ kiểm tra những máy bạn được phép kiểm tra."
+          }
+        }
+      }
+    },
     "A private Wi-Fi address: this Mac shows this network a made-up hardware address" : {
       "localizations" : {
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Địa chỉ Wi‑Fi riêng tư: máy Mac này dùng một địa chỉ phần cứng giả với mạng này"
+          }
+        }
+      }
+    },
+    "Ask this Mac's DNS server, Cloudflare, Google and Quad9 at once" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hỏi cùng lúc DNS server của máy Mac này, Cloudflare, Google và Quad9"
+          }
+        }
+      }
+    },
+    "Authority" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Authority"
+          }
+        }
+      }
+    },
+    "Auto" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tự động"
           }
         }
       }
@@ -57,6 +127,36 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tự dò proxy"
+          }
+        }
+      }
+    },
+    "Avg" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TB"
+          }
+        }
+      }
+    },
+    "Best" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tốt nhất"
+          }
+        }
+      }
+    },
+    "Body" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nội dung"
           }
         }
       }
@@ -91,12 +191,42 @@
         }
       }
     },
+    "Certificates" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chứng chỉ"
+          }
+        }
+      }
+    },
     "Channel" : {
       "localizations" : {
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Kênh"
+          }
+        }
+      }
+    },
+    "Check" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kiểm tra"
+          }
+        }
+      }
+    },
+    "Check Ports…" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kiểm tra cổng…"
           }
         }
       }
@@ -141,12 +271,42 @@
         }
       }
     },
+    "Closed" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đóng"
+          }
+        }
+      }
+    },
     "Cloudflare edge" : {
       "localizations" : {
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Điểm Cloudflare"
+          }
+        }
+      }
+    },
+    "Compare servers" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "So sánh các server"
+          }
+        }
+      }
+    },
+    "Connect" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kết nối"
           }
         }
       }
@@ -211,12 +371,32 @@
         }
       }
     },
+    "Copy Results" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy kết quả"
+          }
+        }
+      }
+    },
     "Copy the public IP" : {
       "localizations" : {
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Copy IP public"
+          }
+        }
+      }
+    },
+    "Copy the results as text" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy kết quả dạng văn bản"
           }
         }
       }
@@ -231,12 +411,32 @@
         }
       }
     },
+    "Count" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Số lần"
+          }
+        }
+      }
+    },
     "Country" : {
       "localizations" : {
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Quốc gia"
+          }
+        }
+      }
+    },
+    "Custom" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tùy chọn"
           }
         }
       }
@@ -261,6 +461,37 @@
         }
       }
     },
+    "DNS Lookup" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tra DNS"
+          }
+        }
+      }
+    },
+    "DNS lookup" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tra DNS"
+          }
+        }
+      }
+    },
+    "Destination unreachable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không tới được đích"
+          }
+        }
+      }
+    },
     "Didn't answer a lookup sent straight to it" : {
       "localizations" : {
         "vi" : {
@@ -281,12 +512,52 @@
         }
       }
     },
+    "Domain, IP address or AS number" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tên miền, địa chỉ IP hoặc số AS"
+          }
+        }
+      }
+    },
     "Double NAT: another router is in front of yours" : {
       "localizations" : {
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "NAT hai lớp: có một router khác đứng trước router của bạn"
+          }
+        }
+      }
+    },
+    "Each round sends one probe per hop at once, so a trace takes a few seconds. Loss at a middle hop that doesn't carry on to the hops after it is the router limiting its replies, not lost traffic." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mỗi vòng gửi cùng lúc một gói cho mỗi chặng, nên một lần dò chỉ mất vài giây. Mất gói ở một chặng giữa mà các chặng sau không bị là do router đó hạn chế trả lời, không phải mất dữ liệu thật."
+          }
+        }
+      }
+    },
+    "Enter a MAC address such as 00:11:22:33:44:55." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nhập địa chỉ MAC, ví dụ 00:11:22:33:44:55."
+          }
+        }
+      }
+    },
+    "Enter ports such as 22, 80, 443 or a range such as 8000-8100." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nhập cổng như 22, 80, 443 hoặc một dải như 8000-8100."
           }
         }
       }
@@ -331,12 +602,42 @@
         }
       }
     },
+    "Follow redirects" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Theo chuyển hướng"
+          }
+        }
+      }
+    },
+    "From" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Từ"
+          }
+        }
+      }
+    },
     "Good" : {
       "localizations" : {
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tốt"
+          }
+        }
+      }
+    },
+    "HTTP" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "HTTP"
           }
         }
       }
@@ -357,6 +658,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Proxy HTTPS"
+          }
+        }
+      }
+    },
+    "Host name or IP address" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tên máy hoặc địa chỉ IP"
           }
         }
       }
@@ -431,12 +742,42 @@
         }
       }
     },
+    "Issued by %@" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cấp bởi %@"
+          }
+        }
+      }
+    },
     "Jitter %@ · Loss %@%%" : {
       "localizations" : {
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Jitter %@ · Mất gói %@%%"
+          }
+        }
+      }
+    },
+    "Keep running (MTR)" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chạy liên tục (MTR)"
+          }
+        }
+      }
+    },
+    "Last" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gần nhất"
           }
         }
       }
@@ -491,6 +832,16 @@
         }
       }
     },
+    "Look Up" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tra cứu"
+          }
+        }
+      }
+    },
     "Look up the public IP address" : {
       "localizations" : {
         "vi" : {
@@ -507,6 +858,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tra cứu IP public đang tắt. Bật trong Cài đặt › Mạng để xem ở đây."
+          }
+        }
+      }
+    },
+    "Loss" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mất gói"
           }
         }
       }
@@ -551,12 +912,32 @@
         }
       }
     },
+    "Min / Avg / Max" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Min / TB / Max"
+          }
+        }
+      }
+    },
     "NAT" : {
       "localizations" : {
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "NAT"
+          }
+        }
+      }
+    },
+    "Name or IP address" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tên hoặc địa chỉ IP"
           }
         }
       }
@@ -591,12 +972,52 @@
         }
       }
     },
+    "No answer" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không trả lời"
+          }
+        }
+      }
+    },
+    "No device with a known MAC address" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không có thiết bị nào biết địa chỉ MAC"
+          }
+        }
+      }
+    },
     "No network interface is connected." : {
       "localizations" : {
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Không có interface mạng nào đang kết nối."
+          }
+        }
+      }
+    },
+    "No records of this type." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không có bản ghi loại này."
+          }
+        }
+      }
+    },
+    "No router answered at this hop. Many routers don't reply to traceroute; it doesn't mean packets are lost there." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không router nào trả lời ở chặng này. Nhiều router không trả lời traceroute; điều đó không có nghĩa là gói bị mất ở đây."
           }
         }
       }
@@ -671,6 +1092,16 @@
         }
       }
     },
+    "Open" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mở"
+          }
+        }
+      }
+    },
     "Open (not encrypted)" : {
       "localizations" : {
         "vi" : {
@@ -691,6 +1122,26 @@
         }
       }
     },
+    "Open only" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chỉ cổng mở"
+          }
+        }
+      }
+    },
+    "Other…" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Khác…"
+          }
+        }
+      }
+    },
     "Poor" : {
       "localizations" : {
         "vi" : {
@@ -701,12 +1152,32 @@
         }
       }
     },
+    "Presets" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mẫu có sẵn"
+          }
+        }
+      }
+    },
     "Private" : {
       "localizations" : {
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Riêng tư"
+          }
+        }
+      }
+    },
+    "Protocol" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Giao thức"
           }
         }
       }
@@ -791,6 +1262,36 @@
         }
       }
     },
+    "Received" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nhận"
+          }
+        }
+      }
+    },
+    "Redirects" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chuyển hướng"
+          }
+        }
+      }
+    },
+    "Response headers" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Header phản hồi"
+          }
+        }
+      }
+    },
     "SOCKS proxy" : {
       "localizations" : {
         "vi" : {
@@ -807,6 +1308,66 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bảo mật"
+          }
+        }
+      }
+    },
+    "Send a round every second until stopped, to see which hop loses packets over time" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gửi một vòng mỗi giây cho tới khi dừng, để thấy chặng nào mất gói theo thời gian"
+          }
+        }
+      }
+    },
+    "Sends a magic packet to the device's network. It wakes only a device whose network card has Wake-on-LAN turned on, on this Mac's network, or on another one when its router passes broadcasts on." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gửi magic packet vào mạng của thiết bị. Chỉ đánh thức được thiết bị có card mạng bật Wake-on-LAN, nằm trong mạng của máy Mac này, hoặc mạng khác nếu router chuyển tiếp broadcast."
+          }
+        }
+      }
+    },
+    "Sent" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gửi"
+          }
+        }
+      }
+    },
+    "Sent %lld magic packets for %@ to %@." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đã gửi %lld magic packet cho %@ tới %@."
+          }
+        }
+      }
+    },
+    "Server IP" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "IP server"
+          }
+        }
+      }
+    },
+    "Server address" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Địa chỉ server"
           }
         }
       }
@@ -911,12 +1472,52 @@
         }
       }
     },
+    "Std. dev." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Độ lệch"
+          }
+        }
+      }
+    },
+    "Steps the request didn't need, such as a connection that was already open, show no time." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bước nào request không cần (ví dụ kết nối đã mở sẵn) thì không có thời gian."
+          }
+        }
+      }
+    },
     "Subnet mask" : {
       "localizations" : {
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Subnet mask"
+          }
+        }
+      }
+    },
+    "TLS handshake" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bắt tay TLS"
+          }
+        }
+      }
+    },
+    "TTL" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TTL"
           }
         }
       }
@@ -1011,12 +1612,32 @@
         }
       }
     },
-    "The lookup asks Cloudflare (1.1.1.1) for the address, OpenDNS when Cloudflare can't be reached, RIPEstat for the provider's name, and Akamai which DNS resolver answers for this Mac. Nothing else about this Mac is sent." : {
+    "The lookup asks Cloudflare (1.1.1.1) for the address, OpenDNS when Cloudflare can't be reached, RIPEstat for the provider's name, and Akamai which DNS resolver answers for this Mac. Nothing else about this Mac is sent. While it is on, Traceroute in Tools also asks RIPEstat which network each public hop belongs to." : {
       "localizations" : {
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Khi tra cứu, SignalBar hỏi Cloudflare (1.1.1.1) địa chỉ IP, hỏi OpenDNS nếu không tới được Cloudflare, hỏi RIPEstat tên nhà mạng và hỏi Akamai DNS resolver nào đang trả lời cho máy Mac này. Không gửi thông tin nào khác về máy."
+            "value" : "Khi tra cứu, SignalBar hỏi Cloudflare (1.1.1.1) địa chỉ IP, hỏi OpenDNS nếu không tới được Cloudflare, hỏi RIPEstat tên nhà mạng và hỏi Akamai DNS resolver nào đang trả lời cho máy Mac này. Không gửi thông tin nào khác về máy. Khi bật, Traceroute trong Công cụ cũng hỏi RIPEstat mạng của từng chặng public."
+          }
+        }
+      }
+    },
+    "The magic packet couldn't be sent. Check Local Network access in Privacy & Security." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không gửi được magic packet. Hãy kiểm tra quyền Mạng cục bộ trong Quyền riêng tư & Bảo mật."
+          }
+        }
+      }
+    },
+    "The name doesn't exist." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tên này không tồn tại."
           }
         }
       }
@@ -1124,6 +1745,87 @@
         }
       }
     },
+    "Time to live exceeded" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hết TTL trên đường đi"
+          }
+        }
+      }
+    },
+    "Timed out" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hết thời gian chờ"
+          }
+        }
+      }
+    },
+    "Timing" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thời gian"
+          }
+        }
+      }
+    },
+    "Tool" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Công cụ"
+          }
+        }
+      }
+    },
+    "Tools" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Công cụ"
+          }
+        }
+      }
+    },
+    "Total" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tổng"
+          }
+        }
+      }
+    },
+    "Trace" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dò"
+          }
+        }
+      }
+    },
+    "Traceroute" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Traceroute"
+          }
+        }
+      }
+    },
     "Traffic" : {
       "localizations" : {
         "vi" : {
@@ -1184,6 +1886,16 @@
         }
       }
     },
+    "Until stopped" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tới khi dừng"
+          }
+        }
+      }
+    },
     "Updated %@" : {
       "localizations" : {
         "vi" : {
@@ -1214,12 +1926,52 @@
         }
       }
     },
+    "Valid until %@ (%lld days)" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hiệu lực tới %@ (%lld ngày)"
+          }
+        }
+      }
+    },
     "WARP" : {
       "localizations" : {
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "WARP"
+          }
+        }
+      }
+    },
+    "Waiting for the server" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chờ server phản hồi"
+          }
+        }
+      }
+    },
+    "Wake" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đánh thức"
+          }
+        }
+      }
+    },
+    "Wake…" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đánh thức…"
           }
         }
       }
@@ -1234,12 +1986,72 @@
         }
       }
     },
+    "Well-known services" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dịch vụ thông dụng"
+          }
+        }
+      }
+    },
+    "Which address to use when the name has both" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dùng địa chỉ nào khi tên có cả IPv4 và IPv6"
+          }
+        }
+      }
+    },
+    "Whois" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Whois"
+          }
+        }
+      }
+    },
     "Wi-Fi" : {
       "localizations" : {
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Wi‑Fi"
+          }
+        }
+      }
+    },
+    "Worst" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tệ nhất"
+          }
+        }
+      }
+    },
+    "authoritative" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "authoritative"
+          }
+        }
+      }
+    },
+    "https://example.com" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "https://example.com"
           }
         }
       }
@@ -1260,6 +2072,46 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "nhiễu"
+          }
+        }
+      }
+    },
+    "unreachable" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "không tới được"
+          }
+        }
+      }
+    },
+    "· %lld rounds" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "· %lld vòng"
+          }
+        }
+      }
+    },
+    "· reached in %lld hops" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "· tới đích sau %lld chặng"
+          }
+        }
+      }
+    },
+    "· the destination didn't answer" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "· đích không trả lời"
           }
         }
       }

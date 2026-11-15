@@ -93,6 +93,13 @@ struct TargetRowView: View {
             if overview.target.isPaused() {
                 Button("Resume") { viewModel.resume(id: targetId) }
             }
+            Menu("Tools") {
+                Button("Ping") { AppNavigationState.shared.openTool(.ping, target: ToolTarget.host(from: overview.target.url)) }
+                Button("Traceroute") { AppNavigationState.shared.openTool(.traceroute, target: ToolTarget.host(from: overview.target.url)) }
+                Button("Check HTTP") { AppNavigationState.shared.openTool(.http, target: overview.target.url) }
+                Button("DNS Lookup") { AppNavigationState.shared.openTool(.dns, target: ToolTarget.host(from: overview.target.url)) }
+                Button("Whois") { AppNavigationState.shared.openTool(.whois, target: ToolTarget.host(from: overview.target.url)) }
+            }
             Button("Edit…") { viewModel.editingTarget = overview.target }
             Button(role: .destructive) { viewModel.pendingDeleteId = targetId } label: { Text("Delete") }
         }

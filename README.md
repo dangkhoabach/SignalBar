@@ -35,6 +35,11 @@ idle cost.
   channel and standard, the DNS servers in use and how fast they answer, VPN tunnels and proxies,
   and live latency to the router, the provider and the internet, with a history of public
   addresses and an optional alert when it changes.
+- **Tools**: ping (IPv4 and IPv6, with statistics and a chart), traceroute with an mtr-style
+  mode that keeps running and shows the loss at each hop, DNS lookups of any record type against
+  one server or several side by side, a TCP port check, whois, an HTTP check (redirects, timing of
+  each step, the TLS version and certificate chain, headers) and Wake-on-LAN. The Devices and
+  Domains context menus open them with the target filled in.
 - **Response-time percentiles**: p50 and p95 beside every latency chart, over successful checks
   only.
 - **Alerts and reports**: native notifications that open the right screen, webhooks (Slack,
@@ -86,6 +91,10 @@ Only subnets you add are scanned, and only private address ranges can be added.
   Each refresh also pings 1.1.1.1, traces the first three hops towards it and times one lookup
   of `www.apple.com` at each DNS server in use. Live latency (pings to the router, the
   provider's first hop and 1.1.1.1) is measured only while the Connection page is open.
+- **Tools** run only when you start them and keep nothing once the app quits. Ping and
+  traceroute use unprivileged ICMP sockets; a port check is a plain TCP connection to each port,
+  at most 1,024 ports; whois runs the system's `/usr/bin/whois`. Traceroute asks RIPEstat which
+  network each public hop belongs to only while the Connection lookups are on.
 - **Wi-Fi name.** macOS gives the Wi-Fi network's name only to apps with Location access, so
   the Connection page asks for it only when you click to show the name. SignalBar never reads
   the Mac's location.
@@ -134,8 +143,8 @@ The app target uses automatic signing with no team, so a local build is ad-hoc s
 Tests:
 
 ```zsh
-cd SignalBarCore && swift test   # 308 tests
-xcodebuild test -project SignalBar.xcodeproj -scheme SignalBarApp -destination 'platform=macOS'   # 54 tests
+cd SignalBarCore && swift test   # 324 tests
+xcodebuild test -project SignalBar.xcodeproj -scheme SignalBarApp -destination 'platform=macOS'   # 57 tests
 ```
 
 Releases are built, signed and published by hand: see [docs/release.md](docs/release.md).

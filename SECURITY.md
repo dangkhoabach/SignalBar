@@ -34,6 +34,8 @@ In scope:
 - **Connection:** sending anything to the public address lookups (Cloudflare, OpenDNS,
   RIPEstat, Akamai) beyond what is needed to find the address and its network, making those
   lookups while they are turned off, or reading the Mac's location.
+- **Tools:** any tool running without being started, a port check sending more than a TCP
+  handshake, or input that makes `whois` run anything other than a lookup.
 - **Updates:** installing an update that is not signed with the release key.
 
 Out of scope:

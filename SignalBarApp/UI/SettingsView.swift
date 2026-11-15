@@ -440,7 +440,7 @@ struct SettingsView: View {
         } header: {
             Text("Connection")
         } footer: {
-            Text("The lookup asks Cloudflare (1.1.1.1) for the address, OpenDNS when Cloudflare can't be reached, RIPEstat for the provider's name, and Akamai which DNS resolver answers for this Mac. Nothing else about this Mac is sent.")
+            Text("The lookup asks Cloudflare (1.1.1.1) for the address, OpenDNS when Cloudflare can't be reached, RIPEstat for the provider's name, and Akamai which DNS resolver answers for this Mac. Nothing else about this Mac is sent. While it is on, Traceroute in Tools also asks RIPEstat which network each public hop belongs to.")
         }
 
         Section {

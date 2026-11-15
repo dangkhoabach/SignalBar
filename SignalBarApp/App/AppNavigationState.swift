@@ -62,6 +62,12 @@ final class AppNavigationState {
         }
     }
 
+    /// Opens a tool with `target` filled in (Devices' and Domains' context menus).
+    func openTool(_ tool: NetworkTool, target: String) {
+        ToolsViewModel.shared.open(tool, target: target)
+        sidebarSelection = .tools
+    }
+
     func openNewTarget(name: String, url: String) {
         pendingNewTarget = Prefill(name: name, address: url)
         sidebarSelection = .domains

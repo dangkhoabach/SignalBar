@@ -288,16 +288,7 @@ struct NetworkDeviceDetailView: View {
 
     /// `22, 80, 8000-8010` → the ports, at most 1,024 of them.
     static func parsePorts(_ text: String) -> [Int] {
-        var ports: [Int] = []
-        for part in text.split(whereSeparator: { $0 == "," || $0 == " " }) {
-            let bounds = part.split(separator: "-").compactMap { Int($0) }
-            if bounds.count == 1, (1...65_535).contains(bounds[0]) {
-                ports.append(bounds[0])
-            } else if bounds.count == 2, (1...65_535).contains(bounds[0]), (bounds[0]...65_535).contains(bounds[1]) {
-                ports += Array(bounds[0]...min(bounds[1], bounds[0] + 1_023))
-            }
-        }
-        return Array(Set(ports)).sorted().prefix(1_024).map { $0 }
+        PortCheck.parse(text)
     }
 
     /// The usual service on a well-known port; a guess, labelled as such by

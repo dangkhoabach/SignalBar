@@ -60,6 +60,21 @@ struct NetworkDevicesView: View {
         }
     }
 
+    /// Ping, traceroute, a port check and Wake-on-LAN, opened in Tools with the device filled in.
+    @ViewBuilder
+    private func toolItems(_ device: NetworkDevice) -> some View {
+        Menu("Tools") {
+            if let ip = device.currentIP {
+                Button("Ping") { AppNavigationState.shared.openTool(.ping, target: ip) }
+                Button("Traceroute") { AppNavigationState.shared.openTool(.traceroute, target: ip) }
+                Button("Check Ports…") { AppNavigationState.shared.openTool(.ports, target: ip) }
+            }
+            if let mac = device.mac, !device.hasPrivateMAC {
+                Button("Wake…") { AppNavigationState.shared.openTool(.wake, target: mac) }
+            }
+        }
+    }
+
     private var table: some View {
         Table(viewModel.filteredRows, selection: $viewModel.selection, sortOrder: $viewModel.sortOrder) {
             TableColumn("Status", value: \.statusRank) { NetworkStatusLabel(row: $0) }
@@ -111,6 +126,9 @@ struct NetworkDevicesView: View {
         .contextMenu(forSelectionType: Int64.self) { ids in
             if ids.count == 1, let id = ids.first {
                 Button("Show Details") { navigationPath.append(id) }
+                if let device = viewModel.devices.first(where: { $0.id == id }) {
+                    toolItems(device)
+                }
                 Divider()
             }
             Button("Watch") { viewModel.setWatched(true, ids: ids) }
