@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>AppReleaseDate</key>
-	<string>2026-11-14</string>
+	<string>2026-11-15</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleExecutable</key>
@@ -17,17 +17,17 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.3.0</string>
+	<string>2.4.0</string>
 	<key>CFBundleVersion</key>
-	<string>2.3.0</string>
+	<string>2.4.0</string>
 	<key>LSUIElement</key>
 	<false/>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>SignalBar finds the devices on the networks you add under Network, and reads routers, switches and DHCP servers you set up there.</string>
 	<key>NSLocationUsageDescription</key>
 	<string>macOS shows the name of the Wi-Fi network only to apps with Location access. SignalBar uses it for nothing else.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>macOS shows the name of the Wi-Fi network only to apps with Location access. SignalBar uses it for nothing else.</string>
-	<key>NSLocalNetworkUsageDescription</key>
-	<string>SignalBar finds the devices on the networks you add under Network, and reads routers, switches and DHCP servers you set up there.</string>
 	<key>SUFeedURL</key>
 	<string>https://updates.dangkhoabach.vn/dkb-monitor/appcast.xml</string>
 	<key>SUPublicEDKey</key>
